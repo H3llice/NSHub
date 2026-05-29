@@ -1,0 +1,6 @@
+backend/node_modules
+backend/uploads
+backend/.env
+backend/migracao
+backend/prisma/migrations
+backend/scripts/relatorio-migracao.json

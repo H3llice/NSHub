@@ -1,0 +1,380 @@
+<button class="btn btn-sm btn-outline-secondary" style="margin-bottom: 15px;" onclick="voltarParaListaCertificados(event)">← Voltar</button>
+
+<div class="form-title">Novo Certificado de Balsa</div>
+
+<form id="form-certificado-balsa" onsubmit="salvarCertificado(event, 'balsa')">
+
+    <!-- SEÇÃO 1: DADOS BÁSICOS -->
+    <div class="form-section-title">Dados Básicos</div>
+
+    <div class="form-row">
+        <div class="form-group">
+            <label for="numero">Número <span style="color: red;">*</span></label>
+            <input type="text" id="numero" name="numero" required>
+        </div>
+        <div class="form-group">
+            <label for="navio">Navio <span style="color: red;">*</span></label>
+            <input type="text" id="navio" name="navio" required>
+        </div>
+    </div>
+
+    <div class="form-row">
+        <div class="form-group">
+            <label for="armador">Armador <span style="color: red;">*</span></label>
+            <input type="text" id="armador" name="armador" required>
+        </div>
+        <div class="form-group">
+            <label for="email">Email</label>
+            <input type="email" id="email" name="email">
+        </div>
+    </div>
+
+    <!-- SEÇÃO 2: EQUIPAMENTO -->
+    <div class="form-section-title">Equipamento</div>
+
+    <div class="form-row full">
+        <div class="form-group">
+            <label for="tipo-equipamento">Equipamento</label>
+            <input type="text" id="tipo-equipamento" name="tipo-equipamento" value="Balsa inflável" disabled>
+        </div>
+    </div>
+
+    <div class="form-row">
+        <div class="form-group">
+            <label for="modelo">Modelo <span style="color: red;">*</span></label>
+            <input type="text" id="modelo" name="modelo" required>
+        </div>
+        <div class="form-group">
+            <label for="fabricante">Fabricante <span style="color: red;">*</span></label>
+            <input type="text" id="fabricante" name="fabricante" required>
+        </div>
+    </div>
+
+    <!-- SEÇÃO 3: ESPECIFICAÇÕES -->
+    <div class="form-section-title">Especificações</div>
+
+    <div class="form-row">
+        <div class="form-group">
+            <label for="porto-registro">Porto de Registro <span style="color: red;">*</span></label>
+            <input type="text" id="porto-registro" name="porto-registro" required>
+        </div>
+        <div class="form-group">
+            <label for="telefone">Telefone</label>
+            <input type="tel" id="telefone" name="telefone">
+        </div>
+    </div>
+
+    <div class="form-row">
+        <div class="form-group">
+            <label for="numero-serie">Número de Série <span style="color: red;">*</span></label>
+            <input type="text" id="numero-serie" name="numero-serie" required>
+        </div>
+        <div class="form-group">
+            <label for="capacidade">Capacidade <span style="color: red;">*</span></label>
+            <input type="text" id="capacidade" name="capacidade" placeholder="ex: 25 pessoas" required>
+        </div>
+    </div>
+
+    <div class="form-row">
+        <div class="form-group">
+            <label for="classe">Classe <span style="color: red;">*</span></label>
+            <input type="text" id="classe" name="classe" required>
+        </div>
+        <div class="form-group">
+            <label for="data-fabricacao">Data de Fabricação <span style="color: red;">*</span></label>
+            <input type="date" id="data-fabricacao" name="data-fabricacao" required>
+        </div>
+    </div>
+
+    <div class="form-row full">
+        <div class="form-group">
+            <label for="data-emissao">Data de Emissão <span style="color: red;">*</span></label>
+            <input type="date" id="data-emissao" name="data-emissao" required>
+        </div>
+    </div>
+
+    <!-- SEÇÃO 4: LISTA DE VERIFICAÇÃO -->
+    <div class="form-section-title">Lista de Verificação e Reparos</div>
+    <p style="font-size: 13px; color: #666; margin-bottom: 15px;">Preencha a quantidade, marque se foi substituído e insira a validade</p>
+
+    <table class="dynamic-table">
+        <thead>
+            <tr>
+                <th>Equipamento</th>
+                <th>Quantidade</th>
+                <th>Substituído</th>
+                <th>Validade</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>Foguetes paraquedas</td>
+                <td><input type="number" name="qty-foguetes" min="0"></td>
+                <td class="checkbox-column"><input type="checkbox" name="sub-foguetes"></td>
+                <td><input type="date" name="val-foguetes"></td>
+            </tr>
+            <tr>
+                <td>Fachos luminosos</td>
+                <td><input type="number" name="qty-fachos" min="0"></td>
+                <td class="checkbox-column"><input type="checkbox" name="sub-fachos"></td>
+                <td><input type="date" name="val-fachos"></td>
+            </tr>
+            <tr>
+                <td>Fumígeno laranja</td>
+                <td><input type="number" name="qty-fumigeno" min="0"></td>
+                <td class="checkbox-column"><input type="checkbox" name="sub-fumigeno"></td>
+                <td><input type="date" name="val-fumigeno"></td>
+            </tr>
+            <tr>
+                <td>Pilhas sobressalentes</td>
+                <td><input type="number" name="qty-pilhas" min="0"></td>
+                <td class="checkbox-column"><input type="checkbox" name="sub-pilhas"></td>
+                <td><input type="date" name="val-pilhas"></td>
+            </tr>
+            <tr>
+                <td>Rações sólidas</td>
+                <td><input type="number" name="qty-racoes-solidas" min="0"></td>
+                <td class="checkbox-column"><input type="checkbox" name="sub-racoes-solidas"></td>
+                <td><input type="date" name="val-racoes-solidas"></td>
+            </tr>
+            <tr>
+                <td>Rações líquidas</td>
+                <td><input type="number" name="qty-racoes-liquidas" min="0"></td>
+                <td class="checkbox-column"><input type="checkbox" name="sub-racoes-liquidas"></td>
+                <td><input type="date" name="val-racoes-liquidas"></td>
+            </tr>
+            <tr>
+                <td>Estojo de medicamentos</td>
+                <td><input type="number" name="qty-medicamentos" min="0"></td>
+                <td class="checkbox-column"><input type="checkbox" name="sub-medicamentos"></td>
+                <td><input type="date" name="val-medicamentos"></td>
+            </tr>
+            <tr>
+                <td>Estojo de pesca</td>
+                <td><input type="number" name="qty-pesca" min="0"></td>
+                <td class="checkbox-column"><input type="checkbox" name="sub-pesca"></td>
+                <td><input type="date" name="val-pesca"></td>
+            </tr>
+            <tr>
+                <td>Estojo de reparos</td>
+                <td><input type="number" name="qty-reparos" min="0"></td>
+                <td class="checkbox-column"><input type="checkbox" name="sub-reparos"></td>
+                <td><input type="date" name="val-reparos"></td>
+            </tr>
+            <tr>
+                <td>Comprimidos contra enjoo</td>
+                <td><input type="number" name="qty-enjoo" min="0"></td>
+                <td class="checkbox-column"><input type="checkbox" name="sub-enjoo"></td>
+                <td><input type="date" name="val-enjoo"></td>
+            </tr>
+            <tr>
+                <td>Luz de resgate</td>
+                <td><input type="number" name="qty-luz" min="0"></td>
+                <td class="checkbox-column"><input type="checkbox" name="sub-luz"></td>
+                <td><input type="date" name="val-luz"></td>
+            </tr>
+        </tbody>
+    </table>
+
+    <!-- SEÇÃO 5: CHECKLIST DE COMPONENTES -->
+    <div class="form-section-title">Checklist de Componentes</div>
+    <p style="font-size: 13px; color: #666; margin-bottom: 15px;">Marque os componentes verificados</p>
+
+    <table class="dynamic-table">
+        <thead>
+            <tr>
+                <th>Componente</th>
+                <th style="width: 80px; text-align: center;">Verificado</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>Âncora flutuante sobressalente</td>
+                <td class="checkbox-column"><input type="checkbox" name="check-ancora"></td>
+            </tr>
+            <tr>
+                <td>Remos</td>
+                <td class="checkbox-column"><input type="checkbox" name="check-remos"></td>
+            </tr>
+            <tr>
+                <td>Quadro de sinais</td>
+                <td class="checkbox-column"><input type="checkbox" name="check-quadro"></td>
+            </tr>
+            <tr>
+                <td>Faca com cabo flutuante</td>
+                <td class="checkbox-column"><input type="checkbox" name="check-faca"></td>
+            </tr>
+            <tr>
+                <td>Espelho com sinalização</td>
+                <td class="checkbox-column"><input type="checkbox" name="check-espelho"></td>
+            </tr>
+            <tr>
+                <td>Copo graduado</td>
+                <td class="checkbox-column"><input type="checkbox" name="check-copo"></td>
+            </tr>
+            <tr>
+                <td>Aro flutuante</td>
+                <td class="checkbox-column"><input type="checkbox" name="check-aro"></td>
+            </tr>
+            <tr>
+                <td>Jarros d'água</td>
+                <td class="checkbox-column"><input type="checkbox" name="check-jarros"></td>
+            </tr>
+            <tr>
+                <td>Documentação</td>
+                <td class="checkbox-column"><input type="checkbox" name="check-doc"></td>
+            </tr>
+            <tr>
+                <td>Lanterna estanque</td>
+                <td class="checkbox-column"><input type="checkbox" name="check-lanterna"></td>
+            </tr>
+            <tr>
+                <td>Apito</td>
+                <td class="checkbox-column"><input type="checkbox" name="check-apito"></td>
+            </tr>
+            <tr>
+                <td>Proteção térmica conforme regra 34</td>
+                <td class="checkbox-column"><input type="checkbox" name="check-protecao"></td>
+            </tr>
+            <tr>
+                <td>Esponja</td>
+                <td class="checkbox-column"><input type="checkbox" name="check-esponja"></td>
+            </tr>
+            <tr>
+                <td>Refletor radar</td>
+                <td class="checkbox-column"><input type="checkbox" name="check-refletor"></td>
+            </tr>
+            <tr>
+                <td>Abridor de latas</td>
+                <td class="checkbox-column"><input type="checkbox" name="check-abridor"></td>
+            </tr>
+            <tr>
+                <td>Fole manual</td>
+                <td class="checkbox-column"><input type="checkbox" name="check-fole"></td>
+            </tr>
+        </tbody>
+    </table>
+
+    <!-- SEÇÃO 6: TESTE DOS FLUTUADORES -->
+    <div class="form-section-title">Teste dos Flutuadores</div>
+
+    <table class="dynamic-table">
+        <thead>
+            <tr>
+                <th>Item do Teste</th>
+                <th>Verificado</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>Pressão adicional necessária</td>
+                <td class="checkbox-column"><input type="checkbox" name="test-pressao-adic"></td>
+            </tr>
+            <tr>
+                <td>Pressão de trabalho</td>
+                <td class="checkbox-column"><input type="checkbox" name="test-pressao-trab"></td>
+            </tr>
+            <tr>
+                <td>Enchimento com gás</td>
+                <td class="checkbox-column"><input type="checkbox" name="test-enchimento"></td>
+            </tr>
+            <tr>
+                <td>Costuras, piso e flutuadores</td>
+                <td class="checkbox-column"><input type="checkbox" name="test-costuras"></td>
+            </tr>
+            <tr>
+                <td>Teste de sobrecarga</td>
+                <td class="checkbox-column"><input type="checkbox" name="test-sobrecarga"></td>
+            </tr>
+        </tbody>
+    </table>
+
+    <div class="form-row">
+        <div class="form-group">
+            <label for="teste-pressao">Pressão <span style="color: red;">*</span></label>
+            <div style="display: flex; gap: 5px; align-items: center;">
+                <input type="number" id="teste-pressao" name="teste-pressao" style="flex: 1;" required>
+                <span style="padding: 10px; font-weight: 500;">mm Hg</span>
+            </div>
+        </div>
+        <div class="form-group">
+            <label for="temperatura">Temperatura</label>
+            <input type="text" id="temperatura" name="temperatura" placeholder="ex: 25°C">
+        </div>
+    </div>
+
+    <!-- SEÇÃO 7: CILINDROS -->
+    <div class="form-section-title">Teste dos Cilindros</div>
+    <p style="font-size: 13px; color: #666; margin-bottom: 15px;">Dados dos cilindros de emergência</p>
+
+    <table class="dynamic-table">
+        <thead>
+            <tr>
+                <th>Nº Cilindro</th>
+                <th>Teste</th>
+                <th>Carga CO2</th>
+                <th>Fabricante</th>
+                <th>Valv Nº</th>
+                <th>Carga</th>
+                <th>Kg N2</th>
+                <th>Ano Fab.</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><input type="text" name="cil-numero-1"></td>
+                <td><input type="text" name="cil-teste-1"></td>
+                <td><input type="text" name="cil-co2-1"></td>
+                <td><input type="text" name="cil-fabr-1"></td>
+                <td><input type="text" name="cil-valv-1"></td>
+                <td><input type="text" name="cil-carga-1"></td>
+                <td><input type="text" name="cil-n2-1"></td>
+                <td><input type="text" name="cil-ano-1"></td>
+            </tr>
+            <tr>
+                <td><input type="text" name="cil-numero-2"></td>
+                <td><input type="text" name="cil-teste-2"></td>
+                <td><input type="text" name="cil-co2-2"></td>
+                <td><input type="text" name="cil-fabr-2"></td>
+                <td><input type="text" name="cil-valv-2"></td>
+                <td><input type="text" name="cil-carga-2"></td>
+                <td><input type="text" name="cil-n2-2"></td>
+                <td><input type="text" name="cil-ano-2"></td>
+            </tr>
+        </tbody>
+    </table>
+
+    <!-- SEÇÃO 8: CAPSULA (CASULO) -->
+    <div class="form-section-title">Cápsula (Casulo)</div>
+
+    <div class="form-row">
+        <div class="form-group">
+            <label for="casulo-reparo">Reparo</label>
+            <select id="casulo-reparo" name="casulo-reparo">
+                <option value="nao" selected>Não</option>
+                <option value="sim">Sim</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="casulo-pintura">Pintura</label>
+            <select id="casulo-pintura" name="casulo-pintura">
+                <option value="sim" selected>Sim</option>
+                <option value="nao">Não</option>
+            </select>
+        </div>
+    </div>
+
+    <!-- SEÇÃO 9: OBSERVAÇÕES FINAIS -->
+    <div class="form-section-title">Observações</div>
+
+    <div class="form-group">
+        <label for="observacoes">Observações Gerais</label>
+        <textarea id="observacoes" name="observacoes">EM ATENDIMENTO À NORMAM 05 ITEM 0505 (B).4, CREDENCIAMENTO EM SOCIEDADES CLASSIFICADORAS: BUREAU VERITAS – CERTIFICADO Nº RJN0/LVO/20241011223013 VENCIMENTO: MAIO 2027</textarea>
+    </div>
+
+    <div class="form-actions">
+        <button type="button" class="btn btn-secondary" onclick="voltarParaListaCertificados(event)">Cancelar</button>
+        <button type="submit" class="btn btn-success">Salvar Certificado</button>
+    </div>
+
+</form>

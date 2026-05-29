@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Natal Safety App</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="../css/index.css" rel="stylesheet">
+</head>
+
+<body>
+
+    <!-- BOTÃO TOGGLE SIDEBAR (MOBILE) -->
+    <button class="sidebar-toggle" id="sidebar-toggle" onclick="toggleSidebar()">☰</button>
+    <div class="sidebar-overlay" id="sidebar-overlay" onclick="closeSidebar()"></div>
+
+    <!-- SIDEBAR -->
+    <div class="sidebar">
+        <div class="logo">
+            Natal Safety <span style="color:var(--laranja)">App</span>
+        </div>
+
+        <div class="menu">
+            <a href="#" onclick="abrirPagina(event,'inicio')">🏠 Início</a>
+            <a href="#" onclick="abrirPagina(event,'favoritos')">⭐ Favoritos</a>
+            <a href="#" onclick="toggleMenu(event,'produtos')">📦 Produtos</a>
+
+            <div id="produtos" class="submenu">
+                <div class="menu-item">
+                    <a href="#" onclick="abrirPagina(event,'orcamentos')" style="flex: 1;">Orçamentos</a>
+                    <button class="star-btn" onclick="toggleFavorito(event, 'orcamentos', 'Orçamentos')">☆</button>
+                </div>
+                <div class="menu-item">
+                    <a href="#" onclick="abrirPagina(event,'vendas')" style="flex: 1;">Vendas</a>
+                    <button class="star-btn" onclick="toggleFavorito(event, 'vendas', 'Vendas')">☆</button>
+                </div>
+                <div class="menu-item">
+                    <a href="#" onclick="abrirPagina(event,'contratos')" style="flex: 1;">Contratos</a>
+                    <button class="star-btn" onclick="toggleFavorito(event, 'contratos', 'Contratos')">☆</button>
+                </div>
+                <div class="menu-item">
+                    <a href="#" onclick="abrirPagina(event,'notas')" style="flex: 1;">Notas fiscais</a>
+                    <button class="star-btn" onclick="toggleFavorito(event, 'notas', 'Notas fiscais')">☆</button>
+                </div>
+                <div class="menu-item">
+                    <a href="#" onclick="abrirPagina(event,'ocs')" style="flex: 1;">Ordens de Compra</a>
+                    <button class="star-btn" onclick="toggleFavorito(event, 'ocs', 'Ordens de Compra')">☆</button>
+                </div>
+            </div>
+
+            <a href="#" onclick="toggleMenu(event,'servicos')">🧰 Serviços</a>
+
+            <div id="servicos" class="submenu">
+                <div class="menu-item">
+                    <a href="#" onclick="abrirPagina(event,'os')" style="flex: 1;">Ordens de serviço</a>
+                    <button class="star-btn" onclick="toggleFavorito(event, 'os', 'Ordens de serviço')">☆</button>
+                </div>
+                <div class="menu-item">
+                    <a href="#" onclick="abrirPagina(event,'certificados')" style="flex: 1;">Certificados</a>
+                    <button class="star-btn" onclick="toggleFavorito(event, 'certificados', 'Certificados')">☆</button>
+                </div>
+                <div class="menu-item">
+                    <a href="#" onclick="abrirPagina(event,'relatorios')" style="flex: 1;">Relatórios</a>
+                    <button class="star-btn" onclick="toggleFavorito(event, 'relatorios', 'Relatórios')">☆</button>
+                </div>
+            </div>
+
+            <a href="#" onclick="toggleMenu(event,'cadastros')">🗂️ Cadastros</a>
+
+            <div id="cadastros" class="submenu">
+                <div class="menu-item">
+                    <a href="#" onclick="abrirPagina(event,'pessoas')" style="flex: 1;">Pessoas</a>
+                    <button class="star-btn" onclick="toggleFavorito(event, 'pessoas', 'Pessoas')">☆</button>
+                </div>
+                <div class="menu-item">
+                    <a href="#" onclick="abrirPagina(event,'fornecedores')" style="flex: 1;">Fornecedores</a>
+                    <button class="star-btn" onclick="toggleFavorito(event, 'fornecedores', 'Fornecedores')">☆</button>
+                </div>
+                <div class="menu-item">
+                    <a href="#" onclick="abrirPagina(event,'embarcacoes')" style="flex: 1;">Embarcações</a>
+                    <button class="star-btn" onclick="toggleFavorito(event, 'embarcacoes', 'Embarcações')">☆</button>
+                </div>
+                <div class="menu-item">
+                    <a href="#" onclick="abrirPagina(event,'produtosCadastro')" style="flex: 1;">Produtos</a>
+                    <button class="star-btn" onclick="toggleFavorito(event, 'produtosCadastro', 'Produtos')">☆</button>
+                </div>
+            </div>
+
+            <a href="#" onclick="toggleMenu(event,'estoque')">📊 Estoque</a>
+
+            <div id="estoque" class="submenu">
+                <div class="menu-item">
+                    <a href="#" onclick="abrirPagina(event,'estoqueLocacao')" style="flex: 1;">Estoque locação</a>
+                    <button class="star-btn"
+                        onclick="toggleFavorito(event, 'estoqueLocacao', 'Estoque locação')">☆</button>
+                </div>
+                <div class="menu-item">
+                    <a href="#" onclick="abrirPagina(event,'estoqueVendas')" style="flex: 1;">Estoque vendas</a>
+                    <button class="star-btn"
+                        onclick="toggleFavorito(event, 'estoqueVendas', 'Estoque vendas')">☆</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- TOPBAR -->
+    <div class="topbar">
+        <div class="main-container d-flex justify-content-between align-items-center w-100">
+            <div>
+                🔎 <input class="form-control form-control-sm d-inline" style="width:200px" placeholder="Pesquisar">
+            </div>
+            <div>
+                <div class="novo-registro-menu">
+                    <button class="btn btn-warning" onclick="toggleNovoRegistroMenu(event)">＋ Novo registro</button>
+                    <div id="novo-registro-dropdown" class="novo-registro-dropdown">
+                        <a href="#" onclick="abrirPagina(event, 'vendas')">Venda de produto</a>
+                        <a href="#" onclick="abrirPagina(event, 'contratos')">Contrato locação</a>
+                        <a href="#" onclick="abrirPagina(event, 'certificados')">Certificado</a>
+                        <a href="#" onclick="abrirPagina(event, 'os')">Ordem de serviço</a>
+                        <a href="#" onclick="abrirPagina(event, 'pessoas')">Cliente</a>
+                        <a href="#" onclick="abrirPagina(event, 'produtosCadastro')">Produto</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- CONTENT -->
+    <div class="content">
+
+        <div id="inicio" class="page active">
+            <div class="tab">Visão geral</div>
+            <p>Painel principal do sistema.</p>
+        </div>
+
+        <div id="favoritos" class="page">
+            <div class="tab">⭐ Favoritos</div>
+            <ul id="favoritos-list" class="favoritos-list">
+                <li style="text-align: center; color: #999; padding: 20px;">Nenhum favorito adicionado ainda</li>
+            </ul>
+        </div>
+
+        <div id="orcamentos" class="page">
+            <div class="tab">Orçamentos de produtos</div>
+            <button class="btn btn-success">Novo orçamento</button>
+        </div>
+
+        <div id="vendas" class="page">
+            <div class="tab">Vendas de produtos</div>
+            <button class="btn btn-success">Registrar venda</button>
+        </div>
+
+        <div id="contratos" class="page">
+            <div class="tab">Contratos</div>
+            <button class="btn btn-success">Novo contrato</button>
+        </div>
+
+        <div id="notas" class="page">
+            <div class="tab">Notas fiscais</div>
+            <button class="btn btn-success">Emitir nota</button>
+        </div>
+
+        <div id="os" class="page">
+            <div class="tab">Ordens de serviço</div>
+            <button class="btn btn-success">Nova OS</button>
+        </div>
+
+        <div id="ocs" class="page"></div>
+
+
+        <!-- CERTIFICADOS -->
+        <div id="certificados" class="page">
+            <div id="certificado-lista-container" class="certificado-lista">
+                <div class="tab">Certificados</div>
+                <div class="btn-type-selector" style="margin-bottom: 20px;">
+                    <button class="btn btn-success" onclick="toggleTipoCertificadoMenu(event)">＋ Novo
+                        certificado</button>
+                    <div id="tipo-certificado-dropdown" class="tipo-certificado-dropdown">
+                        <a href="#" onclick="carregarFormulario(event, 'balsa')">Certificado de Balsa</a>
+                        <a href="#" onclick="carregarFormulario(event, 'baleeira')">Baleeira</a>
+                        <a href="#" onclick="carregarFormulario(event, 'turco')">Turco</a>
+                        <a href="#" onclick="carregarFormulario(event, 'colete')">Colete</a>
+                    </div>
+                </div>
+                <table class="table-certificados">
+                    <thead>
+                        <tr>
+                            <th>Número</th>
+                            <th>Navio</th>
+                            <th>Tipo</th>
+                            <th>Data Emissão</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tabela-certificados">
+                        <tr>
+                            <td colspan="5" style="text-align: center; color: #999; padding: 30px;">Nenhum certificado
+                                cadastrado ainda</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- CONTÊINER PARA FORMULÁRIOS DINÂMICOS -->
+            <div id="formulario-container"></div>
+        </div>
+        <!-- FIM CERTIFICADOS -->
+
+        <div id="relatorios" class="page">
+            <div class="tab">Relatórios</div>
+            <button class="btn btn-success">Gerar e revisar relatórios</button>
+        </div>
+
+        <div id="pessoas" class="page">
+            <div class="tab">Cadastro de pessoas</div>
+            <button class="btn btn-success">Nova pessoa</button>
+        </div>
+
+        <div id="fornecedores" class="page">
+            <div class="tab">Fornecedores</div>
+            <button class="btn btn-success">Novo fornecedor</button>
+        </div>
+
+        <div id="embarcacoes" class="page">
+            <div class="tab">Embarcações</div>
+            <button class="btn btn-success">Nova embarcação</button>
+        </div>
+
+        <div id="produtosCadastro" class="page">
+            <div class="tab">Cadastro de produtos</div>
+            <button class="btn btn-success">Novo produto</button>
+        </div>
+
+        <div id="estoqueLocacao" class="page">
+            <div class="tab">Estoque locação</div>
+            <p>Controle de equipamentos para locação.</p>
+        </div>
+
+        <div id="estoqueVendas" class="page">
+            <div class="tab">Estoque vendas</div>
+            <p>Controle de estoque para venda.</p>
+        </div>
+
+    </div>
+
+    <script type="module" src="../js/app.js"></script>
+
+</body>
+
+</html>
