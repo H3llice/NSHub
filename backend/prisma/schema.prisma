@@ -1,0 +1,101 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Empresa {
+  id           Int      @id @default(autoincrement())
+  nome         String
+  sigla        String   @unique
+  endereco     String
+  cidade       String
+  cep          String
+  cnpj         String
+  inscEstadual String?
+  telefone     String?
+  email        String?
+  criadoEm     DateTime @default(now())
+
+  ordensCompra OrdemCompra[]
+}
+
+model Fornecedor {
+  id           Int      @id @default(autoincrement())
+  nome         String
+  endereco     String?
+  cidade       String?
+  cep          String?
+  documento    String?
+  inscEstadual String?
+  telefone     String?
+  criadoEm     DateTime @default(now())
+
+  ordensCompra OrdemCompra[]
+  vendedores   Vendedor[]
+}
+
+model Vendedor {
+  id           Int        @id @default(autoincrement())
+  nome         String
+  fornecedor   Fornecedor @relation(fields: [fornecedorId], references: [id])
+  fornecedorId Int
+
+  ordensCompra OrdemCompra[]
+}
+
+model OrdemCompra {
+  id             Int        @id @default(autoincrement())
+  numero         Int
+  ano            Int
+  empresa        Empresa    @relation(fields: [empresaId], references: [id])
+  empresaId      Int
+  fornecedor     Fornecedor @relation(fields: [fornecedorId], references: [id])
+  fornecedorId   Int
+  vendedor       Vendedor?  @relation(fields: [vendedorId], references: [id])
+  vendedorId     Int?
+  dataPedido     DateTime   @default(now())
+  condicoesPagto String?
+  formaPagto     String?
+  prazoEntrega   String?
+  incoterms      String?
+  transportadora String?
+  enderecoTransp String?
+  telefoneTransp String?
+  instrucoes     String?
+  solicitante    String?
+  status         String     @default("aberta")
+  criadoEm       DateTime   @default(now())
+  atualizadoEm   DateTime   @updatedAt
+
+  itens ItemOC[]
+  anexos      Anexo[]
+
+  canceladoEm DateTime?
+}
+
+model ItemOC {
+  id          Int         @id @default(autoincrement())
+  ordemCompra OrdemCompra @relation(fields: [ocId], references: [id])
+  ocId        Int
+  quantidade  Float
+  unidade     String?
+  descricao   String
+  valorUni    Float?
+  ipi         Float?
+  valorTotal  Float?
+}
+
+model Anexo {
+  id          Int         @id @default(autoincrement())
+  ordemCompra OrdemCompra @relation(fields: [ocId], references: [id])
+  ocId        Int
+  nomeOriginal String
+  nomeArquivo  String     // nome salvo no servidor
+  tipo         String     // boleto, nota_fiscal, comprovante, outro
+  mimeType     String
+  criadoEm    DateTime    @default(now())
+}
