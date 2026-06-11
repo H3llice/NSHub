@@ -47,6 +47,33 @@ model Vendedor {
   ordensCompra OrdemCompra[]
 }
 
+model Usuario {
+  id        Int      @id @default(autoincrement())
+  nome      String
+  email     String   @unique
+  senha     String
+  perfil    String   @default("usuario")
+  ativo     Boolean  @default(true)
+  criadoEm DateTime @default(now())
+
+  ordensCompra OrdemCompra[]
+  assinaturas  Assinatura[]
+}
+
+// etapa: solicitante | aprovacao | autorizacao
+model Assinatura {
+  id            Int         @id @default(autoincrement())
+  ordemCompra   OrdemCompra @relation(fields: [ocId], references: [id])
+  ocId          Int
+  usuario       Usuario     @relation(fields: [usuarioId], references: [id])
+  usuarioId     Int
+  etapa         String
+  acao          String
+  motivo        String?
+  assinaturaImg String?
+  criadoEm      DateTime    @default(now())
+}
+
 model OrdemCompra {
   id             Int        @id @default(autoincrement())
   numero         Int
@@ -57,6 +84,8 @@ model OrdemCompra {
   fornecedorId   Int
   vendedor       Vendedor?  @relation(fields: [vendedorId], references: [id])
   vendedorId     Int?
+  criadoPor      Usuario?   @relation(fields: [criadoPorId], references: [id])
+  criadoPorId    Int?
   dataPedido     DateTime   @default(now())
   condicoesPagto String?
   formaPagto     String?
@@ -67,14 +96,14 @@ model OrdemCompra {
   telefoneTransp String?
   instrucoes     String?
   solicitante    String?
-  status         String     @default("aberta")
+  status         String     @default("aguardando_solicitante")
   criadoEm       DateTime   @default(now())
   atualizadoEm   DateTime   @updatedAt
+  canceladoEm    DateTime?
 
-  itens ItemOC[]
+  itens       ItemOC[]
   anexos      Anexo[]
-
-  canceladoEm DateTime?
+  assinaturas Assinatura[]
 }
 
 model ItemOC {
@@ -90,12 +119,12 @@ model ItemOC {
 }
 
 model Anexo {
-  id          Int         @id @default(autoincrement())
-  ordemCompra OrdemCompra @relation(fields: [ocId], references: [id])
-  ocId        Int
+  id           Int         @id @default(autoincrement())
+  ordemCompra  OrdemCompra @relation(fields: [ocId], references: [id])
+  ocId         Int
   nomeOriginal String
-  nomeArquivo  String     // nome salvo no servidor
-  tipo         String     // boleto, nota_fiscal, comprovante, outro
+  nomeArquivo  String
+  tipo         String
   mimeType     String
-  criadoEm    DateTime    @default(now())
+  criadoEm     DateTime    @default(now())
 }

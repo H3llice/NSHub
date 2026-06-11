@@ -15,18 +15,20 @@ router.get('/:id', async (req, res) => {
       empresa: true,
       vendedor: true,
       itens: true,
-      anexos: true
+      anexos: true,
+      assinaturas: {
+        include: { usuario: true },
+        orderBy: { criadoEm: 'asc' }
+      }
     }
   })
 
   if (!oc) return res.status(404).json({ erro: 'OC não encontrada' })
 
-  // ===== GERA HTML DA OC =====
   const total = oc.itens.reduce((acc, item) => acc + (item.valorTotal || 0), 0)
   const numero = `OC ${oc.numero}.${oc.ano}-${oc.empresa?.sigla || ''}`
   const dataPedido = new Date(oc.dataPedido).toLocaleDateString('pt-BR')
   const nomeDownload = `${oc.numero} - ${oc.fornecedor?.nome || 'sem-fornecedor'} - ${oc.empresa?.sigla || ''}`
-
 
   const logoPath = path.resolve('assets/logo.png')
   const logoBase64 = fs.existsSync(logoPath)
@@ -37,6 +39,39 @@ router.get('/:id', async (req, res) => {
     ? `data:image/png;base64,${fs.readFileSync(rodapePath).toString('base64')}`
     : ''
 
+  // ─── Monta blocos de assinatura ────────────────────────────────────────────
+  const asAprovacao = oc.assinaturas.find(a => a.etapa === 'aprovacao')
+  const asAutorizacao = oc.assinaturas.find(a => a.etapa === 'autorizacao')
+
+  function blocoAssinatura({ cargo, nome, assinatura }) {
+    const recusada = assinatura?.acao === 'recusada'
+    const cor = recusada ? '#dc3545' : '#000'
+
+    return `
+      <div class="assinatura">
+        <div class="cargo">${cargo}</div>
+        <div class="nome" style="min-height:16px;">${nome}</div>
+        <div style="height:54px; display:flex; align-items:flex-end; justify-content:center;">
+          ${assinatura?.assinaturaImg
+        ? `<img src="${assinatura.assinaturaImg}" style="max-height:50px; max-width:140px;">`
+        : ''
+      }
+        </div>
+        <div class="linha-assinatura" style="border-color:${cor};"></div>
+        <div style="font-size:9px; color:${cor}; min-height:14px;">
+          ${assinatura
+        ? `${assinatura.acao === 'aprovada' ? '✓ ' : '✗ '}${assinatura.usuario?.nome || ''} — ${new Date(assinatura.criadoEm).toLocaleDateString('pt-BR')}`
+        : ''
+      }
+        </div>
+        ${recusada && assinatura?.motivo
+        ? `<div style="font-size:9px; color:#dc3545; margin-top:2px;">Motivo: ${assinatura.motivo}</div>`
+        : ''
+      }
+      </div>
+    `
+  }
+
   const html = `
     <!DOCTYPE html>
     <html lang="pt-br">
@@ -45,58 +80,58 @@ router.get('/:id', async (req, res) => {
       <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: Arial, sans-serif; font-size: 11px; padding: 20px; padding-bottom: 80px; }
-        
-        .header { 
-  display: flex; 
-  justify-content: space-between; 
-  align-items: center; 
-  margin-bottom: 16px;
-  border-bottom: 3px solid #e87722;
-  padding-bottom: 8px;
-}
-.header img { height: 100px; }
-.header-text { 
-  text-align: right;
-  font-size: 9px; 
-  font-style: italic; 
-  font-weight: bold;
-  line-height: 1.6;
-}
-        
+
+        .header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 16px;
+          border-bottom: 3px solid #e87722;
+          padding-bottom: 8px;
+        }
+        .header img { height: 100px; }
+        .header-text {
+          text-align: right;
+          font-size: 9px;
+          font-style: italic;
+          font-weight: bold;
+          line-height: 1.6;
+        }
+
         h1 { text-align: center; font-size: 20px; letter-spacing: 2px; margin-bottom: 12px; }
-        
+
         .aviso { border: 1px solid #000; padding: 8px; text-align: center; margin-bottom: 12px; font-size: 10px; }
         .aviso strong { font-size: 13px; display: block; margin-top: 4px; }
-        
+
         .secao { border: 1px solid #000; padding: 8px; margin-bottom: 10px; }
         .secao-titulo { text-align: center; font-style: italic; margin-bottom: 6px; font-size: 10px; }
         .linha { display: flex; gap: 8px; margin-bottom: 3px; }
         .label { font-weight: normal; min-width: 80px; }
-        
+
         table { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
         th { background: #f0f0f0; border: 1px solid #000; padding: 5px; text-align: left; }
         td { border: 1px solid #000; padding: 5px; }
         .total-row td { font-weight: bold; }
-        
+
         .condicoes { border: 1px solid #000; padding: 8px; margin-bottom: 10px; }
         .condicoes-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
-        
+
         .instrucoes { border: 1px solid #000; padding: 8px; margin-bottom: 16px; min-height: 40px; }
-        
+
         .assinaturas { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; margin-top: 30px; }
         .assinatura { text-align: center; }
         .assinatura .linha-assinatura { border-top: 1px solid #000; margin-bottom: 4px; }
         .assinatura .cargo { font-weight: bold; font-size: 10px; }
         .assinatura .nome { font-size: 10px; }
 
-        .rodape { 
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  padding: 0 20px;
-}
-.rodape img { width: 100%; display: block; }
+        .rodape {
+          position: fixed;
+          bottom: 0;
+          left: 0;
+          right: 0;
+          padding: 0 20px;
+        }
+        .rodape img { width: 100%; display: block; }
       </style>
     </head>
     <body>
@@ -132,12 +167,7 @@ router.get('/:id', async (req, res) => {
       <table>
         <thead>
           <tr>
-            <th>QTD</th>
-            <th>UNID</th>
-            <th>DESCRIÇÃO</th>
-            <th>VALOR UNI</th>
-            <th>IPI</th>
-            <th>VALOR TOTAL</th>
+            <th>QTD</th><th>UNID</th><th>DESCRIÇÃO</th><th>VALOR UNI</th><th>IPI</th><th>VALOR TOTAL</th>
           </tr>
         </thead>
         <tbody>
@@ -178,31 +208,25 @@ router.get('/:id', async (req, res) => {
       </div>
 
       <div class="assinaturas">
-        <div class="assinatura">
-          <div class="cargo">SOLICITANTE</div>
-          <div class="nome">${oc.solicitante || 'USUÁRIO'}</div>
-          <br><br>
-          <div class="linha-assinatura"></div>
-          <div>Visto</div>
-        </div>
-        <div class="assinatura">
-          <div class="cargo">Autorizado</div>
-          <div class="nome">CELSO</div>
-          <br><br>
-          <div class="linha-assinatura"></div>
-          <div>visto</div>
-        </div>
-        <div class="assinatura">
-          <div class="cargo">Financeiro</div>
-          <div class="nome">ROSANE</div>
-          <br><br>
-          <div class="linha-assinatura"></div>
-          <div>visto</div>
-        </div>
+        ${blocoAssinatura({
+    cargo: 'SOLICITANTE',
+    nome: oc.solicitante || 'Não informado',
+    assinatura: null
+  })}
+        ${blocoAssinatura({
+    cargo: 'AUTORIZADO',
+    nome: 'CELSO',
+    assinatura: asAprovacao || null
+  })}
+        ${blocoAssinatura({
+    cargo: 'FINANCEIRO',
+    nome: 'ROSANE',
+    assinatura: asAutorizacao || null
+  })}
       </div>
 
       <div class="rodape">
-          ${rodapeBase64 ? `<img src="${rodapeBase64}" style="width:100%;" />` : ''}
+        ${rodapeBase64 ? `<img src="${rodapeBase64}" style="width:100%;" />` : ''}
       </div>
 
     </body>
@@ -235,10 +259,10 @@ router.get('/:id', async (req, res) => {
       const img = anexo.mimeType === 'image/png'
         ? await pdfFinal.embedPng(imgBytes)
         : await pdfFinal.embedJpg(imgBytes)
-      const page = pdfFinal.addPage()
-      const { width, height } = page.getSize()
+      const pg = pdfFinal.addPage()
+      const { width, height } = pg.getSize()
       const scale = Math.min(width / img.width, height / img.height) * 0.9
-      page.drawImage(img, {
+      pg.drawImage(img, {
         x: (width - img.width * scale) / 2,
         y: (height - img.height * scale) / 2,
         width: img.width * scale,
@@ -248,12 +272,10 @@ router.get('/:id', async (req, res) => {
   }
 
   const pdfBytes = await pdfFinal.save()
-
-  res.setHeader('Content-Type', 'application/pdf')
   const nomeArquivo = `${nomeDownload}.pdf`
+
   res.setHeader('Content-Type', 'application/pdf')
   res.setHeader('Content-Disposition', `inline; filename*=UTF-8''${encodeURIComponent(nomeArquivo)}`)
-
   res.send(Buffer.from(pdfBytes))
 })
 

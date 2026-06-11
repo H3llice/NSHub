@@ -1,0 +1,122 @@
+:root {
+    --verde: #158815;
+    --verde-escuro: #0e6a0e;
+    --laranja: #FC7A1E;
+    --cinza-bg: #f3f5f7;
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: "Segoe UI", sans-serif;
+    background: var(--cinza-bg);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.login-card {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+    width: 100%;
+    max-width: 380px;
+    overflow: hidden;
+}
+
+.login-header {
+    background: linear-gradient(180deg, var(--verde), var(--verde-escuro));
+    padding: 28px 32px;
+    border-bottom: 4px solid var(--laranja);
+}
+
+.login-header h1 {
+    color: white;
+    font-size: 22px;
+    font-weight: 700;
+}
+
+.login-header h1 span {
+    color: var(--laranja);
+}
+
+.login-header p {
+    color: rgba(255, 255, 255, 0.75);
+    font-size: 13px;
+    margin-top: 4px;
+}
+
+.login-body {
+    padding: 28px 32px;
+}
+
+.form-group {
+    margin-bottom: 18px;
+}
+
+.form-group label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: #444;
+    margin-bottom: 6px;
+}
+
+.form-group input {
+    width: 100%;
+    padding: 10px 14px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 15px;
+    font-family: inherit;
+    transition: border-color 0.2s;
+}
+
+.form-group input:focus {
+    outline: none;
+    border-color: var(--verde);
+}
+
+.btn-entrar {
+    width: 100%;
+    padding: 12px;
+    background: var(--verde);
+    color: white;
+    border: none;
+    border-radius: 4px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+    transition: background 0.2s;
+    margin-top: 4px;
+}
+
+.btn-entrar:hover {
+    background: var(--verde-escuro);
+}
+
+.btn-entrar:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.erro {
+    background: #fff0f0;
+    border: 1px solid #ffcccc;
+    color: #cc0000;
+    padding: 10px 14px;
+    border-radius: 4px;
+    font-size: 13px;
+    margin-bottom: 16px;
+    display: none;
+}
+
+.erro.show {
+    display: block;
+}

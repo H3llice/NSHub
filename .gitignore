@@ -4,3 +4,8 @@ backend/.env
 backend/migracao
 backend/prisma/migrations
 backend/scripts/relatorio-migracao.json
+backend/scripts/criar-admin.js
+backend/scripts/criar-usuarios.js
+*.log
+.DS_Store
+Thumbs.db

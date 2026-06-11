@@ -5,6 +5,26 @@ let favoritos = JSON.parse(localStorage.getItem('favoritos')) || [];
 let certificados = JSON.parse(localStorage.getItem('certificados')) || [];
 let formularioAtualCarregado = null;
 
+
+// ===== AUTENTICAÇÃO =====
+const usuarioLogado = JSON.parse(localStorage.getItem('ns_usuario') || 'null')
+
+window.addEventListener('load', () => {
+    // Mostra nome na topbar
+    const span = document.getElementById('topbar-usuario')
+    if (span && usuarioLogado) {
+        span.textContent = `👤 ${usuarioLogado.nome} (${usuarioLogado.perfil})`
+    }
+
+    // ... resto do load que já existe
+})
+
+window.logout = function () {
+    localStorage.removeItem('ns_token')
+    localStorage.removeItem('ns_usuario')
+    window.location.href = './login.html'
+}
+
 // ===== CONTROLE DA SIDEBAR (MOBILE) =====
 window.toggleSidebar = function () {
     const sidebar = document.querySelector('.sidebar');
@@ -134,7 +154,19 @@ window.addEventListener('load', () => {
     });
     atualizarFavoritos();
     atualizarTabelaCertificados();
-    
+
+    // ── Abre OC direto se vier do link do email ──────────────
+    const hash = window.location.hash // ex: #oc-42
+    if (hash.startsWith('#oc-')) {
+        const id = parseInt(hash.replace('#oc-', ''))
+        if (!isNaN(id)) {
+            inicializarOCs()  // monta a página de OCs
+            setTimeout(() => {
+                editarOC(id)  // abre o formulário da OC
+                history.replaceState(null, '', window.location.pathname)
+            }, 800)
+        }
+    }
 });
 
 window.toggleNovoRegistroMenu = function (event) {
