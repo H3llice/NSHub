@@ -29,13 +29,13 @@ const perfil = usuarioAtual?.perfil || 'usuario'
 
 // ─── Labels de status ─────────────────────────────────────────────────────────
 const STATUS_LABEL = {
-  aberta:                  { texto: 'Aberta',               cor: '#6c757d' },
-  aguardando_aprovacao:    { texto: 'Ag. Aprovação',        cor: '#fd7e14' },
-  aguardando_autorizacao:  { texto: 'Ag. Autorização',      cor: '#0d6efd' },
-  aprovada:                { texto: 'Aprovada',             cor: '#198754' },
-  recusada:                { texto: 'Recusada',             cor: '#dc3545' },
-  cancelada:               { texto: 'Cancelada',            cor: '#adb5bd' },
-  migrada:                 { texto: 'Migrada',              cor: '#6c757d' },
+  aberta: { texto: 'Aberta', cor: '#6c757d' },
+  aguardando_aprovacao: { texto: 'Ag. Aprovação', cor: '#fd7e14' },
+  aguardando_autorizacao: { texto: 'Ag. Autorização', cor: '#0d6efd' },
+  aprovada: { texto: 'Aprovada', cor: '#198754' },
+  recusada: { texto: 'Recusada', cor: '#dc3545' },
+  cancelada: { texto: 'Cancelada', cor: '#adb5bd' },
+  migrada: { texto: 'Migrada', cor: '#6c757d' },
 }
 
 function badgeStatus(status) {
@@ -208,28 +208,23 @@ function botoesParaPerfil(oc, numero) {
   const btns = []
   const s = oc.status
 
-  // Editar — só se editável e for o criador, admin, ou qualquer um em aberta/recusada
   const editavel = ['aberta', 'aguardando_aprovacao', 'recusada'].includes(s)
   if (editavel) {
     btns.push(`<button class="btn btn-sm btn-info" onclick="editarOC(${oc.id})">Editar</button>`)
   }
 
-  // PDF — sempre
   btns.push(`<a class="btn btn-sm btn-secondary" href="${API}/pdf/${oc.id}" target="_blank">PDF</a>`)
 
-  // Aprovar/Recusar — gerente vê quando aguardando_aprovacao
   if ((perfil === 'gerente' || perfil === 'admin') && s === 'aguardando_aprovacao') {
     btns.push(`<button class="btn btn-sm btn-success" onclick="abrirModalAssinatura(${oc.id}, 'aprovar')">✓ Aprovar</button>`)
     btns.push(`<button class="btn btn-sm btn-danger" onclick="abrirModalRecusa(${oc.id})">✗ Recusar</button>`)
   }
 
-  // Autorizar/Recusar — financeiro vê quando aguardando_autorizacao
   if ((perfil === 'financeiro' || perfil === 'admin') && s === 'aguardando_autorizacao') {
     btns.push(`<button class="btn btn-sm btn-success" onclick="abrirModalAssinatura(${oc.id}, 'autorizar')">✓ Autorizar</button>`)
     btns.push(`<button class="btn btn-sm btn-danger" onclick="abrirModalRecusa(${oc.id})">✗ Recusar</button>`)
   }
 
-  // Cancelar — não permite cancelar OC já aprovada
   if (!['aprovada'].includes(s)) {
     btns.push(`<button class="btn btn-sm btn-danger" onclick="deletarOC(${oc.id}, '${numero}')">Cancelar</button>`)
   }
@@ -245,39 +240,42 @@ window.verOC = async function (id) {
   const numero = `OC ${oc.numero}.${oc.ano}-${oc.empresa?.sigla || ''}`
   const dataPedido = oc.dataPedido ? new Date(oc.dataPedido).toLocaleDateString('pt-BR') : '-'
 
-  const asAprovacao   = oc.assinaturas?.find(a => a.etapa === 'aprovacao')
+  const asSolicitante = oc.assinaturas?.find(a => a.etapa === 'solicitante')
+  const asAprovacao = oc.assinaturas?.find(a => a.etapa === 'aprovacao')
   const asAutorizacao = oc.assinaturas?.find(a => a.etapa === 'autorizacao')
 
   function blocoAssinatura(cargo, assinatura, acao) {
     const recusada = assinatura?.acao === 'recusada'
     const cor = recusada ? '#dc3545' : '#158815'
 
-    // Verifica se o usuário logado pode assinar este bloco
-    const podeAssinar = acao && !assinatura && (
-      (acao === 'aprovar'    && (perfil === 'gerente'   || perfil === 'admin')) ||
-      (acao === 'autorizar'  && (perfil === 'financeiro' || perfil === 'admin'))
-    ) && (
-      (acao === 'aprovar'   && oc.status === 'aguardando_aprovacao') ||
-      (acao === 'autorizar' && oc.status === 'aguardando_autorizacao')
+    // Solicitante: qualquer usuário logado pode assinar se ainda não foi assinado
+    const podeAssinarSolicitante = acao === 'solicitante' && !assinatura
+
+    // Gerente/financeiro: só quando for a vez deles
+    const podeAssinarFluxo = acao && acao !== 'solicitante' && !assinatura && (
+      (acao === 'aprovar' && (perfil === 'gerente' || perfil === 'admin') && oc.status === 'aguardando_aprovacao') ||
+      (acao === 'autorizar' && (perfil === 'financeiro' || perfil === 'admin') && oc.status === 'aguardando_autorizacao')
     )
 
+    const podeAssinar = podeAssinarSolicitante || podeAssinarFluxo
+
     const cursor = podeAssinar ? 'cursor:pointer;' : ''
-    const hover  = podeAssinar ? `onmouseover="this.style.background='#f0fff0'" onmouseout="this.style.background='white'"` : ''
-    const click  = podeAssinar ? `onclick="abrirModalAssinatura(${oc.id}, '${acao}')"` : ''
-    const dica   = podeAssinar ? `<div style="font-size:11px; color:#158815; margin-top:6px;">Clique para assinar</div>` : ''
+    const hover = podeAssinar ? `onmouseover="this.style.background='#f0fff0'" onmouseout="this.style.background='white'"` : ''
+    const click = podeAssinar ? `onclick="abrirModalAssinatura(${oc.id}, '${acao}')"` : ''
+    const dica = podeAssinar ? `<div style="font-size:11px; color:#158815; margin-top:6px;">Clique para assinar</div>` : ''
 
     return `
       <div style="text-align:center; border:1px solid ${podeAssinar ? '#158815' : '#ddd'}; border-radius:6px; padding:16px; ${cursor}" ${hover} ${click}>
         <div style="font-weight:700; font-size:12px; color:#555; margin-bottom:8px;">${cargo}</div>
         ${assinatura?.assinaturaImg
-          ? `<img src="${assinatura.assinaturaImg}" style="max-height:60px; max-width:160px; margin:0 auto 8px; display:block;">`
-          : `<div style="height:60px; border-bottom:1px solid #ccc; margin-bottom:8px;"></div>`
-        }
+        ? `<img src="${assinatura.assinaturaImg}" style="max-height:60px; max-width:160px; margin:0 auto 8px; display:block;">`
+        : `<div style="height:60px; border-bottom:1px solid #ccc; margin-bottom:8px;"></div>`
+      }
         <div style="font-size:12px; color:${cor}; font-weight:600;">
           ${assinatura
-            ? `${assinatura.acao === 'aprovada' ? '✓' : '✗'} ${assinatura.usuario?.nome}`
-            : `<span style="color:#999;">${podeAssinar ? '— Sua assinatura —' : 'Aguardando'}</span>`
-          }
+        ? `${assinatura.acao === 'aprovada' ? '✓' : '✗'} ${assinatura.usuario?.nome}`
+        : `<span style="color:#999;">${podeAssinar ? '— Sua assinatura —' : 'Aguardando'}</span>`
+      }
         </div>
         ${assinatura ? `<div style="font-size:11px; color:#999;">${new Date(assinatura.criadoEm).toLocaleDateString('pt-BR')}</div>` : ''}
         ${recusada && assinatura?.motivo ? `<div style="font-size:11px; color:#dc3545; margin-top:4px;">Motivo: ${assinatura.motivo}</div>` : ''}
@@ -390,7 +388,7 @@ window.verOC = async function (id) {
       <div style="background:white; border-radius:6px; padding:20px; box-shadow:0 2px 6px rgba(0,0,0,0.06);">
         <div style="font-weight:700; color:#158815; margin-bottom:16px;">Assinaturas</div>
         <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:16px;">
-          ${blocoAssinatura('SOLICITANTE', null, null)}
+          ${blocoAssinatura('SOLICITANTE', asSolicitante || null, 'solicitante')}
           ${blocoAssinatura('AUTORIZADO', asAprovacao || null, 'aprovar')}
           ${blocoAssinatura('FINANCEIRO', asAutorizacao || null, 'autorizar')}
         </div>
@@ -402,8 +400,25 @@ window.verOC = async function (id) {
 
 // ===== MODAL DE ASSINATURA (canvas) ==========================================
 window.abrirModalAssinatura = function (ocId, acao) {
-  const titulo = acao === 'aprovar' ? 'Aprovar OC' : 'Autorizar OC'
-  const btnLabel = acao === 'aprovar' ? 'Confirmar Aprovação' : 'Confirmar Autorização'
+  const titulos = {
+    solicitante: 'Assinar como Solicitante',
+    aprovar: 'Aprovar OC',
+    autorizar: 'Autorizar OC',
+  }
+  const labels = {
+    solicitante: 'Confirmar Assinatura',
+    aprovar: 'Confirmar Aprovação',
+    autorizar: 'Confirmar Autorização',
+  }
+  const confirmacoes = {
+    solicitante: 'Confirmo que sou o solicitante desta Ordem de Compra',
+    aprovar: 'Confirmo que li e aprovo esta Ordem de Compra',
+    autorizar: 'Confirmo que li e autorizo esta Ordem de Compra',
+  }
+
+  const titulo = titulos[acao] || 'Assinar OC'
+  const btnLabel = labels[acao] || 'Confirmar'
+  const textoChk = confirmacoes[acao] || 'Confirmo esta ação'
 
   const modal = document.createElement('div')
   modal.id = 'modal-assinatura'
@@ -430,7 +445,7 @@ window.abrirModalAssinatura = function (ocId, acao) {
       <div style="margin-top:16px; padding:12px; background:#f0fff0; border-radius:4px; font-size:13px;">
         <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
           <input type="checkbox" id="checkbox-confirmar">
-          Confirmo que li e aprovo esta Ordem de Compra
+          ${textoChk}
         </label>
       </div>
 
@@ -492,7 +507,13 @@ window.confirmarAssinatura = async function (ocId, acao) {
   const canvas = document.getElementById('canvas-assinatura')
   const assinaturaImg = canvas ? canvas.toDataURL('image/png') : null
 
-  const rota = acao === 'aprovar' ? 'aprovar' : 'autorizar'
+  // Mapeia ação para rota do backend
+  const rotas = {
+    solicitante: 'assinar-solicitante',
+    aprovar: 'aprovar',
+    autorizar: 'autorizar',
+  }
+  const rota = rotas[acao]
 
   const res = await apiJson(`${API}/ocs/${ocId}/${rota}`, {
     method: 'POST',
@@ -501,7 +522,14 @@ window.confirmarAssinatura = async function (ocId, acao) {
 
   if (res.ok) {
     fecharModalAssinatura()
-    alert(acao === 'aprovar' ? 'OC aprovada com sucesso!' : 'OC autorizada com sucesso!')
+
+    const msgs = {
+      solicitante: 'Assinatura do solicitante registrada!',
+      aprovar: 'OC aprovada com sucesso!',
+      autorizar: 'OC autorizada com sucesso!',
+    }
+    alert(msgs[acao] || 'Ação realizada com sucesso!')
+
     // Se estiver na visualização, recarrega ela; senão recarrega a tabela
     if (document.getElementById('tabela-ocs')) {
       carregarOCs(paginaAtual)
@@ -708,6 +736,12 @@ window.salvarOC = async function () {
 
   const body = {
     empresaId, fornecedorId, vendedorId: null,
+    // Campos do fornecedor — se já existia, o backend atualiza os dados dele
+    fornecedorNome: document.getElementById('oc-fornecedor-nome').value.trim(),
+    fornecedorDocumento: document.getElementById('oc-fornecedor-doc').value,
+    fornecedorEndereco: document.getElementById('oc-fornecedor-end').value,
+    fornecedorCidade: document.getElementById('oc-fornecedor-cidade').value,
+    fornecedorTelefone: document.getElementById('oc-fornecedor-tel').value,
     dataPedido: document.getElementById('oc-dataPedido').value,
     condicoesPagto: document.getElementById('oc-condicoesPagto').value,
     formaPagto: document.getElementById('oc-formaPagto').value,
@@ -729,6 +763,7 @@ window.salvarOC = async function () {
   if (res.ok) {
     const oc = await res.json()
 
+    // Faz upload dos anexos pendentes
     try {
       const uploads = anexosPendentes.filter(a => a !== null).map(a => {
         const formData = new FormData()
@@ -742,8 +777,9 @@ window.salvarOC = async function () {
       console.error('Erro no upload dos anexos:', err)
     }
 
-    alert('OC salva com sucesso!')
-    inicializarOCs()
+    // Abre modal de assinatura do solicitante automaticamente
+    abrirModalAssinatura(oc.id, 'solicitante')
+
   } else {
     const err = await res.json()
     alert('Erro ao salvar OC: ' + (err.erro || ''))
@@ -773,7 +809,6 @@ window.editarOC = async function (id) {
       `).join('')
     : '<li style="color:#999; padding: 6px 0;">Nenhum anexo</li>'
 
-  // Histórico de assinaturas
   const assinaturasHtml = oc.assinaturas?.length > 0
     ? `<div style="margin-top:20px;">
         <h5>Histórico de Aprovações</h5>
@@ -781,7 +816,7 @@ window.editarOC = async function (id) {
           ${oc.assinaturas.map(a => `
             <li style="padding:8px 0; border-bottom:1px solid #eee; font-size:13px;">
               ${a.acao === 'aprovada' ? '✅' : '❌'}
-              <strong>${a.etapa === 'aprovacao' ? 'Aprovação' : 'Autorização'}</strong>
+              <strong>${a.etapa === 'aprovacao' ? 'Aprovação' : a.etapa === 'autorizacao' ? 'Autorização' : 'Solicitante'}</strong>
               — ${a.acao} por <strong>${a.usuario?.nome}</strong>
               em ${new Date(a.criadoEm).toLocaleDateString('pt-BR')}
               ${a.motivo ? `<br><span style="color:#dc3545;">Motivo: ${a.motivo}</span>` : ''}
@@ -1003,6 +1038,12 @@ window.atualizarOC = async function (id) {
 
   const body = {
     empresaId, fornecedorId, vendedorId: null,
+    // Campos do fornecedor — se já existia, o backend atualiza os dados dele
+    fornecedorNome: document.getElementById('oc-fornecedor-nome').value.trim(),
+    fornecedorDocumento: document.getElementById('oc-fornecedor-doc').value,
+    fornecedorEndereco: document.getElementById('oc-fornecedor-end').value,
+    fornecedorCidade: document.getElementById('oc-fornecedor-cidade').value,
+    fornecedorTelefone: document.getElementById('oc-fornecedor-tel').value,
     dataPedido: document.getElementById('oc-dataPedido').value,
     condicoesPagto: document.getElementById('oc-condicoesPagto').value,
     formaPagto: document.getElementById('oc-formaPagto').value,

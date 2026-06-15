@@ -11,23 +11,64 @@
   <div class="login-card">
     <div class="login-header">
       <h1>Natal Safety <span>App</span></h1>
-      <p>Faça login para continuar</p>
+      <p id="login-subtitulo">Faça login para continuar</p>
     </div>
 
     <div class="login-body">
       <div class="erro" id="erro-login"></div>
+      <div class="sucesso" id="sucesso-login"></div>
 
-      <div class="form-group">
-        <label>Email</label>
-        <input type="email" id="login-email" placeholder="seu@email.com" autocomplete="email">
+      <!-- ── TELA: LOGIN ─────────────────────────────────────── -->
+      <div id="tela-login">
+        <div class="form-group">
+          <label>Email</label>
+          <input type="email" id="login-email" placeholder="seu@email.com" autocomplete="email">
+        </div>
+        <div class="form-group">
+          <label>Senha</label>
+          <input type="password" id="login-senha" placeholder="••••••••" autocomplete="current-password">
+        </div>
+        <button class="btn-entrar" id="btn-entrar" onclick="fazerLogin()">Entrar</button>
+        <div style="text-align:center; margin-top:14px;">
+          <a href="#" onclick="mostrarTela('esqueci')" style="font-size:13px; color:#888;">Esqueci minha senha</a>
+        </div>
       </div>
 
-      <div class="form-group">
-        <label>Senha</label>
-        <input type="password" id="login-senha" placeholder="••••••••" autocomplete="current-password">
+      <!-- ── TELA: ESQUECI MINHA SENHA ──────────────────────── -->
+      <div id="tela-esqueci" style="display:none;">
+        <p style="font-size:13px; color:#555; margin-bottom:16px;">
+          Informe seu email e enviaremos um link para redefinir sua senha.
+        </p>
+        <div class="form-group">
+          <label>Email</label>
+          <input type="email" id="esqueci-email" placeholder="seu@email.com">
+        </div>
+        <button class="btn-entrar" onclick="solicitarReset()">Enviar link</button>
+        <div style="text-align:center; margin-top:14px;">
+          <a href="#" onclick="mostrarTela('login')" style="font-size:13px; color:#888;">← Voltar ao login</a>
+        </div>
       </div>
 
-      <button class="btn-entrar" id="btn-entrar" onclick="fazerLogin()">Entrar</button>
+      <!-- ── TELA: PRIMEIRO LOGIN / TROCAR SENHA ────────────── -->
+      <div id="tela-trocar-senha" style="display:none;">
+        <p style="font-size:13px; color:#555; margin-bottom:16px;">
+          Este é seu primeiro acesso. Defina uma nova senha para continuar.
+        </p>
+        <div class="form-group">
+          <label>Senha atual</label>
+          <input type="password" id="trocar-senha-atual" placeholder="Senha fornecida pelo administrador">
+        </div>
+        <div class="form-group">
+          <label>Nova senha</label>
+          <input type="password" id="trocar-nova-senha" placeholder="Mínimo 6 caracteres">
+        </div>
+        <div class="form-group">
+          <label>Confirmar nova senha</label>
+          <input type="password" id="trocar-confirmar-senha" placeholder="Repita a nova senha">
+        </div>
+        <button class="btn-entrar" onclick="trocarSenha()">Salvar nova senha</button>
+      </div>
+
     </div>
   </div>
 
@@ -36,26 +77,58 @@
 
     // Se já tiver token válido, vai direto pro sistema
     const token = localStorage.getItem('ns_token')
-    if (token) {
-      window.location.href = './index.html'
-    }
+    if (token) window.location.href = './index.html'
 
-    // Permite login com Enter
     document.getElementById('login-senha').addEventListener('keydown', e => {
       if (e.key === 'Enter') fazerLogin()
     })
+
+    // ── Utilitários ──────────────────────────────────────────────────────────
+    function mostrarErro(msg) {
+      const el = document.getElementById('erro-login')
+      el.textContent = msg
+      el.classList.add('show')
+      document.getElementById('sucesso-login').classList.remove('show')
+    }
+
+    function mostrarSucesso(msg) {
+      const el = document.getElementById('sucesso-login')
+      el.textContent = msg
+      el.classList.add('show')
+      document.getElementById('erro-login').classList.remove('show')
+    }
+
+    function limparMensagens() {
+      document.getElementById('erro-login').classList.remove('show')
+      document.getElementById('sucesso-login').classList.remove('show')
+    }
+
+    function mostrarTela(tela) {
+      limparMensagens()
+      document.getElementById('tela-login').style.display         = tela === 'login'         ? '' : 'none'
+      document.getElementById('tela-esqueci').style.display       = tela === 'esqueci'       ? '' : 'none'
+      document.getElementById('tela-trocar-senha').style.display  = tela === 'trocar-senha'  ? '' : 'none'
+
+      const subtitulos = {
+        login:         'Faça login para continuar',
+        esqueci:       'Recuperar acesso',
+        'trocar-senha': 'Defina sua nova senha',
+      }
+      document.getElementById('login-subtitulo').textContent = subtitulos[tela] || ''
+    }
+
+    // ── Login ─────────────────────────────────────────────────────────────────
+    let tokenTemporario = null  // guarda o token JWT antes de forçar troca de senha
 
     async function fazerLogin() {
       const email = document.getElementById('login-email').value.trim()
       const senha = document.getElementById('login-senha').value
       const btn   = document.getElementById('btn-entrar')
-      const erro  = document.getElementById('erro-login')
 
-      erro.classList.remove('show')
+      limparMensagens()
 
       if (!email || !senha) {
-        erro.textContent = 'Preencha email e senha.'
-        erro.classList.add('show')
+        mostrarErro('Preencha email e senha.')
         return
       }
 
@@ -72,23 +145,108 @@
         const data = await res.json()
 
         if (!res.ok) {
-          erro.textContent = data.erro || 'Erro ao fazer login.'
-          erro.classList.add('show')
+          mostrarErro(data.erro || 'Erro ao fazer login.')
           return
         }
 
-        // Salva token e dados do usuário
+        if (data.primeiroLogin) {
+          // Guarda token e dados mas NÃO deixa entrar ainda
+          tokenTemporario = data.token
+          localStorage.setItem('ns_usuario_temp', JSON.stringify(data.usuario))
+          mostrarTela('trocar-senha')
+          return
+        }
+
+        // Login normal — salva e redireciona
         localStorage.setItem('ns_token', data.token)
         localStorage.setItem('ns_usuario', JSON.stringify(data.usuario))
+        window.location.href = './index.html'
+
+      } catch {
+        mostrarErro('Não foi possível conectar ao servidor.')
+      } finally {
+        btn.disabled = false
+        btn.textContent = 'Entrar'
+      }
+    }
+
+    // ── Trocar senha (primeiro login) ─────────────────────────────────────────
+    async function trocarSenha() {
+      const senhaAtual     = document.getElementById('trocar-senha-atual').value
+      const novaSenha      = document.getElementById('trocar-nova-senha').value
+      const confirmarSenha = document.getElementById('trocar-confirmar-senha').value
+
+      limparMensagens()
+
+      if (!senhaAtual || !novaSenha || !confirmarSenha) {
+        mostrarErro('Preencha todos os campos.')
+        return
+      }
+
+      if (novaSenha.length < 6) {
+        mostrarErro('A nova senha deve ter pelo menos 6 caracteres.')
+        return
+      }
+
+      if (novaSenha !== confirmarSenha) {
+        mostrarErro('As senhas não coincidem.')
+        return
+      }
+
+      try {
+        const res = await fetch(`${API}/auth/trocar-senha`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${tokenTemporario}`
+          },
+          body: JSON.stringify({ senhaAtual, novaSenha })
+        })
+
+        const data = await res.json()
+
+        if (!res.ok) {
+          mostrarErro(data.erro || 'Erro ao trocar senha.')
+          return
+        }
+
+        // Senha trocada — agora deixa entrar
+        const usuarioTemp = JSON.parse(localStorage.getItem('ns_usuario_temp') || 'null')
+        localStorage.setItem('ns_token', tokenTemporario)
+        localStorage.setItem('ns_usuario', JSON.stringify(usuarioTemp))
+        localStorage.removeItem('ns_usuario_temp')
+        tokenTemporario = null
 
         window.location.href = './index.html'
 
       } catch {
-        erro.textContent = 'Não foi possível conectar ao servidor.'
-        erro.classList.add('show')
-      } finally {
-        btn.disabled = false
-        btn.textContent = 'Entrar'
+        mostrarErro('Não foi possível conectar ao servidor.')
+      }
+    }
+
+    // ── Esqueci minha senha ───────────────────────────────────────────────────
+    async function solicitarReset() {
+      const email = document.getElementById('esqueci-email').value.trim()
+
+      limparMensagens()
+
+      if (!email) {
+        mostrarErro('Informe seu email.')
+        return
+      }
+
+      try {
+        const res = await fetch(`${API}/auth/esqueci-senha`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email })
+        })
+
+        // Sempre mostra sucesso (backend não revela se email existe)
+        mostrarSucesso('Se este email estiver cadastrado, você receberá o link em instantes.')
+
+      } catch {
+        mostrarErro('Não foi possível conectar ao servidor.')
       }
     }
   </script>

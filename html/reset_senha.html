@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Redefinir Senha — Natal Safety App</title>
+    <link href="../css/login.css" rel="stylesheet">
+</head>
+
+<body>
+
+    <div class="login-card">
+        <div class="login-header">
+            <h1>Natal Safety <span>App</span></h1>
+            <p id="subtitulo">Redefinir senha</p>
+        </div>
+
+        <div class="login-body">
+            <div class="erro" id="erro-reset"></div>
+            <div class="sucesso" id="sucesso-reset"></div>
+
+            <div id="form-reset">
+                <p style="font-size:13px; color:#555; margin-bottom:16px;">Olá, <strong id="nome-usuario"></strong>.
+                    Defina sua nova senha abaixo.</p>
+
+                <div class="form-group">
+                    <label>Nova senha</label>
+                    <input type="password" id="nova-senha" placeholder="Mínimo 6 caracteres">
+                </div>
+                <div class="form-group">
+                    <label>Confirmar senha</label>
+                    <input type="password" id="confirmar-senha" placeholder="Repita a nova senha">
+                </div>
+                <button class="btn-entrar" onclick="resetarSenha()">Salvar nova senha</button>
+            </div>
+
+            <div id="link-login" style="display:none; text-align:center;">
+                <a href="./login.html" class="btn-entrar"
+                    style="display:inline-block; text-decoration:none; margin-top:8px;">
+                    Ir para o login
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API = 'http://localhost:3000'
+        const token = new URLSearchParams(window.location.search).get('token')
+
+        function mostrarErro(msg) {
+            const el = document.getElementById('erro-reset')
+            el.textContent = msg
+            el.classList.add('show')
+            document.getElementById('sucesso-reset').classList.remove('show')
+        }
+
+        function mostrarSucesso(msg) {
+            const el = document.getElementById('sucesso-reset')
+            el.textContent = msg
+            el.classList.add('show')
+            document.getElementById('erro-reset').classList.remove('show')
+        }
+
+        // Valida o token ao carregar a página
+        async function validarToken() {
+            if (!token) {
+                mostrarErro('Link inválido. Solicite um novo.')
+                document.getElementById('form-reset').style.display = 'none'
+                return
+            }
+
+            try {
+                const res = await fetch(`${API}/auth/reset-senha/${token}`)
+                const data = await res.json()
+
+                if (!res.ok) {
+                    mostrarErro(data.erro || 'Link inválido ou expirado.')
+                    document.getElementById('form-reset').style.display = 'none'
+                    document.getElementById('link-login').style.display = 'block'
+                    return
+                }
+
+                document.getElementById('nome-usuario').textContent = data.nome
+
+            } catch {
+                mostrarErro('Não foi possível conectar ao servidor.')
+                document.getElementById('form-reset').style.display = 'none'
+            }
+        }
+
+        async function resetarSenha() {
+            const novaSenha = document.getElementById('nova-senha').value
+            const confirmarSenha = document.getElementById('confirmar-senha').value
+
+            document.getElementById('erro-reset').classList.remove('show')
+            document.getElementById('sucesso-reset').classList.remove('show')
+
+            if (!novaSenha || !confirmarSenha) {
+                mostrarErro('Preencha todos os campos.')
+                return
+            }
+
+            if (novaSenha.length < 6) {
+                mostrarErro('A senha deve ter pelo menos 6 caracteres.')
+                return
+            }
+
+            if (novaSenha !== confirmarSenha) {
+                mostrarErro('As senhas não coincidem.')
+                return
+            }
+
+            try {
+                const res = await fetch(`${API}/auth/reset-senha`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ token, novaSenha })
+                })
+
+                const data = await res.json()
+
+                if (!res.ok) {
+                    mostrarErro(data.erro || 'Erro ao redefinir senha.')
+                    return
+                }
+
+                mostrarSucesso('Senha redefinida com sucesso!')
+                document.getElementById('form-reset').style.display = 'none'
+                document.getElementById('link-login').style.display = 'block'
+
+            } catch {
+                mostrarErro('Não foi possível conectar ao servidor.')
+            }
+        }
+
+        validarToken()
+    </script>
+
+</body>
+
+</html>
