@@ -73,10 +73,26 @@ router.get('/:id', async (req, res) => {
 
 // ─── Criar nova OC ────────────────────────────────────────────────────────────
 router.post('/', autenticar, async (req, res) => {
-  const { empresaId, fornecedorId, vendedorId, itens, ...dados } = req.body
+  const { empresaId, fornecedorId, vendedorId, itens,
+          fornecedorNome, fornecedorDocumento, fornecedorEndereco, fornecedorCidade, fornecedorTelefone,
+          ...dados } = req.body
 
   if (dados.dataPedido) {
     dados.dataPedido = new Date(dados.dataPedido).toISOString()
+  }
+
+  // Atualiza dados do fornecedor existente se vieram preenchidos
+  if (fornecedorId) {
+    await prisma.fornecedor.update({
+      where: { id: fornecedorId },
+      data: {
+        ...(fornecedorNome      && { nome:      fornecedorNome }),
+        ...(fornecedorDocumento && { documento: fornecedorDocumento }),
+        ...(fornecedorEndereco  && { endereco:  fornecedorEndereco }),
+        ...(fornecedorCidade    && { cidade:    fornecedorCidade }),
+        ...(fornecedorTelefone  && { telefone:  fornecedorTelefone }),
+      }
+    })
   }
 
   const ano = new Date().getFullYear()
@@ -111,6 +127,37 @@ router.post('/', autenticar, async (req, res) => {
   res.json(oc)
 })
 
+// ─── Assinar como solicitante ─────────────────────────────────────────────────
+router.post('/:id/assinar-solicitante', autenticar, async (req, res) => {
+  const id = Number(req.params.id)
+  const { assinaturaImg } = req.body
+
+  const oc = await prisma.ordemCompra.findUnique({ where: { id } })
+
+  if (!oc) return res.status(404).json({ erro: 'OC não encontrada' })
+
+  // Verifica se já foi assinada pelo solicitante
+  const jaAssinou = await prisma.assinatura.findFirst({
+    where: { ocId: id, etapa: 'solicitante' }
+  })
+  if (jaAssinou) {
+    return res.status(400).json({ erro: 'OC já foi assinada pelo solicitante' })
+  }
+
+  const assinatura = await prisma.assinatura.create({
+    data: {
+      ocId: id,
+      usuarioId: req.usuario.id,
+      etapa: 'solicitante',
+      acao: 'aprovada',
+      assinaturaImg: assinaturaImg || null
+    },
+    include: { usuario: true }
+  })
+
+  res.json(assinatura)
+})
+
 // ─── Editar OC ────────────────────────────────────────────────────────────────
 router.put('/:id', autenticar, async (req, res) => {
   const id = Number(req.params.id)
@@ -121,7 +168,21 @@ router.put('/:id', autenticar, async (req, res) => {
     return res.status(400).json({ erro: 'OC não pode ser editada neste status' })
   }
 
-  const { itens, empresaId, fornecedorId, vendedorId, dataPedido, ...resto } = req.body
+  const { itens, empresaId, fornecedorId, vendedorId, dataPedido, fornecedorNome, fornecedorDocumento, fornecedorEndereco, fornecedorCidade, fornecedorTelefone, ...resto } = req.body
+
+  // Atualiza dados do fornecedor existente se vieram preenchidos
+  if (fornecedorId) {
+    await prisma.fornecedor.update({
+      where: { id: parseInt(fornecedorId) },
+      data: {
+        ...(fornecedorNome      && { nome:      fornecedorNome }),
+        ...(fornecedorDocumento && { documento: fornecedorDocumento }),
+        ...(fornecedorEndereco  && { endereco:  fornecedorEndereco }),
+        ...(fornecedorCidade    && { cidade:    fornecedorCidade }),
+        ...(fornecedorTelefone  && { telefone:  fornecedorTelefone }),
+      }
+    })
+  }
 
   const dadosLimpos = {
     empresaId: parseInt(empresaId),

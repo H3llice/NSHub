@@ -16,6 +16,7 @@ router.get('/:id', async (req, res) => {
       vendedor: true,
       itens: true,
       anexos: true,
+      criadoPor: true,          // ← para usar como fallback do nome do solicitante
       assinaturas: {
         include: { usuario: true },
         orderBy: { criadoEm: 'asc' }
@@ -39,9 +40,13 @@ router.get('/:id', async (req, res) => {
     ? `data:image/png;base64,${fs.readFileSync(rodapePath).toString('base64')}`
     : ''
 
-  // ─── Monta blocos de assinatura ────────────────────────────────────────────
+  // ─── Assinaturas ────────────────────────────────────────────────────────────
+  const asSolicitante = oc.assinaturas.find(a => a.etapa === 'solicitante')
   const asAprovacao = oc.assinaturas.find(a => a.etapa === 'aprovacao')
   const asAutorizacao = oc.assinaturas.find(a => a.etapa === 'autorizacao')
+
+  // Nome do solicitante: campo texto da OC → nome do criador → vazio
+  const nomeSolicitante = oc.solicitante?.trim() || oc.criadoPor?.nome || ''
 
   function blocoAssinatura({ cargo, nome, assinatura }) {
     const recusada = assinatura?.acao === 'recusada'
@@ -210,8 +215,8 @@ router.get('/:id', async (req, res) => {
       <div class="assinaturas">
         ${blocoAssinatura({
     cargo: 'SOLICITANTE',
-    nome: oc.solicitante || 'Não informado',
-    assinatura: null
+    nome: nomeSolicitante,
+    assinatura: asSolicitante || null
   })}
         ${blocoAssinatura({
     cargo: 'AUTORIZADO',

@@ -5,8 +5,8 @@ const transporter = nodemailer.createTransport({
   port: 465,
   secure: true,
   auth: {
-    user: process.env.EMAIL_USER || 'tec2@natalsafety.com.br',
-    pass: process.env.EMAIL_PASS || 'Est@giario2'
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS
   }
 })
 
@@ -51,7 +51,7 @@ Prazo      : ${f.prazo}
 
 async function enviar({ para, assunto, corpo }) {
   await transporter.sendMail({
-    from: `"NSHub - Natal Safety" <${process.env.EMAIL_USER || 'tec2@natalsafety.com.br'}>`,
+    from: `"NSHub - Natal Safety" <${process.env.EMAIL_USER}>`,
     to: Array.isArray(para) ? para.join(', ') : para,
     subject: assunto,
     text: corpo
@@ -106,4 +106,33 @@ export async function notificarAprovacao(oc, evento, baseUrl, motivo = null) {
 
   await enviar(cfg)
   console.log(`📧 Notificação [${evento}] enviada — ${f.numero}`)
+}
+
+// ─── Reset de senha ───────────────────────────────────────────────────────────
+export async function enviarEmailResetSenha(usuario, link) {
+  await transporter.sendMail({
+    from: `"Natal Safety App" <${process.env.EMAIL_USER}>`,
+    to: usuario.email,
+    subject: 'Redefinição de senha — Natal Safety App',
+    html: `
+      <div style="font-family:Arial,sans-serif; max-width:480px; margin:0 auto;">
+        <h2 style="color:#158815;">Natal Safety App</h2>
+        <p>Olá, <strong>${usuario.nome}</strong>.</p>
+        <p>Recebemos uma solicitação para redefinir sua senha. Clique no botão abaixo para continuar:</p>
+        <div style="text-align:center; margin:28px 0;">
+          <a href="${link}"
+            style="background:#158815; color:white; padding:12px 28px; border-radius:6px;
+                   text-decoration:none; font-weight:bold; font-size:15px;">
+            Redefinir minha senha
+          </a>
+        </div>
+        <p style="color:#888; font-size:12px;">
+          Este link expira em <strong>1 hora</strong>.<br>
+          Se você não solicitou a redefinição, ignore este email — sua senha permanece a mesma.
+        </p>
+        <hr style="border:none; border-top:1px solid #eee; margin:24px 0;">
+        <p style="color:#aaa; font-size:11px;">Natal Safety · Sistema interno</p>
+      </div>
+    `
+  })
 }
