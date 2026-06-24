@@ -1,4 +1,4 @@
-const API = 'http://localhost:3000'
+const API = 'https://override-steerable-professed.ngrok-free.dev'
 
 // ─── Auth helper ──────────────────────────────────────────────────────────────
 function apiFetch(url, options = {}) {
@@ -7,7 +7,8 @@ function apiFetch(url, options = {}) {
     ...options,
     headers: {
       ...(options.headers || {}),
-      'Authorization': `Bearer ${token}`
+      'Authorization': `Bearer ${token}`,
+      'ngrok-skip-browser-warning': 'true'
     }
   })
 }
@@ -19,6 +20,7 @@ function apiJson(url, options = {}) {
     headers: {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${token}`,
+      'ngrok-skip-browser-warning': 'true',
       ...(options.headers || {})
     }
   })
@@ -105,7 +107,7 @@ export function inicializarOCs() {
     </table>
   `
 
-  fetch(`${API}/empresas`).then(r => r.json()).then(empresas => {
+  fetch(`${API}/empresas`, { headers: { 'ngrok-skip-browser-warning': 'true' } }).then(r => r.json()).then(empresas => {
     const select = document.getElementById('filtro-empresa')
     empresas.forEach(e => {
       select.innerHTML += `<option value="${e.id}">${e.sigla}</option>`
@@ -601,7 +603,7 @@ window.confirmarRecusa = async function (ocId) {
 
 // ===== ABRE FORMULÁRIO NOVA OC ================================================
 window.abrirFormularioOC = async function () {
-  const empresas = await fetch(`${API}/empresas`).then(r => r.json())
+  const empresas = await fetch(`${API}/empresas`, { headers: { 'ngrok-skip-browser-warning': 'true' } }).then(r => r.json())
   const opcoesEmpresas = empresas.map(e =>
     `<option value="${e.id}">${e.nome} (${e.sigla})</option>`
   ).join('')
@@ -793,7 +795,7 @@ window.fecharFormularioOC = function () {
 window.editarOC = async function (id) {
   const [oc, empresas] = await Promise.all([
     apiFetch(`${API}/ocs/${id}`).then(r => r.json()),
-    fetch(`${API}/empresas`).then(r => r.json()),
+    fetch(`${API}/empresas`, { headers: { 'ngrok-skip-browser-warning': 'true' } }).then(r => r.json()),
   ])
 
   const opcoesEmpresas = empresas.map(e =>
@@ -934,7 +936,7 @@ window.buscarFornecedor = async function (q) {
     return
   }
 
-  const results = await fetch(`${API}/fornecedores/buscar?q=${encodeURIComponent(q)}`).then(r => r.json())
+  const results = await fetch(`${API}/fornecedores/buscar?q=${encodeURIComponent(q)}`, { headers: { 'ngrok-skip-browser-warning': 'true' } }).then(r => r.json())
 
   if (results.length === 0) {
     div.style.display = 'none'

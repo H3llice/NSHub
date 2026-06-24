@@ -21,6 +21,7 @@ model Empresa {
   criadoEm     DateTime @default(now())
 
   ordensCompra OrdemCompra[]
+  solicitacoes SolicitacaoCompra[]
 }
 
 model Fornecedor {
@@ -61,20 +62,24 @@ model Usuario {
 
   ordensCompra OrdemCompra[]
   assinaturas  Assinatura[]
+  solicitacoes SolicitacaoCompra[]
 }
 
 // etapa: solicitante | aprovacao | autorizacao
+// Cada assinatura pertence a UMA OrdemCompra OU UMA SolicitacaoCompra (nunca as duas)
 model Assinatura {
-  id            Int         @id @default(autoincrement())
-  ordemCompra   OrdemCompra @relation(fields: [ocId], references: [id])
-  ocId          Int
-  usuario       Usuario     @relation(fields: [usuarioId], references: [id])
+  id            Int          @id @default(autoincrement())
+  ordemCompra   OrdemCompra? @relation(fields: [ocId], references: [id])
+  ocId          Int?
+  solicitacao   SolicitacaoCompra? @relation(fields: [solicitacaoId], references: [id])
+  solicitacaoId Int?
+  usuario       Usuario      @relation(fields: [usuarioId], references: [id])
   usuarioId     Int
   etapa         String
   acao          String
   motivo        String?
   assinaturaImg String?
-  criadoEm      DateTime    @default(now())
+  criadoEm      DateTime     @default(now())
 }
 
 model OrdemCompra {
@@ -104,6 +109,11 @@ model OrdemCompra {
   atualizadoEm   DateTime   @updatedAt
   canceladoEm    DateTime?
 
+  // Rastreabilidade interna — vínculo com a Solicitação que originou esta OC.
+  // Não aparece na tela/PDF da OC, é só para consulta interna.
+  geradaDeSolicitacaoId Int?                @unique
+  geradaDeSolicitacao   SolicitacaoCompra?  @relation("OcGerada", fields: [geradaDeSolicitacaoId], references: [id])
+
   itens       ItemOC[]
   anexos      Anexo[]
   assinaturas Assinatura[]
@@ -130,4 +140,71 @@ model Anexo {
   tipo         String
   mimeType     String
   criadoEm     DateTime    @default(now())
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// SOLICITAÇÃO DE COMPRA — cotação com múltiplos fornecedores concorrendo
+// ════════════════════════════════════════════════════════════════════════════
+
+model SolicitacaoCompra {
+  id          Int      @id @default(autoincrement())
+  numero      Int
+  ano         Int
+  empresa     Empresa  @relation(fields: [empresaId], references: [id])
+  empresaId   Int
+  criadoPor   Usuario? @relation(fields: [criadoPorId], references: [id])
+  criadoPorId Int?
+  dataPedido  DateTime @default(now())
+  instrucoes  String?
+  status      String   @default("aguardando_aprovacao")
+  // status: aguardando_aprovacao | aprovada | recusada | cancelada
+
+  criadoEm     DateTime  @default(now())
+  atualizadoEm DateTime  @updatedAt
+  canceladoEm  DateTime?
+
+  itens        ItemSolicitacao[]
+  fornecedores FornecedorCotado[]
+  assinaturas  Assinatura[]
+
+  // Vínculo inverso (1:1, opcional) com a OC gerada a partir desta solicitação
+  ocGerada     OrdemCompra? @relation("OcGerada")
+}
+
+model ItemSolicitacao {
+  id            Int               @id @default(autoincrement())
+  solicitacao   SolicitacaoCompra @relation(fields: [solicitacaoId], references: [id])
+  solicitacaoId Int
+  quantidade    Float
+  unidade       String?
+  descricao     String
+
+  precos        PrecoCotado[]
+}
+
+model FornecedorCotado {
+  id             Int               @id @default(autoincrement())
+  solicitacao    SolicitacaoCompra @relation(fields: [solicitacaoId], references: [id])
+  solicitacaoId  Int
+  nome           String
+  documento      String?
+  telefone       String?
+  prazoEntrega   String?
+  condicoesPagto String?
+  observacoes    String?
+  favorito       Boolean           @default(false)  // marcado pelo solicitante
+  escolhido      Boolean           @default(false)  // marcado pelo gerente na aprovação
+
+  precos         PrecoCotado[]
+}
+
+model PrecoCotado {
+  id                 Int              @id @default(autoincrement())
+  item               ItemSolicitacao  @relation(fields: [itemSolicitacaoId], references: [id])
+  itemSolicitacaoId  Int
+  fornecedor         FornecedorCotado @relation(fields: [fornecedorCotadoId], references: [id])
+  fornecedorCotadoId Int
+  valor              Float?           // null = não cotado por esse fornecedor
+
+  @@unique([itemSolicitacaoId, fornecedorCotadoId])
 }
