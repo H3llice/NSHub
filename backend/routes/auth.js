@@ -7,7 +7,10 @@ import { autenticar, exigirPerfil } from '../middleware/auth.js'
 import { enviarEmailResetSenha } from '../email.js'
 
 const router = Router()
-const JWT_SECRET = process.env.JWT_SECRET || 'nshub-secret-troque-em-producao'
+const JWT_SECRET = process.env.JWT_SECRET
+if (!JWT_SECRET) {
+  throw new Error('JWT_SECRET não definido no .env — servidor não pode iniciar sem isso.')
+}
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3000'
 
 // ─── Login ────────────────────────────────────────────────────────────────────
@@ -150,7 +153,7 @@ router.post('/esqueci-senha', async (req, res) => {
     data: { resetToken: token, resetTokenExpira: expira }
   })
 
-  const link = `${BASE_URL}/html/reset-senha.html?token=${token}`
+  const link = `${BASE_URL}/html/reset_senha.html?token=${token}`
 
   enviarEmailResetSenha(usuario, link).catch(err =>
     console.error('⚠️  Falha ao enviar email de reset:', err.message)
@@ -160,7 +163,7 @@ router.post('/esqueci-senha', async (req, res) => {
 })
 
 // ─── Validar token de reset ───────────────────────────────────────────────────
-router.get('/reset-senha/:token', async (req, res) => {
+router.get('/reset_senha/:token', async (req, res) => {
   const usuario = await prisma.usuario.findFirst({
     where: {
       resetToken: req.params.token,
@@ -177,7 +180,7 @@ router.get('/reset-senha/:token', async (req, res) => {
 })
 
 // ─── Resetar senha via token ──────────────────────────────────────────────────
-router.post('/reset-senha', async (req, res) => {
+router.post('/reset_senha', async (req, res) => {
   const { token, novaSenha } = req.body
 
   if (!token || !novaSenha) {
