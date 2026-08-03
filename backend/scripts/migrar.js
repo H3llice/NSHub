@@ -1,3 +1,4 @@
+import 'dotenv/config'
 import mammoth from 'mammoth'
 import { PrismaClient } from '@prisma/client'
 import fs from 'fs'

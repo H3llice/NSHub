@@ -11,11 +11,14 @@ const transporter = nodemailer.createTransport({
 })
 
 const FINANCEIRO = [
-  process.env.EMAIL_FINANCEIRO_1 || 'financeiro1@natalsafety.com.br',
-  process.env.EMAIL_FINANCEIRO_2 || 'financeiro2@natalsafety.com.br'
-]
+  process.env.EMAIL_FINANCEIRO
+].filter(Boolean)
 
-const GERENTES = (process.env.EMAIL_GERENTES || '').split(',').map(e => e.trim()).filter(Boolean)
+const GERENTES = [
+  process.env.EMAIL_GERENTE,
+  process.env.EMAIL_CHEFE,
+  process.env.EMAIL_USER1
+].filter(Boolean)
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function formatarOC(oc) {
