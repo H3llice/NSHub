@@ -71,7 +71,7 @@
             }
 
             try {
-                const res = await fetch(`${API}/auth/reset-senha/${token}`)
+                const res = await fetch(`${API}/auth/reset_senha/${token}`)
                 const data = await res.json()
 
                 if (!res.ok) {
@@ -112,7 +112,7 @@
             }
 
             try {
-                const res = await fetch(`${API}/auth/reset-senha`, {
+                const res = await fetch(`${API}/auth/reset_senha`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ token, novaSenha })
