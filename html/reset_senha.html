@@ -45,7 +45,7 @@
     </div>
 
     <script>
-        const API = 'http://localhost:3000'
+        const API = window.location.origin
         const token = new URLSearchParams(window.location.search).get('token')
 
         function mostrarErro(msg) {
