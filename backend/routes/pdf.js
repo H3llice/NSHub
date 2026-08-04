@@ -91,10 +91,9 @@ router.get('/:id', async (req, res) => {
           justify-content: space-between;
           align-items: center;
           margin-bottom: 16px;
-          border-bottom: 3px solid #e87722;
           padding-bottom: 8px;
         }
-        .header img { height: 100px; }
+        .header img { width: 100%; height: auto; }
         .header-text {
           text-align: right;
           font-size: 9px;
