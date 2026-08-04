@@ -73,7 +73,7 @@
   </div>
 
   <script>
-    const API = 'http://localhost:3000'
+    const API = 'https://override-steerable-professed.ngrok-free.dev'
 
     // Se já tiver token válido, vai direto pro sistema
     const token = localStorage.getItem('ns_token')
@@ -138,7 +138,7 @@
       try {
         const res = await fetch(`${API}/auth/login`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
           body: JSON.stringify({ email, senha })
         })
 
@@ -198,7 +198,8 @@
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${tokenTemporario}`
+            'Authorization': `Bearer ${tokenTemporario}`,
+            'ngrok-skip-browser-warning': 'true'
           },
           body: JSON.stringify({ senhaAtual, novaSenha })
         })
@@ -238,7 +239,7 @@
       try {
         const res = await fetch(`${API}/auth/esqueci-senha`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
           body: JSON.stringify({ email })
         })
 
