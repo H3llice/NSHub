@@ -14,15 +14,9 @@
       <p id="subtitulo">Redefinir senha</p>
     </div>
 
-<<<<<<< HEAD
     <div class="login-body">
       <div class="erro"   id="erro-reset"></div>
       <div class="sucesso" id="sucesso-reset"></div>
-=======
-    <script>
-        const API = window.location.origin
-        const token = new URLSearchParams(window.location.search).get('token')
->>>>>>> 62a4bf61ad1178e7dedfddba5a5e0ca7e2bae7ac
 
       <div id="form-reset">
         <p style="font-size:13px; color:#555; margin-bottom:16px;">Olá, <strong id="nome-usuario"></strong>. Defina sua nova senha abaixo.</p>
@@ -47,7 +41,7 @@
   </div>
 
   <script>
-    const API = 'https://override-steerable-professed.ngrok-free.dev'
+    const API = window.location.origin
     const token = new URLSearchParams(window.location.search).get('token')
 
     function mostrarErro(msg) {
@@ -73,7 +67,7 @@
       }
 
       try {
-        const res = await fetch(`${API}/auth/reset-senha/${token}`, { headers: { 'ngrok-skip-browser-warning': 'true' } })
+        const res = await fetch(`${API}/auth/reset_senha/${token}`, { headers: { 'ngrok-skip-browser-warning': 'true' } })
         const data = await res.json()
 
         if (!res.ok) {
@@ -114,7 +108,7 @@
       }
 
       try {
-        const res = await fetch(`${API}/auth/reset-senha`, {
+        const res = await fetch(`${API}/auth/reset_senha`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
           body: JSON.stringify({ token, novaSenha })
@@ -131,7 +125,6 @@
         document.getElementById('form-reset').style.display = 'none'
         document.getElementById('link-login').style.display = 'block'
 
-<<<<<<< HEAD
       } catch {
         mostrarErro('Não foi possível conectar ao servidor.')
       }
@@ -139,74 +132,6 @@
 
     validarToken()
   </script>
-=======
-            try {
-                const res = await fetch(`${API}/auth/reset_senha/${token}`)
-                const data = await res.json()
-
-                if (!res.ok) {
-                    mostrarErro(data.erro || 'Link inválido ou expirado.')
-                    document.getElementById('form-reset').style.display = 'none'
-                    document.getElementById('link-login').style.display = 'block'
-                    return
-                }
-
-                document.getElementById('nome-usuario').textContent = data.nome
-
-            } catch {
-                mostrarErro('Não foi possível conectar ao servidor.')
-                document.getElementById('form-reset').style.display = 'none'
-            }
-        }
-
-        async function resetarSenha() {
-            const novaSenha = document.getElementById('nova-senha').value
-            const confirmarSenha = document.getElementById('confirmar-senha').value
-
-            document.getElementById('erro-reset').classList.remove('show')
-            document.getElementById('sucesso-reset').classList.remove('show')
-
-            if (!novaSenha || !confirmarSenha) {
-                mostrarErro('Preencha todos os campos.')
-                return
-            }
-
-            if (novaSenha.length < 6) {
-                mostrarErro('A senha deve ter pelo menos 6 caracteres.')
-                return
-            }
-
-            if (novaSenha !== confirmarSenha) {
-                mostrarErro('As senhas não coincidem.')
-                return
-            }
-
-            try {
-                const res = await fetch(`${API}/auth/reset_senha`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ token, novaSenha })
-                })
-
-                const data = await res.json()
-
-                if (!res.ok) {
-                    mostrarErro(data.erro || 'Erro ao redefinir senha.')
-                    return
-                }
-
-                mostrarSucesso('Senha redefinida com sucesso!')
-                document.getElementById('form-reset').style.display = 'none'
-                document.getElementById('link-login').style.display = 'block'
-
-            } catch {
-                mostrarErro('Não foi possível conectar ao servidor.')
-            }
-        }
-
-        validarToken()
-    </script>
->>>>>>> 62a4bf61ad1178e7dedfddba5a5e0ca7e2bae7ac
 
 </body>
 </html>
