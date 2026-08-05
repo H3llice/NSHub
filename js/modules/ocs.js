@@ -691,7 +691,7 @@ window.adicionarItemOC = function () {
   const index = tbody.children.length
   const tr = document.createElement('tr')
   tr.innerHTML = `
-    <td><input type="number" class="form-control" id="item-qtd-${index}" min="0" step="0.01" oninput="calcularTotal(${index})"></td>
+    <td><input type="number" class="form-control" id="item-qtd-${index}" min="0" step="1" oninput="calcularTotal(${index})"></td>
     <td><input type="text" class="form-control" id="item-unid-${index}" placeholder="UN"></td>
     <td><input type="text" class="form-control" id="item-desc-${index}"></td>
     <td><input type="number" class="form-control" id="item-vuni-${index}" min="0" step="0.01" oninput="calcularTotal(${index})"></td>
@@ -1030,7 +1030,7 @@ window.atualizarOC = async function (id) {
 
   const tbody = document.getElementById('itens-oc')
   const itens = Array.from(tbody.children).map((tr, i) => ({
-    quantidade: parseFloat(document.getElementById(`item-qtd-${i}`)?.value) || 0,
+    quantidade: parseInt(document.getElementById(`item-qtd-${i}`)?.value) || 0,
     unidade: document.getElementById(`item-unid-${i}`)?.value || '',
     descricao: document.getElementById(`item-desc-${i}`)?.value || '',
     valorUni: parseFloat(document.getElementById(`item-vuni-${i}`)?.value) || 0,
