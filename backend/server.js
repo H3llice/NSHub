@@ -12,6 +12,7 @@ import anexosRouter from './routes/anexos.js'
 import pdfRouter from './routes/pdf.js'
 import authRouter from './routes/auth.js'
 import webhookRouter from './routes/webhook.js'
+import estoqueRouter from './routes/estoque.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -48,6 +49,7 @@ app.use('/uploads', express.static('uploads'))
 app.use('/pdf', pdfRouter)
 app.use('/ocs', ocsRouter)
 app.use('/solicitacoes', solicitacoesRouter)
+app.use('/estoque', estoqueRouter)
 
 app.get('/api', (req, res) => {
   res.json({ mensagem: 'API do Portal NS funcionando!' })
