@@ -208,3 +208,22 @@ model PrecoCotado {
 
   @@unique([itemSolicitacaoId, fornecedorCotadoId])
 }
+
+model Balsa {
+  id            Int      @id @default(autoincrement())
+  fabricante    String
+  numeroSerie   String   @unique
+  modelo        String
+  anoFabricacao Int
+  capacidade    Int
+  tipo          String
+  armazem       String?
+  finalidade    String
+  // finalidade: locacao | venda
+
+  status        String   @default("disponivel")
+  // status: disponivel | locado | vendido
+
+  criadoEm      DateTime @default(now())
+  atualizadoEm  DateTime @updatedAt
+}
