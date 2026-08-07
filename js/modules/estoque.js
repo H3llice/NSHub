@@ -42,6 +42,9 @@ function badgeStatus(status) {
     return `<span style="background:${s.cor}; color:white; padding:2px 8px; border-radius:12px; font-size:12px;">${s.texto}</span>`
 }
 
+// Guarda a lista completa (sem filtro) recebida do backend, por finalidade
+const balsasCache = {}
+
 // ===== RENDERIZA A PÁGINA DE ESTOQUE (locação ou venda) ======================
 // finalidade: 'locacao' | 'venda'
 export function inicializarEstoque(finalidade) {
@@ -56,16 +59,77 @@ export function inicializarEstoque(finalidade) {
     <div class="tab">${titulo}</div>
     ${podeGerenciar ? `<button class="btn btn-success" onclick="abrirFormularioBalsa('${finalidade}')">+ Nova Balsa</button>` : ''}
 
-    <div id="contador-balsas-${finalidade}" style="color:#999; font-size:12px; margin: 16px 0 8px;"></div>
+    <div style="margin: 16px 0 8px;">
+      <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-size:13px; width:fit-content;">
+        <input type="checkbox" id="toggle-todas-${finalidade}" onchange="carregarBalsasWrapper('${finalidade}')">
+        Mostrar todas (inclui locadas/vendidas)
+      </label>
+    </div>
+
+    <!-- Filtros -->
+    <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 8px; align-items:end;">
+      <div>
+        <label style="font-size:12px;">Nº Série</label>
+        <input type="text" id="filtro-numeroSerie-${finalidade}" class="form-control form-control-sm" oninput="aplicarFiltrosBalsa('${finalidade}')">
+      </div>
+      <div>
+        <label style="font-size:12px;">Fabricante</label>
+        <input type="text" id="filtro-fabricante-${finalidade}" class="form-control form-control-sm" oninput="aplicarFiltrosBalsa('${finalidade}')">
+      </div>
+      <div>
+        <label style="font-size:12px;">Modelo</label>
+        <input type="text" id="filtro-modelo-${finalidade}" class="form-control form-control-sm" oninput="aplicarFiltrosBalsa('${finalidade}')">
+      </div>
+      <div>
+        <label style="font-size:12px;">Tipo</label>
+        <input type="text" id="filtro-tipo-${finalidade}" class="form-control form-control-sm" oninput="aplicarFiltrosBalsa('${finalidade}')">
+      </div>
+      <div>
+        <label style="font-size:12px;">Armazém</label>
+        <input type="text" id="filtro-armazem-${finalidade}" class="form-control form-control-sm" oninput="aplicarFiltrosBalsa('${finalidade}')">
+      </div>
+      <div>
+        <label style="font-size:12px;">Ano mín.</label>
+        <input type="number" id="filtro-anoMin-${finalidade}" class="form-control form-control-sm" oninput="aplicarFiltrosBalsa('${finalidade}')">
+      </div>
+      <div>
+        <label style="font-size:12px;">Ano máx.</label>
+        <input type="number" id="filtro-anoMax-${finalidade}" class="form-control form-control-sm" oninput="aplicarFiltrosBalsa('${finalidade}')">
+      </div>
+      <div>
+        <label style="font-size:12px;">Capacidade mín.</label>
+        <input type="number" id="filtro-capMin-${finalidade}" class="form-control form-control-sm" oninput="aplicarFiltrosBalsa('${finalidade}')">
+      </div>
+      <div>
+        <label style="font-size:12px;">Capacidade máx.</label>
+        <input type="number" id="filtro-capMax-${finalidade}" class="form-control form-control-sm" oninput="aplicarFiltrosBalsa('${finalidade}')">
+      </div>
+      <div>
+        <label style="font-size:12px;">Ordenar por</label>
+        <select id="ordenar-por-${finalidade}" class="form-control form-control-sm" onchange="aplicarFiltrosBalsa('${finalidade}')">
+          <option value="capacidade-asc">Capacidade (menor → maior)</option>
+          <option value="capacidade-desc">Capacidade (maior → menor)</option>
+          <option value="fabricante-asc">Fabricante (A → Z)</option>
+          <option value="fabricante-desc">Fabricante (Z → A)</option>
+          <option value="ano-asc">Ano (mais antigo → recente)</option>
+          <option value="ano-desc">Ano (mais recente → antigo)</option>
+        </select>
+      </div>
+      <div>
+        <button class="btn btn-sm btn-outline-secondary" onclick="limparFiltrosBalsa('${finalidade}')">Limpar filtros</button>
+      </div>
+    </div>
+
+    <div id="contador-balsas-${finalidade}" style="color:#999; font-size:12px; margin-bottom: 8px;"></div>
 
     <table class="table-certificados">
       <thead>
         <tr>
-          <th>Nº Série</th>
+          <th>Capacidade</th>
           <th>Fabricante</th>
+          <th>Nº Série</th>
           <th>Modelo</th>
           <th>Ano</th>
-          <th>Capacidade</th>
           <th>Tipo</th>
           <th>Armazém</th>
           <th>Status</th>
@@ -83,19 +147,97 @@ export function inicializarEstoque(finalidade) {
 
 // ===== CARREGA BALSAS DO BACKEND ==============================================
 async function carregarBalsas(finalidade) {
-    try {
-        const res = await apiFetch(`${API}/estoque?finalidade=${finalidade}`)
-        const balsas = await res.json()
-        renderizarTabela(finalidade, balsas)
+    const mostrarTodas = document.getElementById(`toggle-todas-${finalidade}`)?.checked
 
-        const contador = document.getElementById(`contador-balsas-${finalidade}`)
-        if (contador) {
-            contador.textContent = `${balsas.length} balsa(s) disponível(is)`
-        }
+    try {
+        const params = new URLSearchParams({ finalidade })
+        if (mostrarTodas) params.append('todas', '1')
+
+        const res = await apiFetch(`${API}/estoque?${params}`)
+        const balsas = await res.json()
+        balsasCache[finalidade] = balsas
+
+        aplicarFiltros(finalidade, mostrarTodas)
     } catch (err) {
         document.getElementById(`tabela-balsas-${finalidade}`).innerHTML = `
       <tr><td colspan="9" style="text-align:center; color:red; padding:30px;">Erro ao conectar com o servidor</td></tr>
     `
+    }
+}
+
+// Wrapper acessível globalmente (usado pelo onchange do checkbox)
+window.carregarBalsasWrapper = function (finalidade) {
+    carregarBalsas(finalidade)
+}
+
+// ===== APLICA FILTROS + ORDENAÇÃO (client-side, sobre o cache) ===============
+window.aplicarFiltrosBalsa = function (finalidade) {
+    const mostrarTodas = document.getElementById(`toggle-todas-${finalidade}`)?.checked
+    aplicarFiltros(finalidade, mostrarTodas)
+}
+
+window.limparFiltrosBalsa = function (finalidade) {
+    ['numeroSerie', 'fabricante', 'modelo', 'tipo', 'armazem', 'anoMin', 'anoMax', 'capMin', 'capMax'].forEach(campo => {
+        const el = document.getElementById(`filtro-${campo}-${finalidade}`)
+        if (el) el.value = ''
+    })
+    const ordenar = document.getElementById(`ordenar-por-${finalidade}`)
+    if (ordenar) ordenar.value = 'capacidade-asc'
+    aplicarFiltrosBalsa(finalidade)
+}
+
+function aplicarFiltros(finalidade, mostrarTodas) {
+    let balsas = [...(balsasCache[finalidade] || [])]
+
+    const texto = campo => (document.getElementById(`filtro-${campo}-${finalidade}`)?.value || '').trim().toLowerCase()
+    const numero = campo => {
+        const v = document.getElementById(`filtro-${campo}-${finalidade}`)?.value
+        return v ? Number(v) : null
+    }
+
+    const fNumeroSerie = texto('numeroSerie')
+    const fFabricante = texto('fabricante')
+    const fModelo = texto('modelo')
+    const fTipo = texto('tipo')
+    const fArmazem = texto('armazem')
+    const anoMin = numero('anoMin')
+    const anoMax = numero('anoMax')
+    const capMin = numero('capMin')
+    const capMax = numero('capMax')
+
+    if (fNumeroSerie) balsas = balsas.filter(b => b.numeroSerie.toLowerCase().includes(fNumeroSerie))
+    if (fFabricante) balsas = balsas.filter(b => b.fabricante.toLowerCase().includes(fFabricante))
+    if (fModelo) balsas = balsas.filter(b => b.modelo.toLowerCase().includes(fModelo))
+    if (fTipo) balsas = balsas.filter(b => b.tipo.toLowerCase().includes(fTipo))
+    if (fArmazem) balsas = balsas.filter(b => (b.armazem || '').toLowerCase().includes(fArmazem))
+    if (anoMin !== null) balsas = balsas.filter(b => b.anoFabricacao >= anoMin)
+    if (anoMax !== null) balsas = balsas.filter(b => b.anoFabricacao <= anoMax)
+    if (capMin !== null) balsas = balsas.filter(b => b.capacidade >= capMin)
+    if (capMax !== null) balsas = balsas.filter(b => b.capacidade <= capMax)
+
+    const ordenarPor = document.getElementById(`ordenar-por-${finalidade}`)?.value || 'capacidade-asc'
+    const [campoOrdem, direcao] = ordenarPor.split('-')
+
+    balsas.sort((a, b) => {
+        let valA = a[campoOrdem === 'ano' ? 'anoFabricacao' : campoOrdem]
+        let valB = b[campoOrdem === 'ano' ? 'anoFabricacao' : campoOrdem]
+        if (typeof valA === 'string') {
+            valA = valA.toLowerCase()
+            valB = valB.toLowerCase()
+        }
+        if (valA < valB) return direcao === 'asc' ? -1 : 1
+        if (valA > valB) return direcao === 'asc' ? 1 : -1
+        return 0
+    })
+
+    renderizarTabela(finalidade, balsas)
+
+    const contador = document.getElementById(`contador-balsas-${finalidade}`)
+    if (contador) {
+        const totalCache = (balsasCache[finalidade] || []).length
+        contador.textContent = balsas.length === totalCache
+            ? `${balsas.length} balsa(s) ${mostrarTodas ? 'no total' : 'disponível(is)'}`
+            : `${balsas.length} de ${totalCache} balsa(s) (filtro aplicado)`
     }
 }
 
@@ -105,17 +247,17 @@ function renderizarTabela(finalidade, balsas) {
     const colspan = podeGerenciar ? 9 : 8
 
     if (balsas.length === 0) {
-        tabela.innerHTML = `<tr><td colspan="${colspan}" style="text-align:center; color:#999; padding:30px;">Nenhuma balsa disponível no momento</td></tr>`
+        tabela.innerHTML = `<tr><td colspan="${colspan}" style="text-align:center; color:#999; padding:30px;">Nenhuma balsa encontrada</td></tr>`
         return
     }
 
     tabela.innerHTML = balsas.map(b => `
     <tr>
-      <td>${b.numeroSerie}</td>
+      <td><strong>${b.capacidade}</strong></td>
       <td>${b.fabricante}</td>
+      <td>${b.numeroSerie}</td>
       <td>${b.modelo}</td>
       <td>${b.anoFabricacao}</td>
-      <td>${b.capacidade}</td>
       <td>${b.tipo}</td>
       <td>${b.armazem || '-'}</td>
       <td>${badgeStatus(b.status)}</td>
@@ -152,7 +294,7 @@ window.marcarStatusBalsa = async function (id, status, finalidade) {
     })
 
     if (res.ok) {
-        carregarBalsas(finalidade)
+        aplicarFiltrosBalsa(finalidade)
     } else {
         const err = await res.json()
         alert('Erro: ' + (err.erro || 'Falha ao atualizar status'))
@@ -174,7 +316,7 @@ window.abrirFormularioBalsa = function (finalidade) {
         <div><label>Modelo *</label><input type="text" id="balsa-modelo" class="form-control"></div>
         <div><label>Ano de Fabricação *</label><input type="number" id="balsa-anoFabricacao" class="form-control"></div>
         <div><label>Capacidade *</label><input type="number" id="balsa-capacidade" class="form-control"></div>
-        <div><label>Tipo *</label><input type="text" id="balsa-tipo" class="form-control"></div>
+        <div><label>Tipo *</label><input type="text" id="balsa-tipo" class="form-control" placeholder="Ex: balsa, baleeira..."></div>
         <div><label>Armazém</label><input type="text" id="balsa-armazem" class="form-control"></div>
       </div>
 
