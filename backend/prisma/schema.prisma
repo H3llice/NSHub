@@ -108,6 +108,7 @@ model OrdemCompra {
   criadoEm       DateTime   @default(now())
   atualizadoEm   DateTime   @updatedAt
   canceladoEm    DateTime?
+  valorTotal Float?
 
   // Rastreabilidade interna — vínculo com a Solicitação que originou esta OC.
   // Não aparece na tela/PDF da OC, é só para consulta interna.

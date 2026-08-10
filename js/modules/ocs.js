@@ -223,9 +223,10 @@ function botoesParaPerfil(oc, numero) {
   const btns = []
   const s = oc.status
 
-  const editavel = ['aberta', 'aguardando_aprovacao', 'recusada'].includes(s)
+  const editavel = ['aberta', 'aguardando_aprovacao', 'recusada', 'aprovada'].includes(s)
   if (editavel) {
-    btns.push(`<button class="btn btn-sm btn-info" onclick="editarOC(${oc.id})">Editar</button>`)
+    const label = s === 'aprovada' ? '📎 Anexar' : 'Editar'
+    btns.push(`<button class="btn btn-sm btn-info" onclick="editarOC(${oc.id})">${label}</button>`)
   }
 
   btns.push(`<a class="btn btn-sm btn-secondary" href="${API}/pdf/${oc.id}" target="_blank">PDF</a>`)
@@ -299,8 +300,9 @@ window.verOC = async function (id) {
 
   const botoesVer = []
   const s = oc.status
-  if (['aberta', 'aguardando_aprovacao', 'recusada'].includes(s)) {
-    botoesVer.push(`<button class="btn btn-info" onclick="editarOC(${oc.id})">✏️ Editar</button>`)
+  if (['aberta', 'aguardando_aprovacao', 'recusada', 'aprovada'].includes(s)) {
+    const label = s === 'aprovada' ? '📎 Adicionar Anexo' : '✏️ Editar'
+    botoesVer.push(`<button class="btn btn-info" onclick="editarOC(${oc.id})">${label}</button>`)
   }
   botoesVer.push(`<a class="btn btn-secondary" href="${API}/pdf/${oc.id}" target="_blank">📄 PDF</a>`)
   if ((perfil === 'gerente' || perfil === 'admin') && s === 'aguardando_aprovacao') {
@@ -811,7 +813,7 @@ window.editarOC = async function (id) {
     ? oc.anexos.map(a => `
         <li style="padding: 6px 0; border-bottom: 1px solid #eee; display:flex; justify-content:space-between;">
           <span>📎 ${a.nomeOriginal} <small style="color:#999">(${a.tipo})</small></span>
-          <button class="btn btn-sm btn-danger" onclick="deletarAnexo(${a.id}, this)">✕</button>
+          ${podeRemoverAnexo ? `<button class="btn btn-sm btn-danger" onclick="deletarAnexo(${a.id}, this)">✕</button>` : ''}
         </li>
       `).join('')
     : '<li style="color:#999; padding: 6px 0;">Nenhum anexo</li>'
@@ -834,6 +836,9 @@ window.editarOC = async function (id) {
     : ''
 
   const somenteLeitura = ['aprovada', 'aguardando_autorizacao'].includes(oc.status)
+  const podeAdicionarAnexo = ['aberta', 'aguardando_aprovacao', 'recusada', 'aprovada'].includes(oc.status)
+  const podeRemoverAnexo = ['aberta', 'aguardando_aprovacao', 'recusada'].includes(oc.status)
+  const apenasAnexo = oc.status === 'aprovada'
 
   document.getElementById('ocs').innerHTML = `
     <div id="formulario-oc" style="margin-top: 20px;">
@@ -844,7 +849,9 @@ window.editarOC = async function (id) {
       </h3>
 
       ${somenteLeitura ? `<div style="background:#fff3cd; border:1px solid #ffc107; padding:10px 14px; border-radius:4px; margin-bottom:16px; font-size:13px;">
-        ⚠️ Esta OC está em processo de aprovação e não pode ser editada.
+        ${apenasAnexo
+      ? '⚠️ Esta OC já está aprovada. Os dados não podem mais ser alterados — apenas novos anexos podem ser adicionados.'
+      : '⚠️ Esta OC está em processo de aprovação e não pode ser editada.'}
       </div>` : ''}
 
       <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 16px;">
@@ -906,7 +913,7 @@ window.editarOC = async function (id) {
       <div style="margin-top: 20px;">
         <h5>Anexos</h5>
         <ul id="lista-anexos-salvos" style="padding: 0; list-style: none; margin-bottom: 12px;">${anexosHtml}</ul>
-        ${somenteLeitura ? '' : `
+        ${podeAdicionarAnexo ? `
           <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
             <div>
               <label>Tipo</label>
@@ -923,12 +930,16 @@ window.editarOC = async function (id) {
             </div>
           </div>
           <ul id="lista-anexos-pendentes" style="margin-top: 12px; padding: 0; list-style: none;"></ul>
-        `}
+        ` : ''}
       </div>
 
       ${assinaturasHtml}
 
-      ${somenteLeitura ? '' : `<button type="button" class="btn btn-success" style="margin-top: 20px;" onclick="atualizarOC(${oc.id})">Salvar Alterações</button>`}
+      ${apenasAnexo
+      ? `<button type="button" class="btn btn-success" style="margin-top: 20px;" onclick="salvarApenasAnexos(${oc.id})">Salvar Anexos</button>`
+      : somenteLeitura
+        ? ''
+        : `<button type="button" class="btn btn-success" style="margin-top: 20px;" onclick="atualizarOC(${oc.id})">Salvar Alterações</button>`}
     </div>
   `
 }
@@ -1010,6 +1021,36 @@ window.adicionarAnexoPendente = function (event) {
 window.removerAnexoPendente = function (index, btn) {
   anexosPendentes[index] = null
   btn.closest('li').remove()
+}
+
+window.salvarApenasAnexos = async function (id) {
+  const pendentes = anexosPendentes.filter(a => a !== null)
+  if (pendentes.length === 0) {
+    alert('Nenhum anexo novo para enviar.')
+    return
+  }
+
+  try {
+    const uploads = pendentes.map(a => {
+      const formData = new FormData()
+      formData.append('arquivo', a.arquivo)
+      formData.append('tipo', a.tipo)
+      return apiFetch(`${API}/anexos/${id}`, { method: 'POST', body: formData })
+    })
+    const respostas = await Promise.all(uploads)
+
+    const falhou = respostas.some(r => !r.ok)
+    if (falhou) {
+      alert('Alguns anexos podem não ter sido enviados. Verifique a lista após recarregar.')
+    } else {
+      alert('Anexo(s) adicionado(s) com sucesso!')
+    }
+
+    anexosPendentes = []
+    editarOC(id)
+  } catch (err) {
+    alert('Erro ao enviar anexos: ' + err.message)
+  }
 }
 
 window.atualizarOC = async function (id) {

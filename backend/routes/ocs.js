@@ -261,13 +261,19 @@ router.post('/:id/autorizar', autenticar, exigirPerfil('financeiro', 'admin'), a
 
   const oc = await prisma.ordemCompra.findUnique({
     where: { id },
-    include: { fornecedor: true, empresa: true }
+    include: { fornecedor: true, empresa: true, itens: true }
   })
 
   if (!oc) return res.status(404).json({ erro: 'OC não encontrada' })
   if (oc.status !== 'aguardando_autorizacao') {
     return res.status(400).json({ erro: `OC não está aguardando autorização (status atual: ${oc.status})` })
   }
+
+  // Congela o valor total da OC no momento da aprovação final, para uso em estatísticas
+  const valorTotal = oc.itens.reduce((acc, item) => {
+    const sub = (item.quantidade || 0) * (item.valorUni || 0)
+    return acc + sub + sub * ((item.ipi || 0) / 100)
+  }, 0)
 
   await prisma.$transaction([
     prisma.assinatura.create({
@@ -281,7 +287,7 @@ router.post('/:id/autorizar', autenticar, exigirPerfil('financeiro', 'admin'), a
     }),
     prisma.ordemCompra.update({
       where: { id },
-      data: { status: 'aprovada' }
+      data: { status: 'aprovada', valorTotal }
     })
   ])
 

@@ -2,8 +2,14 @@ import { Router } from 'express'
 import multer from 'multer'
 import path from 'path'
 import { prisma } from '../server.js'
+import { autenticar } from '../middleware/auth.js'
 
 const router = Router()
+
+// Status em que a OC pode ter anexos adicionados
+const STATUS_PERMITE_ADICIONAR = ['aberta', 'aguardando_aprovacao', 'recusada', 'aprovada']
+// Status em que a OC pode ter anexos removidos (mais restrito — não inclui 'aprovada')
+const STATUS_PERMITE_REMOVER = ['aberta', 'aguardando_aprovacao', 'recusada']
 
 // Configuração do multer — onde e como salvar os arquivos
 const storage = multer.diskStorage({
@@ -19,11 +25,18 @@ const storage = multer.diskStorage({
 const upload = multer({ storage })
 
 // Upload de anexo para uma OC
-router.post('/:ocId', upload.single('arquivo'), async (req, res) => {
+router.post('/:ocId', autenticar, upload.single('arquivo'), async (req, res) => {
   const { ocId } = req.params
   const { tipo } = req.body
 
   if (!req.file) return res.status(400).json({ erro: 'Nenhum arquivo enviado' })
+
+  const oc = await prisma.ordemCompra.findUnique({ where: { id: parseInt(ocId) } })
+  if (!oc) return res.status(404).json({ erro: 'OC não encontrada' })
+
+  if (!STATUS_PERMITE_ADICIONAR.includes(oc.status)) {
+    return res.status(400).json({ erro: `Não é possível adicionar anexos a uma OC com status "${oc.status}"` })
+  }
 
   const anexo = await prisma.anexo.create({
     data: {
@@ -39,7 +52,7 @@ router.post('/:ocId', upload.single('arquivo'), async (req, res) => {
 })
 
 // Listar anexos de uma OC
-router.get('/:ocId', async (req, res) => {
+router.get('/:ocId', autenticar, async (req, res) => {
   const anexos = await prisma.anexo.findMany({
     where: { ocId: parseInt(req.params.ocId) }
   })
@@ -47,7 +60,17 @@ router.get('/:ocId', async (req, res) => {
 })
 
 // Deletar anexo
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', autenticar, async (req, res) => {
+  const anexo = await prisma.anexo.findUnique({ where: { id: parseInt(req.params.id) } })
+  if (!anexo) return res.status(404).json({ erro: 'Anexo não encontrado' })
+
+  const oc = await prisma.ordemCompra.findUnique({ where: { id: anexo.ocId } })
+  if (!oc) return res.status(404).json({ erro: 'OC não encontrada' })
+
+  if (!STATUS_PERMITE_REMOVER.includes(oc.status)) {
+    return res.status(400).json({ erro: `Não é possível remover anexos de uma OC com status "${oc.status}"` })
+  }
+
   await prisma.anexo.delete({ where: { id: parseInt(req.params.id) } })
   res.json({ ok: true })
 })
