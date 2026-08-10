@@ -1,5 +1,6 @@
 import { inicializarOCs } from './modules/ocs.js'
 import { inicializarEstoque } from './modules/estoque.js'
+import { inicializarClientes, inicializarContratos } from './modules/contratos.js'
 
 
 let favoritos = JSON.parse(localStorage.getItem('favoritos')) || [];
@@ -72,6 +73,13 @@ window.abrirPagina = function (event, id) {
 
     if (id === 'estoqueVendas') {
         inicializarEstoque('venda')
+    }
+    if (id === 'pessoas') {
+        inicializarClientes()
+    }
+
+    if (id === 'contratos') {
+        inicializarContratos()
     }
 }
 
