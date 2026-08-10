@@ -63,6 +63,8 @@ model Usuario {
   ordensCompra OrdemCompra[]
   assinaturas  Assinatura[]
   solicitacoes SolicitacaoCompra[]
+
+  contratos Contrato[]
 }
 
 // etapa: solicitante | aprovacao | autorizacao
@@ -227,4 +229,59 @@ model Balsa {
 
   criadoEm      DateTime @default(now())
   atualizadoEm  DateTime @updatedAt
+
+  contratosBalsa ContratoBalsa[]
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// CONTRATOS DE LOCAÇÃO
+// ════════════════════════════════════════════════════════════════════════════
+
+model Cliente {
+  id         Int      @id @default(autoincrement())
+  tipoPessoa String
+  // tipoPessoa: fisica | juridica
+
+  cpfCnpj    String   @unique
+  nome       String   // nome ou razão social
+  telefone   String?
+  email      String?
+  endereco   String?
+  cidade     String?
+  criadoEm   DateTime @default(now())
+
+  contratos  Contrato[]
+}
+
+model Contrato {
+  id             Int       @id @default(autoincrement())
+  numero         Int
+  ano            Int
+  cliente        Cliente   @relation(fields: [clienteId], references: [id])
+  clienteId      Int
+  dataInicio     DateTime
+  dataFim        DateTime?
+  valor          Float?
+  formaPagamento String?
+  condicoesPagto String?
+  observacoes    String?
+  status         String    @default("ativo")
+  // status: ativo | encerrado | cancelado
+
+  criadoPor      Usuario?  @relation(fields: [criadoPorId], references: [id])
+  criadoPorId    Int?
+  criadoEm       DateTime  @default(now())
+  atualizadoEm   DateTime  @updatedAt
+
+  balsas         ContratoBalsa[]
+}
+
+model ContratoBalsa {
+  id         Int      @id @default(autoincrement())
+  contrato   Contrato @relation(fields: [contratoId], references: [id])
+  contratoId Int
+  balsa      Balsa    @relation(fields: [balsaId], references: [id])
+  balsaId    Int
+
+  @@unique([contratoId, balsaId])
 }
