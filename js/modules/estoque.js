@@ -262,14 +262,14 @@ function renderizarTabela(finalidade, balsas) {
         <td style="white-space:nowrap;">
           <button class="btn btn-sm btn-info" onclick="editarBalsa(${b.id}, '${finalidade}')">Editar</button>
           ${b.status === 'disponivel' && finalidade === 'locacao'
-      ? `<button class="btn btn-sm btn-warning" onclick="marcarStatusBalsa(${b.id}, 'locado', '${finalidade}')">Marcar locado</button>`
-      : ''}
+        ? `<button class="btn btn-sm btn-warning" onclick="marcarStatusBalsa(${b.id}, 'locado', '${finalidade}')">Marcar locado</button>`
+        : ''}
           ${b.status === 'disponivel'
-      ? `<button class="btn btn-sm btn-secondary" onclick="marcarStatusBalsa(${b.id}, 'vendido', '${finalidade}')">Marcar vendido</button>`
-      : ''}
+        ? `<button class="btn btn-sm btn-secondary" onclick="marcarStatusBalsa(${b.id}, 'vendido', '${finalidade}')">Marcar vendido</button>`
+        : ''}
           ${b.status !== 'disponivel'
-      ? `<button class="btn btn-sm btn-success" onclick="marcarStatusBalsa(${b.id}, 'disponivel', '${finalidade}')">Reativar</button>`
-      : ''}
+        ? `<button class="btn btn-sm btn-success" onclick="marcarStatusBalsa(${b.id}, 'disponivel', '${finalidade}')">Reativar</button>`
+        : ''}
         </td>
       ` : ''}
     </tr>
@@ -291,7 +291,7 @@ window.marcarStatusBalsa = async function (id, status, finalidade) {
   })
 
   if (res.ok) {
-    aplicarFiltrosBalsa(finalidade)
+    carregarBalsas(finalidade)
   } else {
     const err = await res.json()
     alert('Erro: ' + (err.erro || 'Falha ao atualizar status'))
