@@ -1,9 +1,20 @@
 const API = 'https://override-steerable-professed.ngrok-free.dev'
 
 // ─── Auth helper ──────────────────────────────────────────────────────────────
-function apiFetch(url, options = {}) {
+function tratarSessaoExpirada(res) {
+  if (res.status === 401) {
+    localStorage.removeItem('ns_token')
+    localStorage.removeItem('ns_usuario')
+    alert('Sua sessão expirou. Faça login novamente.')
+    window.location.href = './login.html'
+    throw new Error('Sessão expirada')
+  }
+  return res
+}
+
+async function apiFetch(url, options = {}) {
   const token = localStorage.getItem('ns_token')
-  return fetch(url, {
+  const res = await fetch(url, {
     ...options,
     headers: {
       ...(options.headers || {}),
@@ -11,11 +22,12 @@ function apiFetch(url, options = {}) {
       'ngrok-skip-browser-warning': 'true'
     }
   })
+  return tratarSessaoExpirada(res)
 }
 
-function apiJson(url, options = {}) {
+async function apiJson(url, options = {}) {
   const token = localStorage.getItem('ns_token')
-  return fetch(url, {
+  const res = await fetch(url, {
     ...options,
     headers: {
       'Content-Type': 'application/json',
@@ -24,6 +36,7 @@ function apiJson(url, options = {}) {
       ...(options.headers || {})
     }
   })
+  return tratarSessaoExpirada(res)
 }
 
 const usuarioAtual = JSON.parse(localStorage.getItem('ns_usuario') || 'null')
@@ -250,10 +263,8 @@ window.verOC = async function (id) {
     const recusada = assinatura?.acao === 'recusada'
     const cor = recusada ? '#dc3545' : '#158815'
 
-    // Solicitante: qualquer usuário logado pode assinar se ainda não foi assinado
     const podeAssinarSolicitante = acao === 'solicitante' && !assinatura
 
-    // Gerente/financeiro: só quando for a vez deles
     const podeAssinarFluxo = acao && acao !== 'solicitante' && !assinatura && (
       (acao === 'aprovar' && (perfil === 'gerente' || perfil === 'admin') && oc.status === 'aguardando_aprovacao') ||
       (acao === 'autorizar' && (perfil === 'financeiro' || perfil === 'admin') && oc.status === 'aguardando_autorizacao')
@@ -286,7 +297,6 @@ window.verOC = async function (id) {
     `
   }
 
-  // Botões de ação dentro da visualização
   const botoesVer = []
   const s = oc.status
   if (['aberta', 'aguardando_aprovacao', 'recusada'].includes(s)) {
@@ -509,7 +519,6 @@ window.confirmarAssinatura = async function (ocId, acao) {
   const canvas = document.getElementById('canvas-assinatura')
   const assinaturaImg = canvas ? canvas.toDataURL('image/png') : null
 
-  // Mapeia ação para rota do backend
   const rotas = {
     solicitante: 'assinar-solicitante',
     aprovar: 'aprovar',
@@ -532,7 +541,6 @@ window.confirmarAssinatura = async function (ocId, acao) {
     }
     alert(msgs[acao] || 'Ação realizada com sucesso!')
 
-    // Se estiver na visualização, recarrega ela; senão recarrega a tabela
     if (document.getElementById('tabela-ocs')) {
       carregarOCs(paginaAtual)
     } else {
@@ -738,7 +746,6 @@ window.salvarOC = async function () {
 
   const body = {
     empresaId, fornecedorId, vendedorId: null,
-    // Campos do fornecedor — se já existia, o backend atualiza os dados dele
     fornecedorNome: document.getElementById('oc-fornecedor-nome').value.trim(),
     fornecedorDocumento: document.getElementById('oc-fornecedor-doc').value,
     fornecedorEndereco: document.getElementById('oc-fornecedor-end').value,
@@ -765,7 +772,6 @@ window.salvarOC = async function () {
   if (res.ok) {
     const oc = await res.json()
 
-    // Faz upload dos anexos pendentes
     try {
       const uploads = anexosPendentes.filter(a => a !== null).map(a => {
         const formData = new FormData()
@@ -779,7 +785,6 @@ window.salvarOC = async function () {
       console.error('Erro no upload dos anexos:', err)
     }
 
-    // Abre modal de assinatura do solicitante automaticamente
     abrirModalAssinatura(oc.id, 'solicitante')
 
   } else {
@@ -1040,7 +1045,6 @@ window.atualizarOC = async function (id) {
 
   const body = {
     empresaId, fornecedorId, vendedorId: null,
-    // Campos do fornecedor — se já existia, o backend atualiza os dados dele
     fornecedorNome: document.getElementById('oc-fornecedor-nome').value.trim(),
     fornecedorDocumento: document.getElementById('oc-fornecedor-doc').value,
     fornecedorEndereco: document.getElementById('oc-fornecedor-end').value,

@@ -1,29 +1,42 @@
 const API = 'https://override-steerable-professed.ngrok-free.dev'
 
 // ─── Auth helper (mesmo padrão do ocs.js) ─────────────────────────────────────
-function apiFetch(url, options = {}) {
-    const token = localStorage.getItem('ns_token')
-    return fetch(url, {
-        ...options,
-        headers: {
-            ...(options.headers || {}),
-            'Authorization': `Bearer ${token}`,
-            'ngrok-skip-browser-warning': 'true'
-        }
-    })
+function tratarSessaoExpirada(res) {
+  if (res.status === 401) {
+    localStorage.removeItem('ns_token')
+    localStorage.removeItem('ns_usuario')
+    alert('Sua sessão expirou. Faça login novamente.')
+    window.location.href = './login.html'
+    throw new Error('Sessão expirada')
+  }
+  return res
 }
 
-function apiJson(url, options = {}) {
-    const token = localStorage.getItem('ns_token')
-    return fetch(url, {
-        ...options,
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
-            'ngrok-skip-browser-warning': 'true',
-            ...(options.headers || {})
-        }
-    })
+async function apiFetch(url, options = {}) {
+  const token = localStorage.getItem('ns_token')
+  const res = await fetch(url, {
+    ...options,
+    headers: {
+      ...(options.headers || {}),
+      'Authorization': `Bearer ${token}`,
+      'ngrok-skip-browser-warning': 'true'
+    }
+  })
+  return tratarSessaoExpirada(res)
+}
+
+async function apiJson(url, options = {}) {
+  const token = localStorage.getItem('ns_token')
+  const res = await fetch(url, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+      'ngrok-skip-browser-warning': 'true',
+      ...(options.headers || {})
+    }
+  })
+  return tratarSessaoExpirada(res)
 }
 
 const usuarioAtual = JSON.parse(localStorage.getItem('ns_usuario') || 'null')
@@ -32,14 +45,14 @@ const podeGerenciar = perfil === 'admin' || perfil === 'gerente'
 
 // ─── Labels de status ─────────────────────────────────────────────────────────
 const STATUS_LABEL = {
-    disponivel: { texto: 'Disponível', cor: '#198754' },
-    locado: { texto: 'Locado', cor: '#0d6efd' },
-    vendido: { texto: 'Vendido', cor: '#6c757d' },
+  disponivel: { texto: 'Disponível', cor: '#198754' },
+  locado: { texto: 'Locado', cor: '#0d6efd' },
+  vendido: { texto: 'Vendido', cor: '#6c757d' },
 }
 
 function badgeStatus(status) {
-    const s = STATUS_LABEL[status] || { texto: status, cor: '#6c757d' }
-    return `<span style="background:${s.cor}; color:white; padding:2px 8px; border-radius:12px; font-size:12px;">${s.texto}</span>`
+  const s = STATUS_LABEL[status] || { texto: status, cor: '#6c757d' }
+  return `<span style="background:${s.cor}; color:white; padding:2px 8px; border-radius:12px; font-size:12px;">${s.texto}</span>`
 }
 
 // Guarda a lista completa (sem filtro) recebida do backend, por finalidade
@@ -48,14 +61,14 @@ const balsasCache = {}
 // ===== RENDERIZA A PÁGINA DE ESTOQUE (locação ou venda) ======================
 // finalidade: 'locacao' | 'venda'
 export function inicializarEstoque(finalidade) {
-    const containerId = finalidade === 'locacao' ? 'estoqueLocacao' : 'estoqueVendas'
-    const titulo = finalidade === 'locacao' ? 'Estoque de Locação' : 'Estoque de Vendas'
+  const containerId = finalidade === 'locacao' ? 'estoqueLocacao' : 'estoqueVendas'
+  const titulo = finalidade === 'locacao' ? 'Estoque de Locação' : 'Estoque de Vendas'
 
-    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'))
-    document.getElementById(containerId).classList.add('active')
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'))
+  document.getElementById(containerId).classList.add('active')
 
-    const container = document.getElementById(containerId)
-    container.innerHTML = `
+  const container = document.getElementById(containerId)
+  container.innerHTML = `
     <div class="tab">${titulo}</div>
     ${podeGerenciar ? `<button class="btn btn-success" onclick="abrirFormularioBalsa('${finalidade}')">+ Nova Balsa</button>` : ''}
 
@@ -127,7 +140,7 @@ export function inicializarEstoque(finalidade) {
     </table>
   `
 
-    carregarBalsas(finalidade)
+  carregarBalsas(finalidade)
 }
 
 // Ordenação fixa: sempre por capacidade, menor para maior
@@ -138,104 +151,104 @@ const CAMPOS_FILTRO = ['numeroSerie', 'fabricante', 'modelo', 'tipo', 'armazem',
 
 // ===== CARREGA BALSAS DO BACKEND ==============================================
 async function carregarBalsas(finalidade) {
-    const mostrarTodas = document.getElementById(`toggle-todas-${finalidade}`)?.checked
+  const mostrarTodas = document.getElementById(`toggle-todas-${finalidade}`)?.checked
 
-    try {
-        const params = new URLSearchParams({ finalidade })
-        if (mostrarTodas) params.append('todas', '1')
+  try {
+    const params = new URLSearchParams({ finalidade })
+    if (mostrarTodas) params.append('todas', '1')
 
-        const res = await apiFetch(`${API}/estoque?${params}`)
-        const balsas = await res.json()
-        balsasCache[finalidade] = balsas
+    const res = await apiFetch(`${API}/estoque?${params}`)
+    const balsas = await res.json()
+    balsasCache[finalidade] = balsas
 
-        aplicarFiltros(finalidade, mostrarTodas)
-    } catch (err) {
-        document.getElementById(`tabela-balsas-${finalidade}`).innerHTML = `
+    aplicarFiltros(finalidade, mostrarTodas)
+  } catch (err) {
+    document.getElementById(`tabela-balsas-${finalidade}`).innerHTML = `
       <tr><td colspan="9" style="text-align:center; color:red; padding:30px;">Erro ao conectar com o servidor</td></tr>
     `
-    }
+  }
 }
 
 // Wrapper acessível globalmente (usado pelo onchange do checkbox)
 window.carregarBalsasWrapper = function (finalidade) {
-    carregarBalsas(finalidade)
+  carregarBalsas(finalidade)
 }
 
 // ===== APLICA FILTROS + ORDENAÇÃO (client-side, sobre o cache) ===============
 window.aplicarFiltrosBalsa = function (finalidade) {
-    const mostrarTodas = document.getElementById(`toggle-todas-${finalidade}`)?.checked
-    aplicarFiltros(finalidade, mostrarTodas)
+  const mostrarTodas = document.getElementById(`toggle-todas-${finalidade}`)?.checked
+  aplicarFiltros(finalidade, mostrarTodas)
 }
 
 window.limparFiltrosBalsa = function (finalidade) {
-    CAMPOS_FILTRO.forEach(campo => {
-        const el = document.getElementById(`filtro-${campo}-${finalidade}`)
-        if (el) el.value = ''
-    })
-    aplicarFiltrosBalsa(finalidade)
+  CAMPOS_FILTRO.forEach(campo => {
+    const el = document.getElementById(`filtro-${campo}-${finalidade}`)
+    if (el) el.value = ''
+  })
+  aplicarFiltrosBalsa(finalidade)
 }
 
 function aplicarFiltros(finalidade, mostrarTodas) {
-    let balsas = [...(balsasCache[finalidade] || [])]
+  let balsas = [...(balsasCache[finalidade] || [])]
 
-    const texto = campo => (document.getElementById(`filtro-${campo}-${finalidade}`)?.value || '').trim().toLowerCase()
-    const numero = campo => {
-        const v = document.getElementById(`filtro-${campo}-${finalidade}`)?.value
-        return v ? Number(v) : null
+  const texto = campo => (document.getElementById(`filtro-${campo}-${finalidade}`)?.value || '').trim().toLowerCase()
+  const numero = campo => {
+    const v = document.getElementById(`filtro-${campo}-${finalidade}`)?.value
+    return v ? Number(v) : null
+  }
+
+  const fNumeroSerie = texto('numeroSerie')
+  const fFabricante = texto('fabricante')
+  const fModelo = texto('modelo')
+  const fTipo = texto('tipo')
+  const fArmazem = texto('armazem')
+  const anoMin = numero('anoMin')
+  const anoMax = numero('anoMax')
+  const capacidade = numero('capacidade')
+
+  if (fNumeroSerie) balsas = balsas.filter(b => b.numeroSerie.toLowerCase().includes(fNumeroSerie))
+  if (fFabricante) balsas = balsas.filter(b => b.fabricante.toLowerCase().includes(fFabricante))
+  if (fModelo) balsas = balsas.filter(b => b.modelo.toLowerCase().includes(fModelo))
+  if (fTipo) balsas = balsas.filter(b => b.tipo.toLowerCase().includes(fTipo))
+  if (fArmazem) balsas = balsas.filter(b => (b.armazem || '').toLowerCase().includes(fArmazem))
+  if (anoMin !== null) balsas = balsas.filter(b => b.anoFabricacao >= anoMin)
+  if (anoMax !== null) balsas = balsas.filter(b => b.anoFabricacao <= anoMax)
+  if (capacidade !== null) balsas = balsas.filter(b => b.capacidade === capacidade)
+
+  balsas.sort((a, b) => {
+    let valA = a[CAMPO_ORDEM]
+    let valB = b[CAMPO_ORDEM]
+    if (typeof valA === 'string') {
+      valA = valA.toLowerCase()
+      valB = (valB || '').toLowerCase()
     }
+    if (valA < valB) return DIRECAO_ORDEM === 'asc' ? -1 : 1
+    if (valA > valB) return DIRECAO_ORDEM === 'asc' ? 1 : -1
+    return 0
+  })
 
-    const fNumeroSerie = texto('numeroSerie')
-    const fFabricante = texto('fabricante')
-    const fModelo = texto('modelo')
-    const fTipo = texto('tipo')
-    const fArmazem = texto('armazem')
-    const anoMin = numero('anoMin')
-    const anoMax = numero('anoMax')
-    const capacidade = numero('capacidade')
+  renderizarTabela(finalidade, balsas)
 
-    if (fNumeroSerie) balsas = balsas.filter(b => b.numeroSerie.toLowerCase().includes(fNumeroSerie))
-    if (fFabricante) balsas = balsas.filter(b => b.fabricante.toLowerCase().includes(fFabricante))
-    if (fModelo) balsas = balsas.filter(b => b.modelo.toLowerCase().includes(fModelo))
-    if (fTipo) balsas = balsas.filter(b => b.tipo.toLowerCase().includes(fTipo))
-    if (fArmazem) balsas = balsas.filter(b => (b.armazem || '').toLowerCase().includes(fArmazem))
-    if (anoMin !== null) balsas = balsas.filter(b => b.anoFabricacao >= anoMin)
-    if (anoMax !== null) balsas = balsas.filter(b => b.anoFabricacao <= anoMax)
-    if (capacidade !== null) balsas = balsas.filter(b => b.capacidade === capacidade)
-
-    balsas.sort((a, b) => {
-        let valA = a[CAMPO_ORDEM]
-        let valB = b[CAMPO_ORDEM]
-        if (typeof valA === 'string') {
-            valA = valA.toLowerCase()
-            valB = (valB || '').toLowerCase()
-        }
-        if (valA < valB) return DIRECAO_ORDEM === 'asc' ? -1 : 1
-        if (valA > valB) return DIRECAO_ORDEM === 'asc' ? 1 : -1
-        return 0
-    })
-
-    renderizarTabela(finalidade, balsas)
-
-    const contador = document.getElementById(`contador-balsas-${finalidade}`)
-    if (contador) {
-        const totalCache = (balsasCache[finalidade] || []).length
-        contador.textContent = balsas.length === totalCache
-            ? `${balsas.length} balsa(s) ${mostrarTodas ? 'no total' : 'disponível(is)'}`
-            : `${balsas.length} de ${totalCache} balsa(s) (filtro aplicado)`
-    }
+  const contador = document.getElementById(`contador-balsas-${finalidade}`)
+  if (contador) {
+    const totalCache = (balsasCache[finalidade] || []).length
+    contador.textContent = balsas.length === totalCache
+      ? `${balsas.length} balsa(s) ${mostrarTodas ? 'no total' : 'disponível(is)'}`
+      : `${balsas.length} de ${totalCache} balsa(s) (filtro aplicado)`
+  }
 }
 
 // ===== RENDERIZA A TABELA =====================================================
 function renderizarTabela(finalidade, balsas) {
-    const tabela = document.getElementById(`tabela-balsas-${finalidade}`)
-    const colspan = podeGerenciar ? 9 : 8
+  const tabela = document.getElementById(`tabela-balsas-${finalidade}`)
+  const colspan = podeGerenciar ? 9 : 8
 
-    if (balsas.length === 0) {
-        tabela.innerHTML = `<tr><td colspan="${colspan}" style="text-align:center; color:#999; padding:30px;">Nenhuma balsa encontrada</td></tr>`
-        return
-    }
+  if (balsas.length === 0) {
+    tabela.innerHTML = `<tr><td colspan="${colspan}" style="text-align:center; color:#999; padding:30px;">Nenhuma balsa encontrada</td></tr>`
+    return
+  }
 
-    tabela.innerHTML = balsas.map(b => `
+  tabela.innerHTML = balsas.map(b => `
     <tr>
       <td><strong>${b.capacidade}</strong></td>
       <td>${b.fabricante}</td>
@@ -249,14 +262,14 @@ function renderizarTabela(finalidade, balsas) {
         <td style="white-space:nowrap;">
           <button class="btn btn-sm btn-info" onclick="editarBalsa(${b.id}, '${finalidade}')">Editar</button>
           ${b.status === 'disponivel' && finalidade === 'locacao'
-                ? `<button class="btn btn-sm btn-warning" onclick="marcarStatusBalsa(${b.id}, 'locado', '${finalidade}')">Marcar locado</button>`
-                : ''}
+      ? `<button class="btn btn-sm btn-warning" onclick="marcarStatusBalsa(${b.id}, 'locado', '${finalidade}')">Marcar locado</button>`
+      : ''}
           ${b.status === 'disponivel'
-                ? `<button class="btn btn-sm btn-secondary" onclick="marcarStatusBalsa(${b.id}, 'vendido', '${finalidade}')">Marcar vendido</button>`
-                : ''}
+      ? `<button class="btn btn-sm btn-secondary" onclick="marcarStatusBalsa(${b.id}, 'vendido', '${finalidade}')">Marcar vendido</button>`
+      : ''}
           ${b.status !== 'disponivel'
-                ? `<button class="btn btn-sm btn-success" onclick="marcarStatusBalsa(${b.id}, 'disponivel', '${finalidade}')">Reativar</button>`
-                : ''}
+      ? `<button class="btn btn-sm btn-success" onclick="marcarStatusBalsa(${b.id}, 'disponivel', '${finalidade}')">Reativar</button>`
+      : ''}
         </td>
       ` : ''}
     </tr>
@@ -265,31 +278,31 @@ function renderizarTabela(finalidade, balsas) {
 
 // ===== MARCA STATUS (locado / vendido / disponível novamente) ================
 window.marcarStatusBalsa = async function (id, status, finalidade) {
-    const confirmacoes = {
-        locado: 'Marcar esta balsa como locada? Ela sairá da lista de disponíveis.',
-        vendido: 'Marcar esta balsa como vendida? Ela sairá da lista de disponíveis.',
-        disponivel: 'Marcar esta balsa como disponível novamente?',
-    }
-    if (!confirm(confirmacoes[status] || 'Confirmar alteração de status?')) return
+  const confirmacoes = {
+    locado: 'Marcar esta balsa como locada? Ela sairá da lista de disponíveis.',
+    vendido: 'Marcar esta balsa como vendida? Ela sairá da lista de disponíveis.',
+    disponivel: 'Marcar esta balsa como disponível novamente?',
+  }
+  if (!confirm(confirmacoes[status] || 'Confirmar alteração de status?')) return
 
-    const res = await apiJson(`${API}/estoque/${id}`, {
-        method: 'PUT',
-        body: JSON.stringify({ status })
-    })
+  const res = await apiJson(`${API}/estoque/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify({ status })
+  })
 
-    if (res.ok) {
-        aplicarFiltrosBalsa(finalidade)
-    } else {
-        const err = await res.json()
-        alert('Erro: ' + (err.erro || 'Falha ao atualizar status'))
-    }
+  if (res.ok) {
+    aplicarFiltrosBalsa(finalidade)
+  } else {
+    const err = await res.json()
+    alert('Erro: ' + (err.erro || 'Falha ao atualizar status'))
+  }
 }
 
 // ===== FORMULÁRIO — NOVA BALSA =================================================
 window.abrirFormularioBalsa = function (finalidade) {
-    const containerId = finalidade === 'locacao' ? 'estoqueLocacao' : 'estoqueVendas'
+  const containerId = finalidade === 'locacao' ? 'estoqueLocacao' : 'estoqueVendas'
 
-    document.getElementById(containerId).innerHTML = `
+  document.getElementById(containerId).innerHTML = `
     <div style="margin-top:20px; max-width:700px;">
       <button class="btn btn-secondary" onclick="inicializarEstoqueWrapper('${finalidade}')">← Voltar</button>
       <h3 style="margin:20px 0;">Nova Balsa</h3>
@@ -312,42 +325,42 @@ window.abrirFormularioBalsa = function (finalidade) {
 }
 
 window.salvarBalsa = async function (finalidade) {
-    const body = {
-        fabricante: document.getElementById('balsa-fabricante').value.trim(),
-        numeroSerie: document.getElementById('balsa-numeroSerie').value.trim(),
-        modelo: document.getElementById('balsa-modelo').value.trim(),
-        anoFabricacao: parseInt(document.getElementById('balsa-anoFabricacao').value) || null,
-        capacidade: parseInt(document.getElementById('balsa-capacidade').value) || null,
-        tipo: document.getElementById('balsa-tipo').value.trim(),
-        armazem: document.getElementById('balsa-armazem').value.trim(),
-        finalidade,
-    }
+  const body = {
+    fabricante: document.getElementById('balsa-fabricante').value.trim(),
+    numeroSerie: document.getElementById('balsa-numeroSerie').value.trim(),
+    modelo: document.getElementById('balsa-modelo').value.trim(),
+    anoFabricacao: parseInt(document.getElementById('balsa-anoFabricacao').value) || null,
+    capacidade: parseInt(document.getElementById('balsa-capacidade').value) || null,
+    tipo: document.getElementById('balsa-tipo').value.trim(),
+    armazem: document.getElementById('balsa-armazem').value.trim(),
+    finalidade,
+  }
 
-    if (!body.fabricante || !body.numeroSerie || !body.modelo || !body.anoFabricacao || !body.capacidade || !body.tipo) {
-        alert('Preencha todos os campos obrigatórios!')
-        return
-    }
+  if (!body.fabricante || !body.numeroSerie || !body.modelo || !body.anoFabricacao || !body.capacidade || !body.tipo) {
+    alert('Preencha todos os campos obrigatórios!')
+    return
+  }
 
-    const res = await apiJson(`${API}/estoque`, {
-        method: 'POST',
-        body: JSON.stringify(body)
-    })
+  const res = await apiJson(`${API}/estoque`, {
+    method: 'POST',
+    body: JSON.stringify(body)
+  })
 
-    if (res.ok) {
-        alert('Balsa cadastrada com sucesso!')
-        inicializarEstoqueWrapper(finalidade)
-    } else {
-        const err = await res.json()
-        alert('Erro ao cadastrar balsa: ' + (err.erro || ''))
-    }
+  if (res.ok) {
+    alert('Balsa cadastrada com sucesso!')
+    inicializarEstoqueWrapper(finalidade)
+  } else {
+    const err = await res.json()
+    alert('Erro ao cadastrar balsa: ' + (err.erro || ''))
+  }
 }
 
 // ===== FORMULÁRIO — EDITAR BALSA ===============================================
 window.editarBalsa = async function (id, finalidade) {
-    const containerId = finalidade === 'locacao' ? 'estoqueLocacao' : 'estoqueVendas'
-    const b = await apiFetch(`${API}/estoque/${id}`).then(r => r.json())
+  const containerId = finalidade === 'locacao' ? 'estoqueLocacao' : 'estoqueVendas'
+  const b = await apiFetch(`${API}/estoque/${id}`).then(r => r.json())
 
-    document.getElementById(containerId).innerHTML = `
+  document.getElementById(containerId).innerHTML = `
     <div style="margin-top:20px; max-width:700px;">
       <button class="btn btn-secondary" onclick="inicializarEstoqueWrapper('${finalidade}')">← Voltar</button>
       <h3 style="margin:20px 0;">Editar Balsa ${badgeStatus(b.status)}</h3>
@@ -375,32 +388,32 @@ window.editarBalsa = async function (id, finalidade) {
 }
 
 window.atualizarBalsa = async function (id, finalidadeOrigem) {
-    const body = {
-        fabricante: document.getElementById('balsa-fabricante').value.trim(),
-        numeroSerie: document.getElementById('balsa-numeroSerie').value.trim(),
-        modelo: document.getElementById('balsa-modelo').value.trim(),
-        anoFabricacao: parseInt(document.getElementById('balsa-anoFabricacao').value) || null,
-        capacidade: parseInt(document.getElementById('balsa-capacidade').value) || null,
-        tipo: document.getElementById('balsa-tipo').value.trim(),
-        armazem: document.getElementById('balsa-armazem').value.trim(),
-        finalidade: document.getElementById('balsa-finalidade').value,
-    }
+  const body = {
+    fabricante: document.getElementById('balsa-fabricante').value.trim(),
+    numeroSerie: document.getElementById('balsa-numeroSerie').value.trim(),
+    modelo: document.getElementById('balsa-modelo').value.trim(),
+    anoFabricacao: parseInt(document.getElementById('balsa-anoFabricacao').value) || null,
+    capacidade: parseInt(document.getElementById('balsa-capacidade').value) || null,
+    tipo: document.getElementById('balsa-tipo').value.trim(),
+    armazem: document.getElementById('balsa-armazem').value.trim(),
+    finalidade: document.getElementById('balsa-finalidade').value,
+  }
 
-    const res = await apiJson(`${API}/estoque/${id}`, {
-        method: 'PUT',
-        body: JSON.stringify(body)
-    })
+  const res = await apiJson(`${API}/estoque/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(body)
+  })
 
-    if (res.ok) {
-        alert('Balsa atualizada com sucesso!')
-        inicializarEstoqueWrapper(finalidadeOrigem)
-    } else {
-        const err = await res.json()
-        alert('Erro ao atualizar balsa: ' + (err.erro || ''))
-    }
+  if (res.ok) {
+    alert('Balsa atualizada com sucesso!')
+    inicializarEstoqueWrapper(finalidadeOrigem)
+  } else {
+    const err = await res.json()
+    alert('Erro ao atualizar balsa: ' + (err.erro || ''))
+  }
 }
 
 // Wrapper acessível globalmente (usado pelos onclick inline do HTML)
 window.inicializarEstoqueWrapper = function (finalidade) {
-    inicializarEstoque(finalidade)
+  inicializarEstoque(finalidade)
 }
