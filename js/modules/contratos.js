@@ -2,41 +2,41 @@ const API = 'https://override-steerable-professed.ngrok-free.dev'
 
 // ─── Auth helper (mesmo padrão dos outros módulos) ────────────────────────────
 function tratarSessaoExpirada(res) {
-    if (res.status === 401) {
-        localStorage.removeItem('ns_token')
-        localStorage.removeItem('ns_usuario')
-        alert('Sua sessão expirou. Faça login novamente.')
-        window.location.href = './login.html'
-        throw new Error('Sessão expirada')
-    }
-    return res
+  if (res.status === 401) {
+    localStorage.removeItem('ns_token')
+    localStorage.removeItem('ns_usuario')
+    alert('Sua sessão expirou. Faça login novamente.')
+    window.location.href = './login.html'
+    throw new Error('Sessão expirada')
+  }
+  return res
 }
 
 async function apiFetch(url, options = {}) {
-    const token = localStorage.getItem('ns_token')
-    const res = await fetch(url, {
-        ...options,
-        headers: {
-            ...(options.headers || {}),
-            'Authorization': `Bearer ${token}`,
-            'ngrok-skip-browser-warning': 'true'
-        }
-    })
-    return tratarSessaoExpirada(res)
+  const token = localStorage.getItem('ns_token')
+  const res = await fetch(url, {
+    ...options,
+    headers: {
+      ...(options.headers || {}),
+      'Authorization': `Bearer ${token}`,
+      'ngrok-skip-browser-warning': 'true'
+    }
+  })
+  return tratarSessaoExpirada(res)
 }
 
 async function apiJson(url, options = {}) {
-    const token = localStorage.getItem('ns_token')
-    const res = await fetch(url, {
-        ...options,
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
-            'ngrok-skip-browser-warning': 'true',
-            ...(options.headers || {})
-        }
-    })
-    return tratarSessaoExpirada(res)
+  const token = localStorage.getItem('ns_token')
+  const res = await fetch(url, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+      'ngrok-skip-browser-warning': 'true',
+      ...(options.headers || {})
+    }
+  })
+  return tratarSessaoExpirada(res)
 }
 
 const usuarioAtual = JSON.parse(localStorage.getItem('ns_usuario') || 'null')
@@ -48,11 +48,11 @@ const podeGerenciarContratos = perfil === 'admin' || perfil === 'gerente'
 // ══════════════════════════════════════════════════════════════════════════
 
 export function inicializarClientes() {
-    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'))
-    document.getElementById('pessoas').classList.add('active')
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'))
+  document.getElementById('pessoas').classList.add('active')
 
-    const container = document.getElementById('pessoas')
-    container.innerHTML = `
+  const container = document.getElementById('pessoas')
+  container.innerHTML = `
     <div class="tab">Cadastro de Pessoas</div>
     <button class="btn btn-success" onclick="abrirFormularioCliente()">+ Nova Pessoa</button>
 
@@ -77,41 +77,41 @@ export function inicializarClientes() {
     </table>
   `
 
-    carregarClientes()
+  carregarClientes()
 }
 
 let clientesCache = []
 
 async function carregarClientes() {
-    try {
-        clientesCache = await apiFetch(`${API}/clientes`).then(r => r.json())
-        renderizarTabelaClientes(clientesCache)
-    } catch {
-        document.getElementById('tabela-clientes').innerHTML = `
+  try {
+    clientesCache = await apiFetch(`${API}/clientes`).then(r => r.json())
+    renderizarTabelaClientes(clientesCache)
+  } catch {
+    document.getElementById('tabela-clientes').innerHTML = `
       <tr><td colspan="6" style="text-align:center; color:red; padding:30px;">Erro ao conectar com o servidor</td></tr>
     `
-    }
+  }
 }
 
 window.filtrarClientes = function () {
-    const q = (document.getElementById('filtro-cliente')?.value || '').trim().toLowerCase()
-    if (!q) return renderizarTabelaClientes(clientesCache)
+  const q = (document.getElementById('filtro-cliente')?.value || '').trim().toLowerCase()
+  if (!q) return renderizarTabelaClientes(clientesCache)
 
-    const filtrados = clientesCache.filter(c =>
-        c.nome.toLowerCase().includes(q) || c.cpfCnpj.includes(q.replace(/\D/g, ''))
-    )
-    renderizarTabelaClientes(filtrados)
+  const filtrados = clientesCache.filter(c =>
+    c.nome.toLowerCase().includes(q) || c.cpfCnpj.includes(q.replace(/\D/g, ''))
+  )
+  renderizarTabelaClientes(filtrados)
 }
 
 function renderizarTabelaClientes(clientes) {
-    const tabela = document.getElementById('tabela-clientes')
+  const tabela = document.getElementById('tabela-clientes')
 
-    if (clientes.length === 0) {
-        tabela.innerHTML = `<tr><td colspan="6" style="text-align:center; color:#999; padding:30px;">Nenhuma pessoa cadastrada ainda</td></tr>`
-        return
-    }
+  if (clientes.length === 0) {
+    tabela.innerHTML = `<tr><td colspan="6" style="text-align:center; color:#999; padding:30px;">Nenhuma pessoa cadastrada ainda</td></tr>`
+    return
+  }
 
-    tabela.innerHTML = clientes.map(c => `
+  tabela.innerHTML = clientes.map(c => `
     <tr>
       <td>${c.nome}</td>
       <td>${formatarDocumento(c.cpfCnpj)}</td>
@@ -124,14 +124,14 @@ function renderizarTabelaClientes(clientes) {
 }
 
 function formatarDocumento(doc) {
-    if (!doc) return '-'
-    if (doc.length === 11) return doc.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4')
-    if (doc.length === 14) return doc.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5')
-    return doc
+  if (!doc) return '-'
+  if (doc.length === 11) return doc.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4')
+  if (doc.length === 14) return doc.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5')
+  return doc
 }
 
 window.abrirFormularioCliente = function () {
-    document.getElementById('pessoas').innerHTML = `
+  document.getElementById('pessoas').innerHTML = `
     <div style="margin-top:20px; max-width:600px;">
       <button class="btn btn-secondary" onclick="inicializarClientes()">← Voltar</button>
       <h3 style="margin:20px 0;">Nova Pessoa</h3>
@@ -142,7 +142,7 @@ window.abrirFormularioCliente = function () {
 }
 
 function formularioClienteHtml(c = {}) {
-    return `
+  return `
     <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
       <div>
         <label>Tipo *</label>
@@ -162,38 +162,38 @@ function formularioClienteHtml(c = {}) {
 }
 
 function lerFormularioCliente() {
-    return {
-        tipoPessoa: document.getElementById('cliente-tipoPessoa').value,
-        cpfCnpj: document.getElementById('cliente-cpfCnpj').value.trim(),
-        nome: document.getElementById('cliente-nome').value.trim(),
-        telefone: document.getElementById('cliente-telefone').value.trim(),
-        email: document.getElementById('cliente-email').value.trim(),
-        endereco: document.getElementById('cliente-endereco').value.trim(),
-        cidade: document.getElementById('cliente-cidade').value.trim(),
-    }
+  return {
+    tipoPessoa: document.getElementById('cliente-tipoPessoa').value,
+    cpfCnpj: document.getElementById('cliente-cpfCnpj').value.trim(),
+    nome: document.getElementById('cliente-nome').value.trim(),
+    telefone: document.getElementById('cliente-telefone').value.trim(),
+    email: document.getElementById('cliente-email').value.trim(),
+    endereco: document.getElementById('cliente-endereco').value.trim(),
+    cidade: document.getElementById('cliente-cidade').value.trim(),
+  }
 }
 
 window.salvarCliente = async function () {
-    const body = lerFormularioCliente()
-    if (!body.cpfCnpj || !body.nome) {
-        alert('CPF/CNPJ e nome são obrigatórios!')
-        return
-    }
+  const body = lerFormularioCliente()
+  if (!body.cpfCnpj || !body.nome) {
+    alert('CPF/CNPJ e nome são obrigatórios!')
+    return
+  }
 
-    const res = await apiJson(`${API}/clientes`, { method: 'POST', body: JSON.stringify(body) })
-    if (res.ok) {
-        alert('Pessoa cadastrada com sucesso!')
-        inicializarClientes()
-    } else {
-        const err = await res.json()
-        alert('Erro: ' + (err.erro || 'Falha ao cadastrar'))
-    }
+  const res = await apiJson(`${API}/clientes`, { method: 'POST', body: JSON.stringify(body) })
+  if (res.ok) {
+    alert('Pessoa cadastrada com sucesso!')
+    inicializarClientes()
+  } else {
+    const err = await res.json()
+    alert('Erro: ' + (err.erro || 'Falha ao cadastrar'))
+  }
 }
 
 window.editarCliente = async function (id) {
-    const c = await apiFetch(`${API}/clientes/${id}`).then(r => r.json())
+  const c = await apiFetch(`${API}/clientes/${id}`).then(r => r.json())
 
-    document.getElementById('pessoas').innerHTML = `
+  document.getElementById('pessoas').innerHTML = `
     <div style="margin-top:20px; max-width:600px;">
       <button class="btn btn-secondary" onclick="inicializarClientes()">← Voltar</button>
       <h3 style="margin:20px 0;">Editar Pessoa</h3>
@@ -204,15 +204,15 @@ window.editarCliente = async function (id) {
 }
 
 window.atualizarCliente = async function (id) {
-    const body = lerFormularioCliente()
-    const res = await apiJson(`${API}/clientes/${id}`, { method: 'PUT', body: JSON.stringify(body) })
-    if (res.ok) {
-        alert('Pessoa atualizada com sucesso!')
-        inicializarClientes()
-    } else {
-        const err = await res.json()
-        alert('Erro: ' + (err.erro || 'Falha ao atualizar'))
-    }
+  const body = lerFormularioCliente()
+  const res = await apiJson(`${API}/clientes/${id}`, { method: 'PUT', body: JSON.stringify(body) })
+  if (res.ok) {
+    alert('Pessoa atualizada com sucesso!')
+    inicializarClientes()
+  } else {
+    const err = await res.json()
+    alert('Erro: ' + (err.erro || 'Falha ao atualizar'))
+  }
 }
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -220,22 +220,22 @@ window.atualizarCliente = async function (id) {
 // ══════════════════════════════════════════════════════════════════════════
 
 const STATUS_CONTRATO_LABEL = {
-    ativo: { texto: 'Ativo', cor: '#198754' },
-    encerrado: { texto: 'Encerrado', cor: '#6c757d' },
-    cancelado: { texto: 'Cancelado', cor: '#dc3545' },
+  ativo: { texto: 'Ativo', cor: '#198754' },
+  encerrado: { texto: 'Encerrado', cor: '#6c757d' },
+  cancelado: { texto: 'Cancelado', cor: '#dc3545' },
 }
 
 function badgeStatusContrato(status) {
-    const s = STATUS_CONTRATO_LABEL[status] || { texto: status, cor: '#6c757d' }
-    return `<span style="background:${s.cor}; color:white; padding:2px 8px; border-radius:12px; font-size:12px;">${s.texto}</span>`
+  const s = STATUS_CONTRATO_LABEL[status] || { texto: status, cor: '#6c757d' }
+  return `<span style="background:${s.cor}; color:white; padding:2px 8px; border-radius:12px; font-size:12px;">${s.texto}</span>`
 }
 
 export function inicializarContratos() {
-    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'))
-    document.getElementById('contratos').classList.add('active')
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'))
+  document.getElementById('contratos').classList.add('active')
 
-    const container = document.getElementById('contratos')
-    container.innerHTML = `
+  const container = document.getElementById('contratos')
+  container.innerHTML = `
     <div class="tab">Contratos de Locação</div>
     ${podeGerenciarContratos ? `<button class="btn btn-success" onclick="abrirFormularioContrato()">+ Novo Contrato</button>` : ''}
 
@@ -268,44 +268,44 @@ export function inicializarContratos() {
     </table>
   `
 
-    carregarContratos()
+  carregarContratos()
 }
 
 window.carregarContratos = async function () {
-    const status = document.getElementById('filtro-status-contrato')?.value || ''
-    const params = status ? `?status=${status}` : ''
+  const status = document.getElementById('filtro-status-contrato')?.value || ''
+  const params = status ? `?status=${status}` : ''
 
-    try {
-        const contratos = await apiFetch(`${API}/contratos${params}`).then(r => r.json())
-        renderizarTabelaContratos(contratos)
-    } catch {
-        document.getElementById('tabela-contratos').innerHTML = `
+  try {
+    const contratos = await apiFetch(`${API}/contratos${params}`).then(r => r.json())
+    renderizarTabelaContratos(contratos)
+  } catch {
+    document.getElementById('tabela-contratos').innerHTML = `
       <tr><td colspan="8" style="text-align:center; color:red; padding:30px;">Erro ao conectar com o servidor</td></tr>
     `
-    }
+  }
 }
 
 function renderizarTabelaContratos(contratos) {
-    const tabela = document.getElementById('tabela-contratos')
-    const colspan = podeGerenciarContratos ? 8 : 7
+  const tabela = document.getElementById('tabela-contratos')
+  const colspan = podeGerenciarContratos ? 8 : 7
 
-    if (contratos.length === 0) {
-        tabela.innerHTML = `<tr><td colspan="${colspan}" style="text-align:center; color:#999; padding:30px;">Nenhum contrato encontrado</td></tr>`
-        return
-    }
+  if (contratos.length === 0) {
+    tabela.innerHTML = `<tr><td colspan="${colspan}" style="text-align:center; color:#999; padding:30px;">Nenhum contrato encontrado</td></tr>`
+    return
+  }
 
-    tabela.innerHTML = contratos.map(c => {
-        const balsasTxt = c.balsas.map(cb => cb.balsa.numeroSerie).join(', ')
-        const inicio = new Date(c.dataInicio).toLocaleDateString('pt-BR')
-        const fim = c.dataFim ? new Date(c.dataFim).toLocaleDateString('pt-BR') : '-'
-        const valor = c.valor ? 'R$ ' + c.valor.toFixed(2) : '-'
+  tabela.innerHTML = contratos.map(c => {
+    const balsasTxt = c.balsas.map(cb => cb.balsa.numeroSerie).join(', ')
+    const inicio = new Date(c.dataInicio).toLocaleDateString('pt-BR')
+    const fim = c.dataFim ? new Date(c.dataFim).toLocaleDateString('pt-BR') : '-'
+    const valor = c.valor ? 'R$ ' + c.valor.toFixed(2) : '-'
 
-        const acoes = c.status === 'ativo' ? `
+    const acoes = c.status === 'ativo' ? `
       <button class="btn btn-sm btn-secondary" onclick="encerrarContrato(${c.id})">Encerrar</button>
       <button class="btn btn-sm btn-danger" onclick="cancelarContrato(${c.id})">Cancelar</button>
     ` : ''
 
-        return `
+    return `
       <tr>
         <td><a href="#" onclick="verContrato(${c.id}); return false;" style="color:var(--verde); font-weight:600; text-decoration:none;">${c.numero}.${c.ano}</a></td>
         <td>${c.cliente.nome}</td>
@@ -317,32 +317,32 @@ function renderizarTabelaContratos(contratos) {
         ${podeGerenciarContratos ? `<td style="white-space:nowrap;">${acoes}</td>` : ''}
       </tr>
     `
-    }).join('')
+  }).join('')
 }
 
 window.encerrarContrato = async function (id) {
-    if (!confirm('Encerrar este contrato? As balsas vinculadas voltarão a ficar disponíveis.')) return
-    const res = await apiJson(`${API}/contratos/${id}`, { method: 'PUT', body: JSON.stringify({ status: 'encerrado' }) })
-    if (res.ok) carregarContratos()
-    else alert('Erro ao encerrar contrato')
+  if (!confirm('Encerrar este contrato? As balsas vinculadas voltarão a ficar disponíveis.')) return
+  const res = await apiJson(`${API}/contratos/${id}`, { method: 'PUT', body: JSON.stringify({ status: 'encerrado' }) })
+  if (res.ok) carregarContratos()
+  else alert('Erro ao encerrar contrato')
 }
 
 window.cancelarContrato = async function (id) {
-    if (!confirm('Cancelar este contrato? As balsas vinculadas voltarão a ficar disponíveis.')) return
-    const res = await apiJson(`${API}/contratos/${id}`, { method: 'PUT', body: JSON.stringify({ status: 'cancelado' }) })
-    if (res.ok) carregarContratos()
-    else alert('Erro ao cancelar contrato')
+  if (!confirm('Cancelar este contrato? As balsas vinculadas voltarão a ficar disponíveis.')) return
+  const res = await apiJson(`${API}/contratos/${id}`, { method: 'PUT', body: JSON.stringify({ status: 'cancelado' }) })
+  if (res.ok) carregarContratos()
+  else alert('Erro ao cancelar contrato')
 }
 
 // ===== VISUALIZAÇÃO DO CONTRATO ==============================================
 window.verContrato = async function (id) {
-    const c = await apiFetch(`${API}/contratos/${id}`).then(r => r.json())
+  const c = await apiFetch(`${API}/contratos/${id}`).then(r => r.json())
 
-    const inicio = new Date(c.dataInicio).toLocaleDateString('pt-BR')
-    const fim = c.dataFim ? new Date(c.dataFim).toLocaleDateString('pt-BR') : '-'
-    const valor = c.valor ? 'R$ ' + c.valor.toFixed(2) : '-'
+  const inicio = new Date(c.dataInicio).toLocaleDateString('pt-BR')
+  const fim = c.dataFim ? new Date(c.dataFim).toLocaleDateString('pt-BR') : '-'
+  const valor = c.valor ? 'R$ ' + c.valor.toFixed(2) : '-'
 
-    document.getElementById('contratos').innerHTML = `
+  document.getElementById('contratos').innerHTML = `
     <div style="margin-top:20px; max-width:800px;">
       <button class="btn btn-secondary" onclick="inicializarContratos()">← Voltar</button>
 
@@ -401,13 +401,53 @@ window.verContrato = async function (id) {
 // ===== FORMULÁRIO — NOVO CONTRATO =============================================
 let balsasDisponiveisCache = []
 let clienteSelecionadoId = null
+let balsaIdsSelecionados = new Set()
+
+function renderizarListaBalsasContrato(lista) {
+  const container = document.getElementById('lista-balsas-contrato')
+  if (!container) return
+
+  if (lista.length === 0) {
+    container.innerHTML = '<div style="color:#999; padding:8px;">Nenhuma balsa encontrada</div>'
+    return
+  }
+
+  container.innerHTML = lista.map(b => `
+    <label style="display:flex; align-items:center; gap:8px; padding:6px 0; cursor:pointer;">
+      <input type="checkbox" value="${b.id}" class="checkbox-balsa-contrato"
+        ${balsaIdsSelecionados.has(b.id) ? 'checked' : ''}
+        onchange="toggleBalsaSelecionada(${b.id}, this.checked)">
+      <span>${b.numeroSerie} — ${b.fabricante} ${b.modelo}, capacidade ${b.capacidade}</span>
+    </label>
+  `).join('')
+}
+
+window.toggleBalsaSelecionada = function (id, marcado) {
+  if (marcado) balsaIdsSelecionados.add(id)
+  else balsaIdsSelecionados.delete(id)
+}
+
+window.filtrarBalsasContrato = function () {
+  const serie = (document.getElementById('filtro-balsa-contrato-serie')?.value || '').trim().toLowerCase()
+  const fabricante = (document.getElementById('filtro-balsa-contrato-fabricante')?.value || '').trim().toLowerCase()
+  const capacidadeStr = document.getElementById('filtro-balsa-contrato-capacidade')?.value
+  const capacidade = capacidadeStr ? Number(capacidadeStr) : null
+
+  let filtradas = [...balsasDisponiveisCache]
+  if (serie) filtradas = filtradas.filter(b => b.numeroSerie.toLowerCase().includes(serie))
+  if (fabricante) filtradas = filtradas.filter(b => b.fabricante.toLowerCase().includes(fabricante))
+  if (capacidade !== null) filtradas = filtradas.filter(b => b.capacidade === capacidade)
+
+  renderizarListaBalsasContrato(filtradas)
+}
 
 window.abrirFormularioContrato = async function () {
-    balsasDisponiveisCache = await apiFetch(`${API}/estoque?finalidade=locacao`).then(r => r.json())
-    clienteSelecionadoId = null
+  balsasDisponiveisCache = await apiFetch(`${API}/estoque?finalidade=locacao`).then(r => r.json())
+  clienteSelecionadoId = null
+  balsaIdsSelecionados = new Set()
 
-    document.getElementById('contratos').innerHTML = `
-    <div style="margin-top:20px; max-width:700px;">
+  document.getElementById('contratos').innerHTML = `
+    <div style="margin-top:20px;">
       <button class="btn btn-secondary" onclick="inicializarContratos()">← Voltar</button>
       <h3 style="margin:20px 0;">Novo Contrato de Locação</h3>
 
@@ -434,15 +474,23 @@ window.abrirFormularioContrato = async function () {
       </div>
 
       <h5 style="margin: 20px 0 10px;">Balsas Disponíveis</h5>
+
+      <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 8px;">
+        <div>
+          <label style="font-size:12px;">Nº Série</label>
+          <input type="text" id="filtro-balsa-contrato-serie" class="form-control form-control-sm" oninput="filtrarBalsasContrato()">
+        </div>
+        <div>
+          <label style="font-size:12px;">Fabricante</label>
+          <input type="text" id="filtro-balsa-contrato-fabricante" class="form-control form-control-sm" oninput="filtrarBalsasContrato()">
+        </div>
+        <div>
+          <label style="font-size:12px;">Capacidade</label>
+          <input type="number" id="filtro-balsa-contrato-capacidade" class="form-control form-control-sm" oninput="filtrarBalsasContrato()">
+        </div>
+      </div>
+
       <div id="lista-balsas-contrato" style="max-height:200px; overflow-y:auto; border:1px solid #ddd; border-radius:4px; padding:8px; margin-bottom:16px;">
-        ${balsasDisponiveisCache.length === 0
-            ? '<div style="color:#999; padding:8px;">Nenhuma balsa disponível no estoque de locação</div>'
-            : balsasDisponiveisCache.map(b => `
-            <label style="display:flex; align-items:center; gap:8px; padding:6px 0; cursor:pointer;">
-              <input type="checkbox" value="${b.id}" class="checkbox-balsa-contrato">
-              <span>${b.numeroSerie} — ${b.fabricante} ${b.modelo}, capacidade ${b.capacidade}</span>
-            </label>
-          `).join('')}
       </div>
 
       <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
@@ -461,26 +509,28 @@ window.abrirFormularioContrato = async function () {
       <button type="button" class="btn btn-success" style="margin-top:20px;" onclick="salvarContrato()">Salvar Contrato</button>
     </div>
   `
+
+  renderizarListaBalsasContrato(balsasDisponiveisCache)
 }
 
 window.buscarClienteContrato = async function (q) {
-    const div = document.getElementById('sugestoes-cliente')
-    clienteSelecionadoId = null
+  const div = document.getElementById('sugestoes-cliente')
+  clienteSelecionadoId = null
 
-    if (q.length < 2) {
-        div.style.display = 'none'
-        return
-    }
+  if (q.length < 2) {
+    div.style.display = 'none'
+    return
+  }
 
-    const results = await apiFetch(`${API}/clientes/buscar?q=${encodeURIComponent(q)}`).then(r => r.json())
+  const results = await apiFetch(`${API}/clientes/buscar?q=${encodeURIComponent(q)}`).then(r => r.json())
 
-    if (results.length === 0) {
-        div.style.display = 'none'
-        return
-    }
+  if (results.length === 0) {
+    div.style.display = 'none'
+    return
+  }
 
-    div.style.display = 'block'
-    div.innerHTML = results.map(c => `
+  div.style.display = 'block'
+  div.innerHTML = results.map(c => `
     <div onclick='selecionarClienteContrato(${JSON.stringify(c)})'
       style="padding: 8px 12px; cursor:pointer; border-bottom: 1px solid #eee;"
       onmouseover="this.style.background='#f5f5f5'"
@@ -492,84 +542,84 @@ window.buscarClienteContrato = async function (q) {
 }
 
 window.selecionarClienteContrato = function (c) {
-    clienteSelecionadoId = c.id
-    document.getElementById('contrato-cliente-busca').value = c.nome
-    document.getElementById('contrato-cliente-tipoPessoa').value = c.tipoPessoa
-    document.getElementById('contrato-cliente-cpfCnpj').value = c.cpfCnpj
-    document.getElementById('contrato-cliente-nome').value = c.nome
-    document.getElementById('contrato-cliente-telefone').value = c.telefone || ''
-    document.getElementById('contrato-cliente-email').value = c.email || ''
-    document.getElementById('sugestoes-cliente').style.display = 'none'
+  clienteSelecionadoId = c.id
+  document.getElementById('contrato-cliente-busca').value = c.nome
+  document.getElementById('contrato-cliente-tipoPessoa').value = c.tipoPessoa
+  document.getElementById('contrato-cliente-cpfCnpj').value = c.cpfCnpj
+  document.getElementById('contrato-cliente-nome').value = c.nome
+  document.getElementById('contrato-cliente-telefone').value = c.telefone || ''
+  document.getElementById('contrato-cliente-email').value = c.email || ''
+  document.getElementById('sugestoes-cliente').style.display = 'none'
 }
 
 document.addEventListener('click', (e) => {
-    const div = document.getElementById('sugestoes-cliente')
-    if (div && !div.contains(e.target) && e.target.id !== 'contrato-cliente-busca') {
-        div.style.display = 'none'
-    }
+  const div = document.getElementById('sugestoes-cliente')
+  if (div && !div.contains(e.target) && e.target.id !== 'contrato-cliente-busca') {
+    div.style.display = 'none'
+  }
 })
 
 window.salvarContrato = async function () {
-    const balsaIds = Array.from(document.querySelectorAll('.checkbox-balsa-contrato:checked')).map(el => parseInt(el.value))
+  const balsaIds = Array.from(balsaIdsSelecionados)
 
-    if (balsaIds.length === 0) {
-        alert('Selecione ao menos uma balsa!')
-        return
+  if (balsaIds.length === 0) {
+    alert('Selecione ao menos uma balsa!')
+    return
+  }
+
+  const dataInicio = document.getElementById('contrato-dataInicio').value
+  if (!dataInicio) {
+    alert('Data de início é obrigatória!')
+    return
+  }
+
+  let clienteId = clienteSelecionadoId
+
+  if (!clienteId) {
+    const cpfCnpj = document.getElementById('contrato-cliente-cpfCnpj').value.trim()
+    const nome = document.getElementById('contrato-cliente-nome').value.trim()
+
+    if (!cpfCnpj || !nome) {
+      alert('Selecione um cliente existente ou preencha CPF/CNPJ e nome para cadastrar um novo.')
+      return
     }
 
-    const dataInicio = document.getElementById('contrato-dataInicio').value
-    if (!dataInicio) {
-        alert('Data de início é obrigatória!')
-        return
+    const novoCliente = await apiJson(`${API}/clientes`, {
+      method: 'POST',
+      body: JSON.stringify({
+        tipoPessoa: document.getElementById('contrato-cliente-tipoPessoa').value,
+        cpfCnpj,
+        nome,
+        telefone: document.getElementById('contrato-cliente-telefone').value.trim(),
+        email: document.getElementById('contrato-cliente-email').value.trim(),
+      })
+    }).then(r => r.json())
+
+    if (!novoCliente.id) {
+      alert('Erro ao cadastrar cliente: ' + (novoCliente.erro || ''))
+      return
     }
+    clienteId = novoCliente.id
+  }
 
-    let clienteId = clienteSelecionadoId
+  const body = {
+    clienteId,
+    balsaIds,
+    dataInicio,
+    dataFim: document.getElementById('contrato-dataFim').value || null,
+    valor: document.getElementById('contrato-valor').value || null,
+    formaPagamento: document.getElementById('contrato-formaPagamento').value,
+    condicoesPagto: document.getElementById('contrato-condicoesPagto').value,
+    observacoes: document.getElementById('contrato-observacoes').value,
+  }
 
-    if (!clienteId) {
-        const cpfCnpj = document.getElementById('contrato-cliente-cpfCnpj').value.trim()
-        const nome = document.getElementById('contrato-cliente-nome').value.trim()
+  const res = await apiJson(`${API}/contratos`, { method: 'POST', body: JSON.stringify(body) })
 
-        if (!cpfCnpj || !nome) {
-            alert('Selecione um cliente existente ou preencha CPF/CNPJ e nome para cadastrar um novo.')
-            return
-        }
-
-        const novoCliente = await apiJson(`${API}/clientes`, {
-            method: 'POST',
-            body: JSON.stringify({
-                tipoPessoa: document.getElementById('contrato-cliente-tipoPessoa').value,
-                cpfCnpj,
-                nome,
-                telefone: document.getElementById('contrato-cliente-telefone').value.trim(),
-                email: document.getElementById('contrato-cliente-email').value.trim(),
-            })
-        }).then(r => r.json())
-
-        if (!novoCliente.id) {
-            alert('Erro ao cadastrar cliente: ' + (novoCliente.erro || ''))
-            return
-        }
-        clienteId = novoCliente.id
-    }
-
-    const body = {
-        clienteId,
-        balsaIds,
-        dataInicio,
-        dataFim: document.getElementById('contrato-dataFim').value || null,
-        valor: document.getElementById('contrato-valor').value || null,
-        formaPagamento: document.getElementById('contrato-formaPagamento').value,
-        condicoesPagto: document.getElementById('contrato-condicoesPagto').value,
-        observacoes: document.getElementById('contrato-observacoes').value,
-    }
-
-    const res = await apiJson(`${API}/contratos`, { method: 'POST', body: JSON.stringify(body) })
-
-    if (res.ok) {
-        alert('Contrato criado com sucesso!')
-        inicializarContratos()
-    } else {
-        const err = await res.json()
-        alert('Erro ao criar contrato: ' + (err.erro || ''))
-    }
+  if (res.ok) {
+    alert('Contrato criado com sucesso!')
+    inicializarContratos()
+  } else {
+    const err = await res.json()
+    alert('Erro ao criar contrato: ' + (err.erro || ''))
+  }
 }
