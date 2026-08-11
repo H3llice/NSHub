@@ -4,14 +4,16 @@ import { autenticar, exigirPerfil } from '../middleware/auth.js'
 
 const router = Router()
 
+const TIPOS_VALIDOS = ['locacao', 'venda']
 const STATUS_VALIDOS = ['ativo', 'encerrado', 'cancelado']
 
 // ─── Listar contratos ───────────────────────────────────────────────────────────
 router.get('/', autenticar, async (req, res) => {
-  const { status } = req.query
+  const { status, tipo } = req.query
 
   const where = {}
   if (status) where.status = status
+  if (tipo) where.tipo = tipo
 
   const contratos = await prisma.contrato.findMany({
     where,
@@ -43,9 +45,13 @@ router.get('/:id', autenticar, async (req, res) => {
 // ─── Criar contrato (só admin e gerente) ────────────────────────────────────────
 router.post('/', autenticar, exigirPerfil('admin', 'gerente'), async (req, res) => {
   const {
-    clienteId, balsaIds, dataInicio, dataFim,
+    tipo, clienteId, balsaIds, dataInicio, dataFim,
     valor, formaPagamento, condicoesPagto, observacoes
   } = req.body
+
+  if (!tipo || !TIPOS_VALIDOS.includes(tipo)) {
+    return res.status(400).json({ erro: `Tipo de contrato inválido. Use: ${TIPOS_VALIDOS.join(', ')}` })
+  }
 
   if (!clienteId || !Array.isArray(balsaIds) || balsaIds.length === 0 || !dataInicio) {
     return res.status(400).json({ erro: 'Cliente, ao menos uma balsa e data de início são obrigatórios' })
@@ -57,6 +63,14 @@ router.post('/', autenticar, exigirPerfil('admin', 'gerente'), async (req, res) 
   const balsas = await prisma.balsa.findMany({ where: { id: { in: balsaIds.map(Number) } } })
   if (balsas.length !== balsaIds.length) {
     return res.status(400).json({ erro: 'Uma ou mais balsas selecionadas não foram encontradas' })
+  }
+
+  // As balsas precisam ter a mesma finalidade do tipo de contrato
+  const finalidadeErrada = balsas.filter(b => b.finalidade !== tipo)
+  if (finalidadeErrada.length > 0) {
+    return res.status(400).json({
+      erro: `As seguintes balsas não pertencem ao estoque de ${tipo}: ${finalidadeErrada.map(b => b.numeroSerie).join(', ')}`
+    })
   }
 
   const indisponiveis = balsas.filter(b => b.status !== 'disponivel')
@@ -73,11 +87,14 @@ router.post('/', autenticar, exigirPerfil('admin', 'gerente'), async (req, res) 
   })
   const proximoNumero = ultimo ? ultimo.numero + 1 : 1
 
+  const statusBalsaAlvo = tipo === 'venda' ? 'vendido' : 'locado'
+
   const contrato = await prisma.$transaction(async (tx) => {
     const novoContrato = await tx.contrato.create({
       data: {
         numero: proximoNumero,
         ano,
+        tipo,
         clienteId: parseInt(clienteId),
         dataInicio: new Date(dataInicio).toISOString(),
         dataFim: dataFim ? new Date(dataFim).toISOString() : null,
@@ -95,7 +112,7 @@ router.post('/', autenticar, exigirPerfil('admin', 'gerente'), async (req, res) 
 
     await tx.balsa.updateMany({
       where: { id: { in: balsaIds.map(Number) } },
-      data: { status: 'locado' }
+      data: { status: statusBalsaAlvo }
     })
 
     return novoContrato
@@ -128,6 +145,10 @@ router.put('/:id', autenticar, exigirPerfil('admin', 'gerente'), async (req, res
     if (!STATUS_VALIDOS.includes(status)) {
       return res.status(400).json({ erro: `Status inválido. Use: ${STATUS_VALIDOS.join(', ')}` })
     }
+    // Contrato de venda não tem "encerrado" — venda é definitiva, só pode ser cancelada
+    if (contratoAtual.tipo === 'venda' && status === 'encerrado') {
+      return res.status(400).json({ erro: 'Contratos de venda não podem ser "encerrados", apenas cancelados' })
+    }
     dados.status = status
   }
 
@@ -143,7 +164,7 @@ router.put('/:id', autenticar, exigirPerfil('admin', 'gerente'), async (req, res
     if (finalizando) {
       const balsaIds = contratoAtual.balsas.map(cb => cb.balsaId)
       await tx.balsa.updateMany({
-        where: { id: { in: balsaIds }, status: 'locado' },
+        where: { id: { in: balsaIds }, status: { in: ['locado', 'vendido'] } },
         data: { status: 'disponivel' }
       })
     }

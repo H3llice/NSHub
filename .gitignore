@@ -2,7 +2,7 @@ backend/node_modules
 backend/uploads
 backend/.env
 backend/migracao
-backend/prisma/migrations
+backend/prisma
 backend/scripts/relatorio-migracao.json
 *.log
 .DS_Store
