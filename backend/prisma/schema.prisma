@@ -1,4 +1,4 @@
-generator client {
+﻿generator client {
   provider = "prisma-client-js"
 }
 
@@ -110,10 +110,8 @@ model OrdemCompra {
   criadoEm       DateTime   @default(now())
   atualizadoEm   DateTime   @updatedAt
   canceladoEm    DateTime?
-  valorTotal Float?
+  valorTotal     Float?
 
-  // Rastreabilidade interna — vínculo com a Solicitação que originou esta OC.
-  // Não aparece na tela/PDF da OC, é só para consulta interna.
   geradaDeSolicitacaoId Int?                @unique
   geradaDeSolicitacao   SolicitacaoCompra?  @relation("OcGerada", fields: [geradaDeSolicitacaoId], references: [id])
 
@@ -145,10 +143,6 @@ model Anexo {
   criadoEm     DateTime    @default(now())
 }
 
-// ════════════════════════════════════════════════════════════════════════════
-// SOLICITAÇÃO DE COMPRA — cotação com múltiplos fornecedores concorrendo
-// ════════════════════════════════════════════════════════════════════════════
-
 model SolicitacaoCompra {
   id          Int      @id @default(autoincrement())
   numero      Int
@@ -170,7 +164,6 @@ model SolicitacaoCompra {
   fornecedores FornecedorCotado[]
   assinaturas  Assinatura[]
 
-  // Vínculo inverso (1:1, opcional) com a OC gerada a partir desta solicitação
   ocGerada     OrdemCompra? @relation("OcGerada")
 }
 
@@ -195,8 +188,8 @@ model FornecedorCotado {
   prazoEntrega   String?
   condicoesPagto String?
   observacoes    String?
-  favorito       Boolean           @default(false)  // marcado pelo solicitante
-  escolhido      Boolean           @default(false)  // marcado pelo gerente na aprovação
+  favorito       Boolean           @default(false)
+  escolhido      Boolean           @default(false)
 
   precos         PrecoCotado[]
 }
@@ -207,7 +200,7 @@ model PrecoCotado {
   itemSolicitacaoId  Int
   fornecedor         FornecedorCotado @relation(fields: [fornecedorCotadoId], references: [id])
   fornecedorCotadoId Int
-  valor              Float?           // null = não cotado por esse fornecedor
+  valor              Float?
 
   @@unique([itemSolicitacaoId, fornecedorCotadoId])
 }
@@ -233,17 +226,13 @@ model Balsa {
   contratosBalsa ContratoBalsa[]
 }
 
-// ════════════════════════════════════════════════════════════════════════════
-// CONTRATOS DE LOCAÇÃO
-// ════════════════════════════════════════════════════════════════════════════
-
 model Cliente {
   id         Int      @id @default(autoincrement())
   tipoPessoa String
   // tipoPessoa: fisica | juridica
 
   cpfCnpj    String   @unique
-  nome       String   // nome ou razão social
+  nome       String
   telefone   String?
   email      String?
   endereco   String?
@@ -257,6 +246,8 @@ model Contrato {
   id             Int       @id @default(autoincrement())
   numero         Int
   ano            Int
+  tipo           String
+  // tipo: locacao | venda
   cliente        Cliente   @relation(fields: [clienteId], references: [id])
   clienteId      Int
   dataInicio     DateTime
