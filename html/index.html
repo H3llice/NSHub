@@ -54,6 +54,14 @@
                 </div>
             </div>
 
+            <a href="#" onclick="toggleMenu(event,'financeiro')">💰 Financeiro</a>
+                <div id="financeiro" class="submenu">
+                    <div class="menu-item">
+                        <a href="#" onclick="abrirPagina(event,'contasReceber')" style="flex: 1;">Contas a Receber</a>
+                        <button class="star-btn" onclick="toggleFavorito(event, 'contasReceber', 'Contas a Receber')">☆</button>
+                    </div>
+                </div>
+
             <a href="#" onclick="toggleMenu(event,'servicos')">🧰 Serviços</a>
 
             <div id="servicos" class="submenu">
@@ -174,6 +182,8 @@
         </div>
 
         <div id="ocs" class="page"></div>
+
+        <div id="contasReceber" class="page"></div>
 
 
         <!-- CERTIFICADOS -->

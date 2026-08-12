@@ -1,6 +1,7 @@
 import { inicializarOCs } from './modules/ocs.js'
 import { inicializarEstoque } from './modules/estoque.js'
 import { inicializarClientes, inicializarContratos } from './modules/contratos.js'
+import { inicializarContasReceber, renderizarDashboardInicio } from './modules/pagamentos.js'
 
 
 let favoritos = JSON.parse(localStorage.getItem('favoritos')) || [];
@@ -80,6 +81,10 @@ window.abrirPagina = function (event, id) {
 
     if (id === 'contratos') {
         inicializarContratos()
+    }
+
+    if (id === 'contasReceber') {
+        inicializarContasReceber()
     }
 }
 
@@ -171,6 +176,7 @@ window.addEventListener('load', () => {
     });
     atualizarFavoritos();
     atualizarTabelaCertificados();
+    renderizarDashboardInicio();
 
     // ── Abre OC direto se vier do link do email ──────────────
     const hash = window.location.hash // ex: #oc-42

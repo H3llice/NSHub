@@ -525,6 +525,13 @@ window.abrirFormularioContrato = async function () {
         <div><label>Data Início *</label><input type="date" id="contrato-dataInicio" class="form-control" value="${new Date().toISOString().split('T')[0]}"></div>
         <div id="campo-dataFim"><label>Data Fim</label><input type="date" id="contrato-dataFim" class="form-control"></div>
         <div><label>Valor</label><input type="number" id="contrato-valor" class="form-control" step="0.01"></div>
+        <div><label>Periodicidade</label>
+          <select id="contrato-periodicidade" class="form-control">
+            <option value="unico">Pagamento único</option>
+            <option value="mensal">Mensal</option>
+          </select>
+        </div>
+        <div><label>Data de Vencimento <small style="color:#999;">(obrigatório se houver valor)</small></label><input type="date" id="contrato-dataVencimento" class="form-control"></div>
         <div><label>Forma de Pagamento</label><input type="text" id="contrato-formaPagamento" class="form-control"></div>
         <div style="grid-column:span 2;"><label>Condições de Pagamento</label><input type="text" id="contrato-condicoesPagto" class="form-control"></div>
       </div>
@@ -646,13 +653,23 @@ window.salvarContrato = async function () {
     clienteId = novoCliente.id
   }
 
+  const valorPreenchido = document.getElementById('contrato-valor').value
+  const dataVencimentoPreenchida = document.getElementById('contrato-dataVencimento').value
+
+  if (valorPreenchido && !dataVencimentoPreenchida) {
+    alert('Data de vencimento é obrigatória quando há valor definido!')
+    return
+  }
+
   const body = {
     tipo: tipoContratoAtual,
     clienteId,
     balsaIds,
     dataInicio,
     dataFim: document.getElementById('contrato-dataFim').value || null,
-    valor: document.getElementById('contrato-valor').value || null,
+    valor: valorPreenchido || null,
+    periodicidadePagamento: document.getElementById('contrato-periodicidade').value,
+    dataVencimento: dataVencimentoPreenchida || null,
     formaPagamento: document.getElementById('contrato-formaPagamento').value,
     condicoesPagto: document.getElementById('contrato-condicoesPagto').value,
     observacoes: document.getElementById('contrato-observacoes').value,
