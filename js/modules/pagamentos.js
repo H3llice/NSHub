@@ -69,6 +69,7 @@ export function inicializarContasReceber() {
     const container = document.getElementById('contasReceber')
     container.innerHTML = `
     <div class="tab">Contas a Receber</div>
+    ${podeMarcarPago ? `<button class="btn btn-success" onclick="abrirFormularioContaAvulsa()">+ Nova Conta</button>` : ''}
 
     <div id="resumo-contas-receber" style="display:grid; grid-template-columns:repeat(3, 1fr); gap:16px; margin: 16px 0;">
       <div style="background:white; border-radius:6px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06);">
@@ -85,14 +86,29 @@ export function inicializarContasReceber() {
       </div>
     </div>
 
-    <div style="max-width:260px; margin-bottom:16px;">
-      <label style="font-size:12px;">Status</label>
-      <select id="filtro-status-pagamento" class="form-control" onchange="carregarPagamentos()">
-        <option value="">Todos</option>
-        <option value="pendente">Pendente</option>
-        <option value="atrasado">Atrasado</option>
-        <option value="pago">Pago</option>
-      </select>
+    <!-- Filtros -->
+    <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 16px; align-items:end;">
+      <div>
+        <label style="font-size:12px;">Buscar (cliente, contrato, referência)</label>
+        <input type="text" id="filtro-busca-pagamento" class="form-control form-control-sm" oninput="filtrarPagamentos()">
+      </div>
+      <div>
+        <label style="font-size:12px;">Status</label>
+        <select id="filtro-status-pagamento" class="form-control form-control-sm" onchange="filtrarPagamentos()">
+          <option value="">Todos</option>
+          <option value="pendente">Pendente</option>
+          <option value="atrasado">Atrasado</option>
+          <option value="pago">Pago</option>
+        </select>
+      </div>
+      <div>
+        <label style="font-size:12px;">Vencimento de</label>
+        <input type="date" id="filtro-vencimento-de" class="form-control form-control-sm" onchange="filtrarPagamentos()">
+      </div>
+      <div>
+        <label style="font-size:12px;">Vencimento até</label>
+        <input type="date" id="filtro-vencimento-ate" class="form-control form-control-sm" onchange="filtrarPagamentos()">
+      </div>
     </div>
 
     <table class="table-certificados">
@@ -100,7 +116,7 @@ export function inicializarContasReceber() {
         <tr>
           <th>Contrato</th>
           <th>Cliente</th>
-          <th>Referência</th>
+          <th>Referência / Descrição</th>
           <th>Vencimento</th>
           <th>Valor</th>
           <th>Status</th>
@@ -128,18 +144,42 @@ async function carregarResumoContasReceber() {
     }
 }
 
-window.carregarPagamentos = async function () {
-    const status = document.getElementById('filtro-status-pagamento')?.value || ''
-    const params = status ? `?status=${status}` : ''
+let pagamentosCache = []
 
+window.carregarPagamentos = async function () {
     try {
-        const pagamentos = await apiFetch(`${API}/pagamentos${params}`).then(r => r.json())
-        renderizarTabelaPagamentos(pagamentos)
+        pagamentosCache = await apiFetch(`${API}/pagamentos`).then(r => r.json())
+        filtrarPagamentos()
     } catch {
         document.getElementById('tabela-pagamentos').innerHTML = `
       <tr><td colspan="7" style="text-align:center; color:red; padding:30px;">Erro ao conectar com o servidor</td></tr>
     `
     }
+}
+
+window.filtrarPagamentos = function () {
+    const busca = (document.getElementById('filtro-busca-pagamento')?.value || '').trim().toLowerCase()
+    const status = document.getElementById('filtro-status-pagamento')?.value || ''
+    const vencDe = document.getElementById('filtro-vencimento-de')?.value || ''
+    const vencAte = document.getElementById('filtro-vencimento-ate')?.value || ''
+
+    let filtrados = [...pagamentosCache]
+
+    if (status) filtrados = filtrados.filter(p => p.status === status)
+
+    if (busca) {
+        filtrados = filtrados.filter(p => {
+            const cliente = (p.contrato?.cliente?.nome || p.clienteNome || '').toLowerCase()
+            const contratoNum = p.contrato ? `${p.contrato.numero}.${p.contrato.ano}`.toLowerCase() : ''
+            const ref = (p.referencia || p.descricao || '').toLowerCase()
+            return cliente.includes(busca) || contratoNum.includes(busca) || ref.includes(busca)
+        })
+    }
+
+    if (vencDe) filtrados = filtrados.filter(p => p.dataVencimento.split('T')[0] >= vencDe)
+    if (vencAte) filtrados = filtrados.filter(p => p.dataVencimento.split('T')[0] <= vencAte)
+
+    renderizarTabelaPagamentos(filtrados)
 }
 
 function renderizarTabelaPagamentos(pagamentos) {
@@ -154,6 +194,9 @@ function renderizarTabelaPagamentos(pagamentos) {
     tabela.innerHTML = pagamentos.map(p => {
         const c = p.contrato
         const venc = new Date(p.dataVencimento).toLocaleDateString('pt-BR')
+        const cliente = c?.cliente?.nome || p.clienteNome || '-'
+        const contratoTxt = c ? `${c.numero}.${c.ano}` : '<span style="color:#999;">Avulsa</span>'
+        const refTxt = p.referencia || p.descricao || '-'
 
         const acoes = p.status === 'pago'
             ? `<button class="btn btn-sm btn-secondary" onclick="reverterPagamento(${p.id})">Reverter</button>`
@@ -161,9 +204,9 @@ function renderizarTabelaPagamentos(pagamentos) {
 
         return `
       <tr>
-        <td>${c.numero}.${c.ano}</td>
-        <td>${c.cliente?.nome || '-'}</td>
-        <td>${p.referencia || '-'}</td>
+        <td>${contratoTxt}</td>
+        <td>${cliente}</td>
+        <td>${refTxt}</td>
         <td>${venc}</td>
         <td>${formatarMoeda(p.valor)}</td>
         <td>${badgeStatusPagamento(p.status)}</td>
@@ -171,6 +214,49 @@ function renderizarTabelaPagamentos(pagamentos) {
       </tr>
     `
     }).join('')
+}
+
+// ===== FORMULÁRIO — NOVA CONTA AVULSA (sem contrato) ==========================
+window.abrirFormularioContaAvulsa = function () {
+    document.getElementById('contasReceber').innerHTML = `
+    <div style="margin-top:20px; max-width:600px;">
+      <button class="btn btn-secondary" onclick="inicializarContasReceber()">← Voltar</button>
+      <h3 style="margin:20px 0;">Nova Conta a Receber (avulsa)</h3>
+      <p style="font-size:13px; color:#999;">Use isso para cobranças que não vêm de um contrato de locação ou venda.</p>
+
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+        <div style="grid-column:span 2;"><label>Cliente</label><input type="text" id="conta-clienteNome" class="form-control" placeholder="Nome do cliente (opcional)"></div>
+        <div style="grid-column:span 2;"><label>Descrição *</label><input type="text" id="conta-descricao" class="form-control" placeholder="Ex: Serviço avulso, reembolso, etc."></div>
+        <div><label>Valor *</label><input type="number" id="conta-valor" class="form-control" step="0.01"></div>
+        <div><label>Data de Vencimento *</label><input type="date" id="conta-dataVencimento" class="form-control" value="${new Date().toISOString().split('T')[0]}"></div>
+      </div>
+
+      <button type="button" class="btn btn-success" style="margin-top:20px;" onclick="salvarContaAvulsa()">Salvar Conta</button>
+    </div>
+  `
+}
+
+window.salvarContaAvulsa = async function () {
+    const body = {
+        clienteNome: document.getElementById('conta-clienteNome').value.trim(),
+        descricao: document.getElementById('conta-descricao').value.trim(),
+        valor: document.getElementById('conta-valor').value,
+        dataVencimento: document.getElementById('conta-dataVencimento').value,
+    }
+
+    if (!body.descricao || !body.valor || !body.dataVencimento) {
+        alert('Descrição, valor e data de vencimento são obrigatórios!')
+        return
+    }
+
+    const res = await apiJson(`${API}/pagamentos`, { method: 'POST', body: JSON.stringify(body) })
+    if (res.ok) {
+        alert('Conta cadastrada com sucesso!')
+        inicializarContasReceber()
+    } else {
+        const err = await res.json()
+        alert('Erro: ' + (err.erro || 'Falha ao cadastrar'))
+    }
 }
 
 window.marcarPagamentoPago = async function (id) {
