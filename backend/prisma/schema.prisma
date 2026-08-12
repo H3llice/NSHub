@@ -281,9 +281,11 @@ model ContratoBalsa {
 
 model Pagamento {
   id             Int       @id @default(autoincrement())
-  contrato       Contrato  @relation(fields: [contratoId], references: [id])
-  contratoId     Int
-  referencia     String?   // ex: "08/2026" pra parcelas mensais
+  contrato       Contrato? @relation(fields: [contratoId], references: [id])
+  contratoId     Int?
+  clienteNome    String?   // usado quando não há contrato vinculado (conta avulsa)
+  descricao      String?   // usado quando não há contrato vinculado (conta avulsa)
+  referencia     String?
   valor          Float
   dataVencimento DateTime
   dataPagamento  DateTime?
