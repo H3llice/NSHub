@@ -15,6 +15,8 @@ import webhookRouter from './routes/webhook.js'
 import estoqueRouter from './routes/estoque.js'
 import clientesRouter from './routes/clientes.js'
 import contratosRouter from './routes/contratos.js'
+import pagamentosRouter from './routes/pagamentos.js'
+import { notificarPagamentoAtrasado } from './email.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -54,6 +56,7 @@ app.use('/solicitacoes', solicitacoesRouter)
 app.use('/estoque', estoqueRouter)
 app.use('/clientes', clientesRouter)
 app.use('/contratos', contratosRouter)
+app.use('/pagamentos', pagamentosRouter)
 
 app.get('/api', (req, res) => {
   res.json({ mensagem: 'API do Portal NS funcionando!' })
@@ -79,6 +82,76 @@ setInterval(async () => {
     console.log(`🗑️ ${antigas.length} OCs canceladas deletadas permanentemente`)
   }
 }, 24 * 60 * 60 * 1000)
+
+setInterval(async () => {
+  const hoje = new Date()
+  hoje.setHours(0, 0, 0, 0)
+
+  // ── Marca como atrasado e envia email (só na primeira vez) ──────────────────
+  const vencidos = await prisma.pagamento.findMany({
+    where: { status: 'pendente', dataVencimento: { lt: hoje } },
+    include: { contrato: { include: { cliente: true } } }
+  })
+
+  for (const p of vencidos) {
+    await prisma.pagamento.update({
+      where: { id: p.id },
+      data: { status: 'atrasado' }
+    })
+
+    if (!p.alertaEnviado) {
+      try {
+        await notificarPagamentoAtrasado(p)
+        await prisma.pagamento.update({
+          where: { id: p.id },
+          data: { alertaEnviado: true }
+        })
+      } catch (err) {
+        console.error('⚠️  Falha ao enviar aviso de atraso:', err.message)
+      }
+    }
+  }
+
+  // ── Gera a próxima parcela dos contratos mensais ativos ─────────────────────
+  const contratosMensais = await prisma.contrato.findMany({
+    where: { status: 'ativo', periodicidadePagamento: 'mensal' },
+    include: { pagamentos: { orderBy: { dataVencimento: 'desc' }, take: 1 } }
+  })
+
+  for (const c of contratosMensais) {
+    const ultimaParcela = c.pagamentos[0]
+    if (!ultimaParcela) continue
+
+    const proximoVencimento = new Date(ultimaParcela.dataVencimento)
+    proximoVencimento.setMonth(proximoVencimento.getMonth() + 1)
+
+    // Só cria a próxima parcela quando estiver a 5 dias ou menos do vencimento
+    const antecedencia = new Date(proximoVencimento)
+    antecedencia.setDate(antecedencia.getDate() - 5)
+
+    if (hoje >= antecedencia) {
+      const jaExiste = await prisma.pagamento.findFirst({
+        where: { contratoId: c.id, dataVencimento: proximoVencimento.toISOString().split('T')[0] }
+      })
+      if (jaExiste) continue
+
+      await prisma.pagamento.create({
+        data: {
+          contratoId: c.id,
+          valor: ultimaParcela.valor,
+          dataVencimento: proximoVencimento.toISOString(),
+          referencia: `${String(proximoVencimento.getMonth() + 1).padStart(2, '0')}/${proximoVencimento.getFullYear()}`
+        }
+      })
+      console.log(`💰 Nova parcela gerada — Contrato ${c.numero}.${c.ano}`)
+    }
+  }
+
+  if (vencidos.length > 0) {
+    console.log(`⚠️  ${vencidos.length} pagamento(s) marcado(s) como atrasado(s)`)
+  }
+}, 24 * 60 * 60 * 1000)
+
 
 const PORT = 3000
 app.listen(PORT, () => {

@@ -20,6 +20,11 @@ const GERENTES = [
   process.env.EMAIL_USER1
 ].filter(Boolean)
 
+const CONTAS_A_RECEBER = [
+  process.env.EMAIL_RENTAL,
+  process.env.EMAIL_MARITIME
+].filter(Boolean)
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function formatarOC(oc) {
   return {
@@ -138,4 +143,26 @@ export async function enviarEmailResetSenha(usuario, link) {
       </div>
     `
   })
+}
+
+// ─── Aviso de pagamento atrasado (contas a receber) ───────────────────────────
+export async function notificarPagamentoAtrasado(pagamento) {
+  const contrato = pagamento.contrato
+  const numero = `Contrato ${contrato.numero}.${contrato.ano}`
+  const cliente = contrato.cliente?.nome ?? 'Não informado'
+  const venc = new Date(pagamento.dataVencimento).toLocaleDateString('pt-BR')
+  const valor = pagamento.valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+
+  await enviar({
+    para: CONTAS_A_RECEBER,
+    assunto: `[Pagamento Atrasado] ${numero} — ${cliente}`,
+    corpo: `O pagamento abaixo está atrasado:\n\n` +
+      `${numero}\n` +
+      `Cliente: ${cliente}\n` +
+      `Vencimento: ${venc}\n` +
+      `Valor: ${valor}\n` +
+      (pagamento.referencia ? `Referência: ${pagamento.referencia}\n` : '')
+  })
+
+  console.log(`📧 Aviso de atraso enviado — ${numero}`)
 }

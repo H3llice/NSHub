@@ -46,7 +46,8 @@ router.get('/:id', autenticar, async (req, res) => {
 router.post('/', autenticar, exigirPerfil('admin', 'gerente'), async (req, res) => {
   const {
     tipo, clienteId, balsaIds, dataInicio, dataFim,
-    valor, formaPagamento, condicoesPagto, observacoes
+    valor, formaPagamento, condicoesPagto, observacoes,
+    periodicidadePagamento, dataVencimento
   } = req.body
 
   if (!tipo || !TIPOS_VALIDOS.includes(tipo)) {
@@ -55,6 +56,12 @@ router.post('/', autenticar, exigirPerfil('admin', 'gerente'), async (req, res) 
 
   if (!clienteId || !Array.isArray(balsaIds) || balsaIds.length === 0 || !dataInicio) {
     return res.status(400).json({ erro: 'Cliente, ao menos uma balsa e data de início são obrigatórios' })
+  }
+
+  const periodicidade = periodicidadePagamento === 'mensal' ? 'mensal' : 'unico'
+
+  if (valor && !dataVencimento) {
+    return res.status(400).json({ erro: 'Data de vencimento é obrigatória quando há valor definido' })
   }
 
   const cliente = await prisma.cliente.findUnique({ where: { id: parseInt(clienteId) } })
@@ -102,6 +109,7 @@ router.post('/', autenticar, exigirPerfil('admin', 'gerente'), async (req, res) 
         formaPagamento: formaPagamento || null,
         condicoesPagto: condicoesPagto || null,
         observacoes: observacoes || null,
+        periodicidadePagamento: periodicidade,
         criadoPorId: req.usuario.id,
         balsas: {
           create: balsaIds.map(id => ({ balsaId: parseInt(id) }))
@@ -114,6 +122,21 @@ router.post('/', autenticar, exigirPerfil('admin', 'gerente'), async (req, res) 
       where: { id: { in: balsaIds.map(Number) } },
       data: { status: statusBalsaAlvo }
     })
+
+    // Cria a primeira parcela, se houver valor definido
+    if (valor && dataVencimento) {
+      const dataVenc = new Date(dataVencimento)
+      await tx.pagamento.create({
+        data: {
+          contratoId: novoContrato.id,
+          valor: parseFloat(valor),
+          dataVencimento: dataVenc.toISOString(),
+          referencia: periodicidade === 'mensal'
+            ? `${String(dataVenc.getMonth() + 1).padStart(2, '0')}/${dataVenc.getFullYear()}`
+            : null
+        }
+      })
+    }
 
     return novoContrato
   })
