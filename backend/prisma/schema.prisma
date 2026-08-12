@@ -255,6 +255,7 @@ model Contrato {
   valor          Float?
   formaPagamento String?
   condicoesPagto String?
+  periodicidadePagamento String    @default("unico")
   observacoes    String?
   status         String    @default("ativo")
   // status: ativo | encerrado | cancelado
@@ -275,4 +276,18 @@ model ContratoBalsa {
   balsaId    Int
 
   @@unique([contratoId, balsaId])
+}
+
+model Pagamento {
+  id             Int       @id @default(autoincrement())
+  contrato       Contrato  @relation(fields: [contratoId], references: [id])
+  contratoId     Int
+  referencia     String?   // ex: "08/2026" pra parcelas mensais
+  valor          Float
+  dataVencimento DateTime
+  dataPagamento  DateTime?
+  status         String    @default("pendente")
+  // status: pendente | pago | atrasado
+  alertaEnviado  Boolean   @default(false)
+  criadoEm       DateTime  @default(now())
 }
