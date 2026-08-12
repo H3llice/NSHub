@@ -2,41 +2,41 @@ const API = 'https://override-steerable-professed.ngrok-free.dev'
 
 // ─── Auth helper (mesmo padrão dos outros módulos) ────────────────────────────
 function tratarSessaoExpirada(res) {
-    if (res.status === 401) {
-        localStorage.removeItem('ns_token')
-        localStorage.removeItem('ns_usuario')
-        alert('Sua sessão expirou. Faça login novamente.')
-        window.location.href = './login.html'
-        throw new Error('Sessão expirada')
-    }
-    return res
+  if (res.status === 401) {
+    localStorage.removeItem('ns_token')
+    localStorage.removeItem('ns_usuario')
+    alert('Sua sessão expirou. Faça login novamente.')
+    window.location.href = './login.html'
+    throw new Error('Sessão expirada')
+  }
+  return res
 }
 
 async function apiFetch(url, options = {}) {
-    const token = localStorage.getItem('ns_token')
-    const res = await fetch(url, {
-        ...options,
-        headers: {
-            ...(options.headers || {}),
-            'Authorization': `Bearer ${token}`,
-            'ngrok-skip-browser-warning': 'true'
-        }
-    })
-    return tratarSessaoExpirada(res)
+  const token = localStorage.getItem('ns_token')
+  const res = await fetch(url, {
+    ...options,
+    headers: {
+      ...(options.headers || {}),
+      'Authorization': `Bearer ${token}`,
+      'ngrok-skip-browser-warning': 'true'
+    }
+  })
+  return tratarSessaoExpirada(res)
 }
 
 async function apiJson(url, options = {}) {
-    const token = localStorage.getItem('ns_token')
-    const res = await fetch(url, {
-        ...options,
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
-            'ngrok-skip-browser-warning': 'true',
-            ...(options.headers || {})
-        }
-    })
-    return tratarSessaoExpirada(res)
+  const token = localStorage.getItem('ns_token')
+  const res = await fetch(url, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+      'ngrok-skip-browser-warning': 'true',
+      ...(options.headers || {})
+    }
+  })
+  return tratarSessaoExpirada(res)
 }
 
 const usuarioAtual = JSON.parse(localStorage.getItem('ns_usuario') || 'null')
@@ -44,18 +44,18 @@ const perfil = usuarioAtual?.perfil || 'usuario'
 const podeMarcarPago = perfil === 'admin' || perfil === 'financeiro'
 
 const STATUS_PAGAMENTO_LABEL = {
-    pendente: { texto: 'Pendente', cor: '#fd7e14' },
-    atrasado: { texto: 'Atrasado', cor: '#dc3545' },
-    pago: { texto: 'Pago', cor: '#198754' },
+  pendente: { texto: 'Pendente', cor: '#fd7e14' },
+  atrasado: { texto: 'Atrasado', cor: '#dc3545' },
+  pago: { texto: 'Pago', cor: '#198754' },
 }
 
 function badgeStatusPagamento(status) {
-    const s = STATUS_PAGAMENTO_LABEL[status] || { texto: status, cor: '#6c757d' }
-    return `<span style="background:${s.cor}; color:white; padding:2px 8px; border-radius:12px; font-size:12px;">${s.texto}</span>`
+  const s = STATUS_PAGAMENTO_LABEL[status] || { texto: status, cor: '#6c757d' }
+  return `<span style="background:${s.cor}; color:white; padding:2px 8px; border-radius:12px; font-size:12px;">${s.texto}</span>`
 }
 
 function formatarMoeda(v) {
-    return (v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+  return (v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 }
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -63,11 +63,11 @@ function formatarMoeda(v) {
 // ══════════════════════════════════════════════════════════════════════════
 
 export function inicializarContasReceber() {
-    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'))
-    document.getElementById('contasReceber').classList.add('active')
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'))
+  document.getElementById('contasReceber').classList.add('active')
 
-    const container = document.getElementById('contasReceber')
-    container.innerHTML = `
+  const container = document.getElementById('contasReceber')
+  container.innerHTML = `
     <div class="tab">Contas a Receber</div>
     ${podeMarcarPago ? `<button class="btn btn-success" onclick="abrirFormularioContaAvulsa()">+ Nova Conta</button>` : ''}
 
@@ -129,80 +129,80 @@ export function inicializarContasReceber() {
     </table>
   `
 
-    carregarResumoContasReceber()
-    carregarPagamentos()
+  carregarResumoContasReceber()
+  carregarPagamentos()
 }
 
 async function carregarResumoContasReceber() {
-    try {
-        const d = await apiFetch(`${API}/pagamentos/dashboard`).then(r => r.json())
-        document.getElementById('resumo-total-receber').textContent = formatarMoeda(d.totalAReceber)
-        document.getElementById('resumo-total-atrasado').textContent = formatarMoeda(d.totalAtrasado)
-        document.getElementById('resumo-total-recebido').textContent = formatarMoeda(d.totalRecebido30dias)
-    } catch {
-        // Silencioso — o resumo é secundário, a tabela principal já mostra erro se falhar
-    }
+  try {
+    const d = await apiFetch(`${API}/pagamentos/dashboard`).then(r => r.json())
+    document.getElementById('resumo-total-receber').textContent = formatarMoeda(d.totalAReceber)
+    document.getElementById('resumo-total-atrasado').textContent = formatarMoeda(d.totalAtrasado)
+    document.getElementById('resumo-total-recebido').textContent = formatarMoeda(d.totalRecebido30dias)
+  } catch {
+    // Silencioso — o resumo é secundário, a tabela principal já mostra erro se falhar
+  }
 }
 
 let pagamentosCache = []
 
 window.carregarPagamentos = async function () {
-    try {
-        pagamentosCache = await apiFetch(`${API}/pagamentos`).then(r => r.json())
-        filtrarPagamentos()
-    } catch {
-        document.getElementById('tabela-pagamentos').innerHTML = `
+  try {
+    pagamentosCache = await apiFetch(`${API}/pagamentos`).then(r => r.json())
+    filtrarPagamentos()
+  } catch {
+    document.getElementById('tabela-pagamentos').innerHTML = `
       <tr><td colspan="7" style="text-align:center; color:red; padding:30px;">Erro ao conectar com o servidor</td></tr>
     `
-    }
+  }
 }
 
 window.filtrarPagamentos = function () {
-    const busca = (document.getElementById('filtro-busca-pagamento')?.value || '').trim().toLowerCase()
-    const status = document.getElementById('filtro-status-pagamento')?.value || ''
-    const vencDe = document.getElementById('filtro-vencimento-de')?.value || ''
-    const vencAte = document.getElementById('filtro-vencimento-ate')?.value || ''
+  const busca = (document.getElementById('filtro-busca-pagamento')?.value || '').trim().toLowerCase()
+  const status = document.getElementById('filtro-status-pagamento')?.value || ''
+  const vencDe = document.getElementById('filtro-vencimento-de')?.value || ''
+  const vencAte = document.getElementById('filtro-vencimento-ate')?.value || ''
 
-    let filtrados = [...pagamentosCache]
+  let filtrados = [...pagamentosCache]
 
-    if (status) filtrados = filtrados.filter(p => p.status === status)
+  if (status) filtrados = filtrados.filter(p => p.status === status)
 
-    if (busca) {
-        filtrados = filtrados.filter(p => {
-            const cliente = (p.contrato?.cliente?.nome || p.clienteNome || '').toLowerCase()
-            const contratoNum = p.contrato ? `${p.contrato.numero}.${p.contrato.ano}`.toLowerCase() : ''
-            const ref = (p.referencia || p.descricao || '').toLowerCase()
-            return cliente.includes(busca) || contratoNum.includes(busca) || ref.includes(busca)
-        })
-    }
+  if (busca) {
+    filtrados = filtrados.filter(p => {
+      const cliente = (p.contrato?.cliente?.nome || p.clienteNome || '').toLowerCase()
+      const contratoNum = p.contrato ? `${p.contrato.numero}.${p.contrato.ano}`.toLowerCase() : ''
+      const ref = (p.referencia || p.descricao || '').toLowerCase()
+      return cliente.includes(busca) || contratoNum.includes(busca) || ref.includes(busca)
+    })
+  }
 
-    if (vencDe) filtrados = filtrados.filter(p => p.dataVencimento.split('T')[0] >= vencDe)
-    if (vencAte) filtrados = filtrados.filter(p => p.dataVencimento.split('T')[0] <= vencAte)
+  if (vencDe) filtrados = filtrados.filter(p => p.dataVencimento.split('T')[0] >= vencDe)
+  if (vencAte) filtrados = filtrados.filter(p => p.dataVencimento.split('T')[0] <= vencAte)
 
-    renderizarTabelaPagamentos(filtrados)
+  renderizarTabelaPagamentos(filtrados)
 }
 
 function renderizarTabelaPagamentos(pagamentos) {
-    const tabela = document.getElementById('tabela-pagamentos')
-    const colspan = podeMarcarPago ? 7 : 6
+  const tabela = document.getElementById('tabela-pagamentos')
+  const colspan = podeMarcarPago ? 7 : 6
 
-    if (pagamentos.length === 0) {
-        tabela.innerHTML = `<tr><td colspan="${colspan}" style="text-align:center; color:#999; padding:30px;">Nenhum pagamento encontrado</td></tr>`
-        return
-    }
+  if (pagamentos.length === 0) {
+    tabela.innerHTML = `<tr><td colspan="${colspan}" style="text-align:center; color:#999; padding:30px;">Nenhum pagamento encontrado</td></tr>`
+    return
+  }
 
-    tabela.innerHTML = pagamentos.map(p => {
-        const c = p.contrato
-        const venc = new Date(p.dataVencimento).toLocaleDateString('pt-BR')
-        const cliente = c?.cliente?.nome || p.clienteNome || '-'
-        const contratoTxt = c ? `${c.numero}.${c.ano}` : '<span style="color:#999;">Avulsa</span>'
-        const refTxt = p.referencia || p.descricao || '-'
+  tabela.innerHTML = pagamentos.map(p => {
+    const c = p.contrato
+    const venc = new Date(p.dataVencimento).toLocaleDateString('pt-BR')
+    const cliente = c?.cliente?.nome || p.clienteNome || '-'
+    const contratoTxt = c ? `${c.numero}.${c.ano}` : '<span style="color:#999;">Avulsa</span>'
+    const refTxt = p.referencia || p.descricao || '-'
 
-        const acoes = p.status === 'pago'
-            ? `<button class="btn btn-sm btn-secondary" onclick="reverterPagamento(${p.id})">Reverter</button>`
-            : `<button class="btn btn-sm btn-success" onclick="marcarPagamentoPago(${p.id})">Marcar Pago</button>`
+    const acoes = p.status === 'pago'
+      ? `<button class="btn btn-sm btn-secondary" onclick="reverterPagamento(${p.id})">Reverter</button>`
+      : `<button class="btn btn-sm btn-success" onclick="marcarPagamentoPago(${p.id})">Marcar Pago</button>`
 
-        return `
+    return `
       <tr>
         <td>${contratoTxt}</td>
         <td>${cliente}</td>
@@ -213,12 +213,12 @@ function renderizarTabelaPagamentos(pagamentos) {
         ${podeMarcarPago ? `<td>${acoes}</td>` : ''}
       </tr>
     `
-    }).join('')
+  }).join('')
 }
 
 // ===== FORMULÁRIO — NOVA CONTA AVULSA (sem contrato) ==========================
 window.abrirFormularioContaAvulsa = function () {
-    document.getElementById('contasReceber').innerHTML = `
+  document.getElementById('contasReceber').innerHTML = `
     <div style="margin-top:20px; max-width:600px;">
       <button class="btn btn-secondary" onclick="inicializarContasReceber()">← Voltar</button>
       <h3 style="margin:20px 0;">Nova Conta a Receber (avulsa)</h3>
@@ -237,48 +237,48 @@ window.abrirFormularioContaAvulsa = function () {
 }
 
 window.salvarContaAvulsa = async function () {
-    const body = {
-        clienteNome: document.getElementById('conta-clienteNome').value.trim(),
-        descricao: document.getElementById('conta-descricao').value.trim(),
-        valor: document.getElementById('conta-valor').value,
-        dataVencimento: document.getElementById('conta-dataVencimento').value,
-    }
+  const body = {
+    clienteNome: document.getElementById('conta-clienteNome').value.trim(),
+    descricao: document.getElementById('conta-descricao').value.trim(),
+    valor: document.getElementById('conta-valor').value,
+    dataVencimento: document.getElementById('conta-dataVencimento').value,
+  }
 
-    if (!body.descricao || !body.valor || !body.dataVencimento) {
-        alert('Descrição, valor e data de vencimento são obrigatórios!')
-        return
-    }
+  if (!body.descricao || !body.valor || !body.dataVencimento) {
+    alert('Descrição, valor e data de vencimento são obrigatórios!')
+    return
+  }
 
-    const res = await apiJson(`${API}/pagamentos`, { method: 'POST', body: JSON.stringify(body) })
-    if (res.ok) {
-        alert('Conta cadastrada com sucesso!')
-        inicializarContasReceber()
-    } else {
-        const err = await res.json()
-        alert('Erro: ' + (err.erro || 'Falha ao cadastrar'))
-    }
+  const res = await apiJson(`${API}/pagamentos`, { method: 'POST', body: JSON.stringify(body) })
+  if (res.ok) {
+    alert('Conta cadastrada com sucesso!')
+    inicializarContasReceber()
+  } else {
+    const err = await res.json()
+    alert('Erro: ' + (err.erro || 'Falha ao cadastrar'))
+  }
 }
 
 window.marcarPagamentoPago = async function (id) {
-    if (!confirm('Confirmar que este pagamento foi recebido?')) return
-    const res = await apiJson(`${API}/pagamentos/${id}/marcar-pago`, { method: 'POST', body: JSON.stringify({}) })
-    if (res.ok) {
-        carregarResumoContasReceber()
-        carregarPagamentos()
-    } else {
-        alert('Erro ao marcar pagamento como pago')
-    }
+  if (!confirm('Confirmar que este pagamento foi recebido?')) return
+  const res = await apiJson(`${API}/pagamentos/${id}/marcar-pago`, { method: 'POST', body: JSON.stringify({}) })
+  if (res.ok) {
+    carregarResumoContasReceber()
+    carregarPagamentos()
+  } else {
+    alert('Erro ao marcar pagamento como pago')
+  }
 }
 
 window.reverterPagamento = async function (id) {
-    if (!confirm('Reverter este pagamento para pendente?')) return
-    const res = await apiJson(`${API}/pagamentos/${id}/reverter`, { method: 'POST', body: JSON.stringify({}) })
-    if (res.ok) {
-        carregarResumoContasReceber()
-        carregarPagamentos()
-    } else {
-        alert('Erro ao reverter pagamento')
-    }
+  if (!confirm('Reverter este pagamento para pendente?')) return
+  const res = await apiJson(`${API}/pagamentos/${id}/reverter`, { method: 'POST', body: JSON.stringify({}) })
+  if (res.ok) {
+    carregarResumoContasReceber()
+    carregarPagamentos()
+  } else {
+    alert('Erro ao reverter pagamento')
+  }
 }
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -286,24 +286,24 @@ window.reverterPagamento = async function (id) {
 // ══════════════════════════════════════════════════════════════════════════
 
 export async function renderizarDashboardInicio() {
-    const container = document.getElementById('inicio')
-    if (!container) return
+  const container = document.getElementById('inicio')
+  if (!container) return
 
-    // Preserva conteúdo já existente na página de início, só adiciona o painel financeiro
-    let painel = document.getElementById('painel-financeiro-inicio')
-    if (!painel) {
-        painel = document.createElement('div')
-        painel.id = 'painel-financeiro-inicio'
-        painel.style = 'margin-top:20px;'
-        container.appendChild(painel)
-    }
+  // Preserva conteúdo já existente na página de início, só adiciona o painel financeiro
+  let painel = document.getElementById('painel-financeiro-inicio')
+  if (!painel) {
+    painel = document.createElement('div')
+    painel.id = 'painel-financeiro-inicio'
+    painel.style = 'margin-top:20px;'
+    container.appendChild(painel)
+  }
 
-    painel.innerHTML = `<div style="color:#999; padding:12px;">Carregando resumo financeiro...</div>`
+  painel.innerHTML = `<div style="color:#999; padding:12px;">Carregando resumo financeiro...</div>`
 
-    try {
-        const d = await apiFetch(`${API}/pagamentos/dashboard`).then(r => r.json())
+  try {
+    const d = await apiFetch(`${API}/pagamentos/dashboard`).then(r => r.json())
 
-        painel.innerHTML = `
+    painel.innerHTML = `
       <h5 style="margin-bottom:12px;">Resumo Financeiro</h5>
       <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:16px; margin-bottom:20px;">
         <div style="background:white; border-radius:6px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06);">
@@ -334,7 +334,10 @@ export async function renderizarDashboardInicio() {
         </div>
       ` : ''}
     `
-    } catch {
-        painel.innerHTML = ''
-    }
+  } catch {
+    painel.innerHTML = ''
+  }
 }
+
+// Expostas em window para funcionar em onclick inline (ex: botão "Voltar")
+window.inicializarContasReceber = inicializarContasReceber

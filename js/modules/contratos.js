@@ -685,3 +685,7 @@ window.salvarContrato = async function () {
     alert('Erro ao criar contrato: ' + (err.erro || ''))
   }
 }
+
+// Expostas em window para funcionar em onclick inline (ex: botões "Voltar")
+window.inicializarContratos = inicializarContratos
+window.inicializarClientes = inicializarClientes
