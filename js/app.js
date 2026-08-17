@@ -2,6 +2,7 @@ import { inicializarOCs } from './modules/ocs.js'
 import { inicializarEstoque } from './modules/estoque.js'
 import { inicializarClientes, inicializarContratos } from './modules/contratos.js'
 import { inicializarContasReceber, renderizarDashboardInicio } from './modules/pagamentos.js'
+import { inicializarFornecedores } from './modules/fornecedores.js'
 
 
 let favoritos = JSON.parse(localStorage.getItem('favoritos')) || [];
@@ -85,6 +86,10 @@ window.abrirPagina = function (event, id) {
 
     if (id === 'contasReceber') {
         inicializarContasReceber()
+    }
+
+    if (id === 'fornecedores') {
+        inicializarFornecedores()
     }
 }
 
