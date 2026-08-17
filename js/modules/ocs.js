@@ -42,7 +42,6 @@ async function apiJson(url, options = {}) {
 const usuarioAtual = JSON.parse(localStorage.getItem('ns_usuario') || 'null')
 const perfil = usuarioAtual?.perfil || 'usuario'
 
-// ─── Labels de status ─────────────────────────────────────────────────────────
 const STATUS_LABEL = {
   aberta: { texto: 'Aberta', cor: '#6c757d' },
   aguardando_aprovacao: { texto: 'Ag. Aprovação', cor: '#fd7e14' },
@@ -58,7 +57,13 @@ function badgeStatus(status) {
   return `<span style="background:${s.cor}; color:white; padding:2px 8px; border-radius:12px; font-size:12px;">${s.texto}</span>`
 }
 
-// ===== RENDERIZA A PÁGINA DE OCs =====
+function formatarDesconto(item) {
+  if (!item.descontoValor) return '-'
+  return item.descontoTipo === 'fixo'
+    ? 'R$ ' + item.descontoValor.toFixed(2)
+    : item.descontoValor + '%'
+}
+
 export function inicializarOCs() {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'))
   document.getElementById('ocs').classList.add('active')
@@ -129,7 +134,6 @@ export function inicializarOCs() {
 
   carregarOCs()
 
-  // Abre OC direto se vier do link do email
   const hash = window.location.hash
   if (hash.startsWith('#oc-')) {
     const id = parseInt(hash.replace('#oc-', ''))
@@ -142,7 +146,6 @@ export function inicializarOCs() {
   }
 }
 
-// ===== CARREGA OCs DO BACKEND =====
 let paginaAtual = 1
 
 window.carregarOCs = async function (pagina = 1) {
@@ -163,30 +166,31 @@ window.carregarOCs = async function (pagina = 1) {
 
   try {
     const res = await apiFetch(`${API}/ocs?${params}`)
-    const { ocs, total, totalPaginas } = await res.json()
+    const dados = await res.json()
+    const ocs = dados.ocs || []
     renderizarTabela(ocs)
 
     const contador = document.getElementById('contador-ocs')
     if (contador) {
       contador.innerHTML = `
         <div style="display:flex; justify-content:space-between; align-items:center;">
-          <span>${total} OCs encontradas</span>
+          <span>${dados.total || 0} OCs encontradas</span>
           <div style="display:flex; gap:8px; align-items:center;">
             <button class="btn btn-sm btn-secondary" onclick="carregarOCs(${pagina - 1})" ${pagina <= 1 ? 'disabled' : ''}>← Anterior</button>
-            <span>Página ${pagina} de ${totalPaginas}</span>
-            <button class="btn btn-sm btn-secondary" onclick="carregarOCs(${pagina + 1})" ${pagina >= totalPaginas ? 'disabled' : ''}>Próxima →</button>
+            <span>Página ${pagina} de ${dados.totalPaginas || 1}</span>
+            <button class="btn btn-sm btn-secondary" onclick="carregarOCs(${pagina + 1})" ${pagina >= (dados.totalPaginas || 1) ? 'disabled' : ''}>Próxima →</button>
           </div>
         </div>
       `
     }
   } catch (err) {
+    console.error('Erro em carregarOCs:', err)
     document.getElementById('tabela-ocs').innerHTML = `
       <tr><td colspan="6" style="text-align:center; color:red; padding:30px;">Erro ao conectar com o servidor</td></tr>
     `
   }
 }
 
-// ===== RENDERIZA A TABELA =====
 function renderizarTabela(ocs) {
   const tabela = document.getElementById('tabela-ocs')
 
@@ -218,7 +222,6 @@ function renderizarTabela(ocs) {
   }).join('')
 }
 
-// ─── Botões por perfil e status ───────────────────────────────────────────────
 function botoesParaPerfil(oc, numero) {
   const btns = []
   const s = oc.status
@@ -248,7 +251,6 @@ function botoesParaPerfil(oc, numero) {
   return btns.join(' ')
 }
 
-// ===== VISUALIZAÇÃO DA OC ====================================================
 window.verOC = async function (id) {
   const oc = await apiFetch(`${API}/ocs/${id}`).then(r => r.json())
 
@@ -358,7 +360,7 @@ window.verOC = async function (id) {
       <div style="background:white; border-radius:6px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06); margin-bottom:16px;">
         <div style="font-weight:700; color:#158815; margin-bottom:10px;">Itens</div>
         <table class="table-certificados">
-          <thead><tr><th>Qtd</th><th>Unid</th><th>Descrição</th><th>Valor Unit</th><th>IPI</th><th>Total</th></tr></thead>
+          <thead><tr><th>Qtd</th><th>Unid</th><th>Descrição</th><th>Valor Unit</th><th>Desconto</th><th>IPI</th><th>Total</th></tr></thead>
           <tbody>
             ${oc.itens.map(item => `
               <tr>
@@ -366,12 +368,13 @@ window.verOC = async function (id) {
                 <td>${item.unidade || '-'}</td>
                 <td>${item.descricao}</td>
                 <td>${item.valorUni ? 'R$ ' + item.valorUni.toFixed(2) : '-'}</td>
+                <td>${formatarDesconto(item)}</td>
                 <td>${item.ipi ? item.ipi + '%' : '-'}</td>
                 <td>${item.valorTotal ? 'R$ ' + item.valorTotal.toFixed(2) : '-'}</td>
               </tr>
             `).join('')}
             <tr style="font-weight:700; background:#f9f9f9;">
-              <td colspan="5" style="text-align:right;">TOTAL</td>
+              <td colspan="6" style="text-align:right;">TOTAL</td>
               <td>R$ ${total.toFixed(2)}</td>
             </tr>
           </tbody>
@@ -412,7 +415,6 @@ window.verOC = async function (id) {
   `
 }
 
-// ===== MODAL DE ASSINATURA (canvas) ==========================================
 window.abrirModalAssinatura = function (ocId, acao) {
   const titulos = {
     solicitante: 'Assinar como Solicitante',
@@ -554,7 +556,6 @@ window.confirmarAssinatura = async function (ocId, acao) {
   }
 }
 
-// ===== MODAL DE RECUSA ========================================================
 window.abrirModalRecusa = function (ocId) {
   const modal = document.createElement('div')
   modal.id = 'modal-recusa'
@@ -611,7 +612,6 @@ window.confirmarRecusa = async function (ocId) {
   }
 }
 
-// ===== ABRE FORMULÁRIO NOVA OC ================================================
 window.abrirFormularioOC = async function () {
   const empresas = await fetch(`${API}/empresas`, { headers: { 'ngrok-skip-browser-warning': 'true' } }).then(r => r.json())
   const opcoesEmpresas = empresas.map(e =>
@@ -658,7 +658,7 @@ window.abrirFormularioOC = async function () {
 
       <h5 style="margin: 24px 0 12px;">Itens</h5>
       <table class="table-certificados">
-        <thead><tr><th>Qtd</th><th>Unid</th><th>Descrição</th><th>Valor Unit</th><th>IPI %</th><th>Total</th><th></th></tr></thead>
+        <thead><tr><th>Qtd</th><th>Unid</th><th>Descrição</th><th>Valor Unit</th><th>Desconto</th><th>IPI %</th><th>Total</th><th></th></tr></thead>
         <tbody id="itens-oc"></tbody>
       </table>
       <button class="btn btn-secondary" style="margin-top: 8px;" onclick="adicionarItemOC()">+ Item</button>
@@ -705,6 +705,15 @@ window.adicionarItemOC = function () {
     <td><input type="text" class="form-control" id="item-unid-${index}" placeholder="UN"></td>
     <td><input type="text" class="form-control" id="item-desc-${index}"></td>
     <td><input type="number" class="form-control" id="item-vuni-${index}" min="0" step="0.01" oninput="calcularTotal(${index})"></td>
+    <td>
+      <div style="display:flex; gap:4px;">
+        <select class="form-control form-control-sm" id="item-descTipo-${index}" style="width:60px; flex-shrink:0;" onchange="calcularTotal(${index})">
+          <option value="percentual">%</option>
+          <option value="fixo">R$</option>
+        </select>
+        <input type="number" class="form-control form-control-sm" id="item-descValor-${index}" min="0" step="0.01" placeholder="0" oninput="calcularTotal(${index})">
+      </div>
+    </td>
     <td><input type="number" class="form-control" id="item-ipi-${index}" min="0" step="0.01" oninput="calcularTotal(${index})"></td>
     <td><input type="number" class="form-control" id="item-vtotal-${index}" readonly></td>
     <td><button class="btn btn-sm btn-danger" onclick="this.closest('tr').remove()">✕</button></td>
@@ -850,8 +859,8 @@ window.editarOC = async function (id) {
 
       ${somenteLeitura ? `<div style="background:#fff3cd; border:1px solid #ffc107; padding:10px 14px; border-radius:4px; margin-bottom:16px; font-size:13px;">
         ${apenasAnexo
-      ? '⚠️ Esta OC já está aprovada. Os dados não podem mais ser alterados — apenas novos anexos podem ser adicionados.'
-      : '⚠️ Esta OC está em processo de aprovação e não pode ser editada.'}
+        ? '⚠️ Esta OC já está aprovada. Os dados não podem mais ser alterados — apenas novos anexos podem ser adicionados.'
+        : '⚠️ Esta OC está em processo de aprovação e não pode ser editada.'}
       </div>` : ''}
 
       <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 16px;">
@@ -888,7 +897,7 @@ window.editarOC = async function (id) {
 
       <h5 style="margin: 24px 0 12px;">Itens</h5>
       <table class="table-certificados">
-        <thead><tr><th>Qtd</th><th>Unid</th><th>Descrição</th><th>Valor Unit</th><th>IPI %</th><th>Total</th>${somenteLeitura ? '' : '<th></th>'}</tr></thead>
+        <thead><tr><th>Qtd</th><th>Unid</th><th>Descrição</th><th>Valor Unit</th><th>Desconto</th><th>IPI %</th><th>Total</th>${somenteLeitura ? '' : '<th></th>'}</tr></thead>
         <tbody id="itens-oc">
           ${oc.itens.map((item, i) => `
             <tr>
@@ -896,6 +905,15 @@ window.editarOC = async function (id) {
               <td><input type="text" class="form-control" id="item-unid-${i}" value="${item.unidade || ''}" ${somenteLeitura ? 'disabled' : ''}></td>
               <td><input type="text" class="form-control" id="item-desc-${i}" value="${item.descricao}" ${somenteLeitura ? 'disabled' : ''}></td>
               <td><input type="number" class="form-control" id="item-vuni-${i}" value="${item.valorUni || ''}" oninput="calcularTotal(${i})" ${somenteLeitura ? 'disabled' : ''}></td>
+              <td>
+                <div style="display:flex; gap:4px;">
+                  <select class="form-control form-control-sm" id="item-descTipo-${i}" style="width:60px; flex-shrink:0;" onchange="calcularTotal(${i})" ${somenteLeitura ? 'disabled' : ''}>
+                    <option value="percentual" ${item.descontoTipo !== 'fixo' ? 'selected' : ''}>%</option>
+                    <option value="fixo" ${item.descontoTipo === 'fixo' ? 'selected' : ''}>R$</option>
+                  </select>
+                  <input type="number" class="form-control form-control-sm" id="item-descValor-${i}" value="${item.descontoValor || ''}" min="0" step="0.01" oninput="calcularTotal(${i})" ${somenteLeitura ? 'disabled' : ''}>
+                </div>
+              </td>
               <td><input type="number" class="form-control" id="item-ipi-${i}" value="${item.ipi || ''}" oninput="calcularTotal(${i})" ${somenteLeitura ? 'disabled' : ''}></td>
               <td><input type="number" class="form-control" id="item-vtotal-${i}" value="${item.valorTotal || ''}" readonly></td>
               ${somenteLeitura ? '' : `<td><button class="btn btn-sm btn-danger" onclick="this.closest('tr').remove()">✕</button></td>`}
@@ -993,7 +1011,17 @@ window.calcularTotal = function (index) {
   const qtd = parseFloat(document.getElementById(`item-qtd-${index}`)?.value) || 0
   const vuni = parseFloat(document.getElementById(`item-vuni-${index}`)?.value) || 0
   const ipi = parseFloat(document.getElementById(`item-ipi-${index}`)?.value) || 0
-  document.getElementById(`item-vtotal-${index}`).value = (qtd * vuni * (1 + ipi / 100)).toFixed(2)
+  const descTipo = document.getElementById(`item-descTipo-${index}`)?.value || 'percentual'
+  const descValor = parseFloat(document.getElementById(`item-descValor-${index}`)?.value) || 0
+
+  const subtotal = qtd * vuni
+  const descontoBruto = descTipo === 'fixo' ? descValor : subtotal * (descValor / 100)
+  const descontoAplicado = Math.min(descontoBruto, subtotal)
+  const base = subtotal - descontoAplicado
+  const total = base * (1 + ipi / 100)
+
+  const campoTotal = document.getElementById(`item-vtotal-${index}`)
+  if (campoTotal) campoTotal.value = total.toFixed(2)
 }
 
 let anexosPendentes = []

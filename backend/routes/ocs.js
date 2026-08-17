@@ -269,11 +269,10 @@ router.post('/:id/autorizar', autenticar, exigirPerfil('financeiro', 'admin'), a
     return res.status(400).json({ erro: `OC não está aguardando autorização (status atual: ${oc.status})` })
   }
 
-  // Congela o valor total da OC no momento da aprovação final, para uso em estatísticas
-  const valorTotal = oc.itens.reduce((acc, item) => {
-    const sub = (item.quantidade || 0) * (item.valorUni || 0)
-    return acc + sub + sub * ((item.ipi || 0) / 100)
-  }, 0)
+  // Congela o valor total da OC no momento da aprovação final, para uso em estatísticas.
+  // Usa o valorTotal já salvo em cada item (calculado no frontend, já incluindo desconto),
+  // em vez de recalcular do zero — assim não depende de persistir os campos de desconto no banco.
+  const valorTotal = oc.itens.reduce((acc, item) => acc + (item.valorTotal || 0), 0)
 
   await prisma.$transaction([
     prisma.assinatura.create({
