@@ -208,6 +208,30 @@ window.toggleNovoRegistroMenu = function (event) {
     dropdown.classList.toggle('show');
 }
 
+window.novoRegistroOC = function (event) {
+    event.preventDefault()
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'))
+    document.getElementById('ocs').classList.add('active')
+    abrirFormularioOC()
+    document.getElementById('novo-registro-dropdown').classList.remove('show')
+}
+
+window.novoRegistroSC = function (event) {
+    event.preventDefault()
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'))
+    document.getElementById('solicitacoes').classList.add('active')
+    abrirFormularioSolicitacao()
+    document.getElementById('novo-registro-dropdown').classList.remove('show')
+}
+
+window.novoRegistroContrato = function (event) {
+    event.preventDefault()
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'))
+    document.getElementById('contratos').classList.add('active')
+    abrirFormularioContrato()
+    document.getElementById('novo-registro-dropdown').classList.remove('show')
+}
+
 document.addEventListener('click', (event) => {
     const dropdown = document.getElementById('novo-registro-dropdown');
     const menu = document.querySelector('.novo-registro-menu');

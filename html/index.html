@@ -135,11 +135,14 @@
                     <button class="btn btn-warning" onclick="toggleNovoRegistroMenu(event)">＋ Novo registro</button>
                     <div id="novo-registro-dropdown" class="novo-registro-dropdown">
                         <a href="#" onclick="abrirPagina(event, 'vendas')">Venda de produto</a>
-                        <a href="#" onclick="abrirPagina(event, 'contratos')">Contrato locação</a>
+                        <a href="#" onclick="novoRegistroContrato(event)">Contrato locação</a>
                         <a href="#" onclick="abrirPagina(event, 'certificados')">Certificado</a>
                         <a href="#" onclick="abrirPagina(event, 'os')">Ordem de serviço</a>
+                        <a href="#" onclick="novoRegistroOC(event)">Ordem de Compra</a>
+                        <a href="#" onclick="novoRegistroSC(event)">Solicitação de Compra</a>
                         <a href="#" onclick="abrirPagina(event, 'pessoas')">Cliente</a>
                         <a href="#" onclick="abrirPagina(event, 'produtosCadastro')">Produto</a>
+
                     </div>
                 </div>
                 <span id="topbar-usuario" style="font-size:13px; color:#555;"></span>
