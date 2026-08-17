@@ -53,8 +53,8 @@ export function inicializarClientes() {
 
   const container = document.getElementById('pessoas')
   container.innerHTML = `
-    <div class="tab">Cadastro de Pessoas</div>
-    <button class="btn btn-success" onclick="abrirFormularioCliente()">+ Nova Pessoa</button>
+    <div class="tab">Cadastro de Clientes</div>
+    <button class="btn btn-success" onclick="abrirFormularioCliente()">+ Novo Cliente</button>
 
     <div style="margin: 16px 0;">
       <input type="text" id="filtro-cliente" class="form-control" placeholder="Buscar por nome ou CPF/CNPJ..." oninput="filtrarClientes()">
