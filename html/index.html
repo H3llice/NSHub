@@ -48,6 +48,16 @@
                     <a href="#" onclick="abrirPagina(event,'notas')" style="flex: 1;">Notas fiscais</a>
                     <button class="star-btn" onclick="toggleFavorito(event, 'notas', 'Notas fiscais')">☆</button>
                 </div>
+            </div>
+
+            <a href="#" onclick="toggleMenu(event,'compras')">🛒 Compras</a>
+
+            <div id="compras" class="submenu">
+                <div class="menu-item">
+                    <a href="#" onclick="abrirPagina(event,'solicitacoes')" style="flex: 1;">Solicitações de Compra</a>
+                    <button class="star-btn"
+                        onclick="toggleFavorito(event, 'solicitacoes', 'Solicitações de Compra')">☆</button>
+                </div>
                 <div class="menu-item">
                     <a href="#" onclick="abrirPagina(event,'ocs')" style="flex: 1;">Ordens de Compra</a>
                     <button class="star-btn" onclick="toggleFavorito(event, 'ocs', 'Ordens de Compra')">☆</button>
@@ -183,6 +193,8 @@
         </div>
 
         <div id="ocs" class="page"></div>
+
+        <div id="solicitacoes" class="page"></div>
 
         <div id="contasReceber" class="page"></div>
 
