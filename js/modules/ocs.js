@@ -180,7 +180,6 @@ window.carregarOCs = async function (pagina = 1) {
       `
     }
   } catch (err) {
-    console.error('Erro em carregarOCs:', err)
     document.getElementById('tabela-ocs').innerHTML = `
       <tr><td colspan="6" style="text-align:center; color:red; padding:30px;">Erro ao conectar com o servidor</td></tr>
     `
@@ -851,8 +850,8 @@ window.editarOC = async function (id) {
 
       ${somenteLeitura ? `<div style="background:#fff3cd; border:1px solid #ffc107; padding:10px 14px; border-radius:4px; margin-bottom:16px; font-size:13px;">
         ${apenasAnexo
-        ? '⚠️ Esta OC já está aprovada. Os dados não podem mais ser alterados — apenas novos anexos podem ser adicionados.'
-        : '⚠️ Esta OC está em processo de aprovação e não pode ser editada.'}
+      ? '⚠️ Esta OC já está aprovada. Os dados não podem mais ser alterados — apenas novos anexos podem ser adicionados.'
+      : '⚠️ Esta OC está em processo de aprovação e não pode ser editada.'}
       </div>` : ''}
 
       <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 16px;">
