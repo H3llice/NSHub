@@ -28,7 +28,7 @@ router.get('/:id', async (req, res) => {
 
   const total = oc.itens.reduce((acc, item) => acc + (item.valorTotal || 0), 0)
   const numero = `OC ${oc.numero}.${oc.ano}-${oc.empresa?.sigla || ''}`
-  const dataPedido = new Date(oc.dataPedido).toLocaleDateString('pt-BR')
+  const dataPedido = new Date(oc.dataPedido).toLocaleDateString('pt-BR', { timeZone: 'UTC'})
   const nomeDownload = `${oc.numero} - ${oc.fornecedor?.nome || 'sem-fornecedor'} - ${oc.empresa?.sigla || ''}`
 
   const logoPath = path.resolve('assets/logo.png')
