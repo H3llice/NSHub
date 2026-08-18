@@ -4,6 +4,7 @@ import { inicializarClientes, inicializarContratos } from './modules/contratos.j
 import { inicializarContasReceber, renderizarDashboardInicio } from './modules/pagamentos.js'
 import { inicializarFornecedores } from './modules/fornecedores.js'
 import { inicializarSolicitacoes } from './modules/solicitacoes.js'
+import { inicializarAlmoxarifado } from './modules/almoxarifado.js'
 
 
 let favoritos = JSON.parse(localStorage.getItem('favoritos')) || [];
@@ -95,6 +96,10 @@ window.abrirPagina = function (event, id) {
 
     if (id === 'solicitacoes') {
         inicializarSolicitacoes()
+    }
+
+    if (id === 'almoxarifado') {
+        inicializarAlmoxarifado()
     }
 }
 
@@ -221,6 +226,22 @@ window.novoRegistroSC = function (event) {
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'))
     document.getElementById('solicitacoes').classList.add('active')
     abrirFormularioSolicitacao()
+    document.getElementById('novo-registro-dropdown').classList.remove('show')
+}
+
+window.novoRegistroPedidoAlmox = function (event) {
+    event.preventDefault()
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'))
+    document.getElementById('almoxarifado').classList.add('active')
+    abrirFormularioPedidoAlmox()
+    document.getElementById('novo-registro-dropdown').classList.remove('show')
+}
+
+window.novoRegistroProdutoAlmox = function (event) {
+    event.preventDefault()
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'))
+    document.getElementById('almoxarifado').classList.add('active')
+    abrirFormularioProdutoAlmox()
     document.getElementById('novo-registro-dropdown').classList.remove('show')
 }
 

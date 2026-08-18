@@ -1,4 +1,4 @@
-﻿generator client {
+generator client {
   provider = "prisma-client-js"
 }
 
@@ -65,6 +65,8 @@ model Usuario {
   solicitacoes SolicitacaoCompra[]
 
   contratos Contrato[]
+
+  pedidosAlmoxarifado PedidoAlmoxarifado[]
 }
 
 // etapa: solicitante | aprovacao | autorizacao
@@ -293,4 +295,39 @@ model Pagamento {
   // status: pendente | pago | atrasado
   alertaEnviado  Boolean   @default(false)
   criadoEm       DateTime  @default(now())
+}
+
+model Produto {
+  id           Int      @id @default(autoincrement())
+  codigo       String   @unique
+  nome         String
+  unidade      String
+  valor        Float?
+  quantidade   Float    @default(0)
+  criadoEm     DateTime @default(now())
+  atualizadoEm DateTime @updatedAt
+
+  itensPedido  ItemPedidoAlmoxarifado[]
+}
+
+model PedidoAlmoxarifado {
+  id            Int      @id @default(autoincrement())
+  numero        Int
+  ano           Int
+  solicitante   Usuario? @relation(fields: [solicitanteId], references: [id])
+  solicitanteId Int?
+  observacoes   String?
+  criadoEm      DateTime @default(now())
+
+  itens         ItemPedidoAlmoxarifado[]
+}
+
+model ItemPedidoAlmoxarifado {
+  id         Int                @id @default(autoincrement())
+  pedido     PedidoAlmoxarifado @relation(fields: [pedidoId], references: [id])
+  pedidoId   Int
+  produto    Produto            @relation(fields: [produtoId], references: [id])
+  produtoId  Int
+  quantidade Float
+  valorUni   Float?
 }

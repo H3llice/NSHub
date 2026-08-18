@@ -85,6 +85,26 @@
                 </div>
             </div>
 
+            <a href="#" onclick="toggleMenu(event,'estoque')">📊 Estoque</a>
+
+            <div id="estoque" class="submenu">
+                <div class="menu-item">
+                    <a href="#" onclick="abrirPagina(event,'estoqueLocacao')" style="flex: 1;">Estoque locação</a>
+                    <button class="star-btn"
+                        onclick="toggleFavorito(event, 'estoqueLocacao', 'Estoque locação')">☆</button>
+                </div>
+                <div class="menu-item">
+                    <a href="#" onclick="abrirPagina(event,'estoqueVendas')" style="flex: 1;">Estoque vendas</a>
+                    <button class="star-btn"
+                        onclick="toggleFavorito(event, 'estoqueVendas', 'Estoque vendas')">☆</button>
+                </div>
+                <div class="menu-item">
+                    <a href="#" onclick="abrirPagina(event,'almoxarifado')" style="flex: 1;">Almoxarifado</a>
+                    <button class="star-btn"
+                        onclick="toggleFavorito(event, 'almoxarifado', 'Almoxarifado')">☆</button>
+                </div>
+            </div>
+
             <a href="#" onclick="toggleMenu(event,'cadastros')">🗂️ Cadastros</a>
 
             <div id="cadastros" class="submenu">
@@ -101,23 +121,8 @@
                     <button class="star-btn" onclick="toggleFavorito(event, 'embarcacoes', 'Embarcações')">☆</button>
                 </div>
                 <div class="menu-item">
-                    <a href="#" onclick="abrirPagina(event,'produtosCadastro')" style="flex: 1;">Produtos</a>
-                    <button class="star-btn" onclick="toggleFavorito(event, 'produtosCadastro', 'Produtos')">☆</button>
-                </div>
-            </div>
-
-            <a href="#" onclick="toggleMenu(event,'estoque')">📊 Estoque</a>
-
-            <div id="estoque" class="submenu">
-                <div class="menu-item">
-                    <a href="#" onclick="abrirPagina(event,'estoqueLocacao')" style="flex: 1;">Estoque locação</a>
-                    <button class="star-btn"
-                        onclick="toggleFavorito(event, 'estoqueLocacao', 'Estoque locação')">☆</button>
-                </div>
-                <div class="menu-item">
-                    <a href="#" onclick="abrirPagina(event,'estoqueVendas')" style="flex: 1;">Estoque vendas</a>
-                    <button class="star-btn"
-                        onclick="toggleFavorito(event, 'estoqueVendas', 'Estoque vendas')">☆</button>
+                    <a href="#" onclick="abrirPagina(event,'almoxarifado')" style="flex: 1;">Produtos</a>
+                    <button class="star-btn" onclick="toggleFavorito(event, 'almoxarifado', 'Produtos')">☆</button>
                 </div>
             </div>
         </div>
@@ -140,7 +145,8 @@
                         <a href="#" onclick="novoRegistroOC(event)">Ordem de Compra</a>
                         <a href="#" onclick="novoRegistroSC(event)">Solicitação de Compra</a>
                         <a href="#" onclick="abrirPagina(event, 'pessoas')">Cliente</a>
-                        <a href="#" onclick="abrirPagina(event, 'produtosCadastro')">Produto</a>
+                        <a href="#" onclick="novoRegistroProdutoAlmox(event)">Produto</a>
+                        <a href="#" onclick="novoRegistroPedidoAlmox(event)">Pedido de Almoxarifado</a>
 
                     </div>
                 </div>
@@ -255,11 +261,6 @@
             <button class="btn btn-success">Nova embarcação</button>
         </div>
 
-        <div id="produtosCadastro" class="page">
-            <div class="tab">Cadastro de produtos</div>
-            <button class="btn btn-success">Novo produto</button>
-        </div>
-
         <div id="estoqueLocacao" class="page">
             <div class="tab">Estoque locação</div>
             <p>Controle de equipamentos para locação.</p>
@@ -269,6 +270,8 @@
             <div class="tab">Estoque vendas</div>
             <p>Controle de estoque para venda.</p>
         </div>
+
+        <div id="almoxarifado" class="page"></div>
 
     </div>
 

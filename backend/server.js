@@ -16,6 +16,7 @@ import estoqueRouter from './routes/estoque.js'
 import clientesRouter from './routes/clientes.js'
 import contratosRouter from './routes/contratos.js'
 import pagamentosRouter from './routes/pagamentos.js'
+import almoxarifadoRouter from './routes/almoxarifado.js'
 import { notificarPagamentoAtrasado } from './email.js'
 
 const __filename = fileURLToPath(import.meta.url)
@@ -57,6 +58,7 @@ app.use('/estoque', estoqueRouter)
 app.use('/clientes', clientesRouter)
 app.use('/contratos', contratosRouter)
 app.use('/pagamentos', pagamentosRouter)
+app.use('/almoxarifado', almoxarifadoRouter)
 
 app.get('/api', (req, res) => {
   res.json({ mensagem: 'API do Portal NS funcionando!' })
