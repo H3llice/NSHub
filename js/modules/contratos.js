@@ -733,6 +733,49 @@ window.salvarContrato = async function () {
   }
 }
 
+// ══════════════════════════════════════════════════════════════════════════
+// DASHBOARD DE CONTRATOS — Tela Início
+// ══════════════════════════════════════════════════════════════════════════
+
+export async function renderizarDashboardContratos() {
+  const container = document.getElementById('inicio')
+  if (!container) return
+
+  let painel = document.getElementById('painel-contratos-inicio')
+  if (!painel) {
+    painel = document.createElement('div')
+    painel.id = 'painel-contratos-inicio'
+    painel.style = 'margin-top:20px;'
+    container.appendChild(painel)
+  }
+
+  painel.innerHTML = `<div style="color:#999; padding:12px;">Carregando resumo de contratos...</div>`
+
+  try {
+    const d = await apiFetch(`${API}/contratos/dashboard`).then(r => r.json())
+
+    painel.innerHTML = `
+      <h5 style="margin-bottom:12px;">Contratos</h5>
+      <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:16px;">
+        <div style="background:white; border-radius:6px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06);">
+          <div style="color:#999; font-size:12px;">Ativos</div>
+          <div style="font-size:20px; font-weight:700;">${d.total}</div>
+        </div>
+        <div style="background:white; border-radius:6px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06);">
+          <div style="color:#999; font-size:12px;">Em Dia</div>
+          <div style="font-size:20px; font-weight:700; color:#198754;">${d.emDia}</div>
+        </div>
+        <div style="background:white; border-radius:6px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06);">
+          <div style="color:#999; font-size:12px;">Atrasados</div>
+          <div style="font-size:20px; font-weight:700; color:#dc3545;">${d.atrasados}</div>
+        </div>
+      </div>
+    `
+  } catch {
+    painel.innerHTML = ''
+  }
+}
+
 // Expostas em window para funcionar em onclick inline (ex: botões "Voltar")
 window.inicializarContratos = inicializarContratos
 window.inicializarClientes = inicializarClientes

@@ -417,3 +417,45 @@ window.atualizarBalsa = async function (id, finalidadeOrigem) {
 window.inicializarEstoqueWrapper = function (finalidade) {
   inicializarEstoque(finalidade)
 }
+
+// ══════════════════════════════════════════════════════════════════════════
+// DASHBOARD DE ESTOQUE — Tela Início
+// ══════════════════════════════════════════════════════════════════════════
+
+export async function renderizarDashboardEstoque() {
+  const container = document.getElementById('inicio')
+  if (!container) return
+
+  let painel = document.getElementById('painel-estoque-inicio')
+  if (!painel) {
+    painel = document.createElement('div')
+    painel.id = 'painel-estoque-inicio'
+    painel.style = 'margin-top:20px;'
+    container.appendChild(painel)
+  }
+
+  painel.innerHTML = `<div style="color:#999; padding:12px;">Carregando estoque de balsas...</div>`
+
+  try {
+    const [locacao, venda] = await Promise.all([
+      apiFetch(`${API}/estoque?finalidade=locacao`).then(r => r.json()),
+      apiFetch(`${API}/estoque?finalidade=venda`).then(r => r.json())
+    ])
+
+    painel.innerHTML = `
+      <h5 style="margin-bottom:12px;">Balsas Disponíveis</h5>
+      <div style="display:grid; grid-template-columns:repeat(2, 1fr); gap:16px;">
+        <div style="background:white; border-radius:6px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06);">
+          <div style="color:#999; font-size:12px;">Para Locação</div>
+          <div style="font-size:20px; font-weight:700;">${locacao.length}</div>
+        </div>
+        <div style="background:white; border-radius:6px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06);">
+          <div style="color:#999; font-size:12px;">Para Venda</div>
+          <div style="font-size:20px; font-weight:700;">${venda.length}</div>
+        </div>
+      </div>
+    `
+  } catch {
+    painel.innerHTML = ''
+  }
+}

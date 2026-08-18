@@ -1,6 +1,6 @@
 import { inicializarOCs } from './modules/ocs.js'
-import { inicializarEstoque } from './modules/estoque.js'
-import { inicializarClientes, inicializarContratos } from './modules/contratos.js'
+import { inicializarEstoque, renderizarDashboardEstoque } from './modules/estoque.js'
+import { inicializarClientes, inicializarContratos, renderizarDashboardContratos } from './modules/contratos.js'
 import { inicializarContasReceber, renderizarDashboardInicio } from './modules/pagamentos.js'
 import { inicializarFornecedores } from './modules/fornecedores.js'
 import { inicializarSolicitacoes } from './modules/solicitacoes.js'
@@ -192,6 +192,8 @@ window.addEventListener('load', () => {
     atualizarFavoritos();
     atualizarTabelaCertificados();
     renderizarDashboardInicio();
+    renderizarDashboardContratos();
+    renderizarDashboardEstoque();
 
     // ── Abre OC direto se vier do link do email ──────────────
     const hash = window.location.hash // ex: #oc-42
