@@ -358,6 +358,10 @@ window.verContrato = async function (id) {
   const inicio = new Date(c.dataInicio).toLocaleDateString('pt-BR')
   const fim = c.dataFim ? new Date(c.dataFim).toLocaleDateString('pt-BR') : '-'
   const valor = c.valor ? 'R$ ' + c.valor.toFixed(2) : '-'
+  const frete = c.frete ? 'R$ ' + c.frete.toFixed(2) : '-'
+  const desconto = c.descontoValor
+    ? (c.descontoTipo === 'fixo' ? 'R$ ' + c.descontoValor.toFixed(2) : c.descontoValor + '%')
+    : '-'
 
   document.getElementById('contratos').innerHTML = `
     <div style="margin-top:20px; max-width:800px;">
@@ -381,8 +385,9 @@ window.verContrato = async function (id) {
         <div style="font-weight:700; color:#158815; margin-bottom:10px;">Balsas Locadas</div>
         <ul style="list-style:none; padding:0; margin:0;">
           ${c.balsas.map(cb => `
-            <li style="padding:6px 0; border-bottom:1px solid #eee; font-size:13px;">
-              <strong>${cb.balsa.numeroSerie}</strong> — ${cb.balsa.fabricante} ${cb.balsa.modelo}, capacidade ${cb.balsa.capacidade}
+            <li style="padding:6px 0; border-bottom:1px solid #eee; font-size:13px; display:flex; justify-content:space-between;">
+              <span><strong>${cb.balsa.numeroSerie}</strong> — ${cb.balsa.fabricante} ${cb.balsa.modelo}, capacidade ${cb.balsa.capacidade}</span>
+              <strong>${cb.valor ? 'R$ ' + cb.valor.toFixed(2) : '-'}</strong>
             </li>
           `).join('')}
         </ul>
@@ -393,6 +398,8 @@ window.verContrato = async function (id) {
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px; font-size:13px;">
           <div><span style="color:#999;">Início</span><br><strong>${inicio}</strong></div>
           <div><span style="color:#999;">Fim</span><br><strong>${fim}</strong></div>
+          <div><span style="color:#999;">Frete</span><br><strong>${frete}</strong></div>
+          <div><span style="color:#999;">Desconto</span><br><strong>${desconto}</strong></div>
           <div><span style="color:#999;">Valor</span><br><strong>${valor}</strong></div>
           <div><span style="color:#999;">Forma Pagto</span><br><strong>${c.formaPagamento || '-'}</strong></div>
           <div style="grid-column:span 2;"><span style="color:#999;">Condições Pagto</span><br><strong>${c.condicoesPagto || '-'}</strong></div>
@@ -419,7 +426,7 @@ window.verContrato = async function (id) {
 // ===== FORMULÁRIO — NOVO CONTRATO =============================================
 let balsasDisponiveisCache = []
 let clienteSelecionadoId = null
-let balsaIdsSelecionados = new Set()
+let balsaValoresSelecionados = new Map() // balsaId -> valor individual (string)
 let tipoContratoAtual = 'locacao'
 
 function renderizarListaBalsasContrato(lista) {
@@ -431,19 +438,53 @@ function renderizarListaBalsasContrato(lista) {
     return
   }
 
-  container.innerHTML = lista.map(b => `
-    <label style="display:flex; align-items:center; gap:8px; padding:6px 0; cursor:pointer;">
-      <input type="checkbox" value="${b.id}" class="checkbox-balsa-contrato"
-        ${balsaIdsSelecionados.has(b.id) ? 'checked' : ''}
-        onchange="toggleBalsaSelecionada(${b.id}, this.checked)">
-      <span>${b.numeroSerie} — ${b.fabricante} ${b.modelo}, capacidade ${b.capacidade}</span>
-    </label>
-  `).join('')
+  container.innerHTML = lista.map(b => {
+    const marcado = balsaValoresSelecionados.has(b.id)
+    return `
+      <div style="display:flex; align-items:center; gap:8px; padding:6px 0;">
+        <label style="display:flex; align-items:center; gap:8px; cursor:pointer; flex:1;">
+          <input type="checkbox" value="${b.id}" class="checkbox-balsa-contrato"
+            ${marcado ? 'checked' : ''}
+            onchange="toggleBalsaSelecionada(${b.id}, this.checked)">
+          <span>${b.numeroSerie} — ${b.fabricante} ${b.modelo}, capacidade ${b.capacidade}</span>
+        </label>
+        <input type="number" step="0.01" min="0" placeholder="Valor" class="form-control form-control-sm"
+          style="width:130px;" value="${balsaValoresSelecionados.get(b.id) || ''}" ${marcado ? '' : 'disabled'}
+          oninput="atualizarValorBalsaContrato(${b.id}, this.value)">
+      </div>
+    `
+  }).join('')
 }
 
 window.toggleBalsaSelecionada = function (id, marcado) {
-  if (marcado) balsaIdsSelecionados.add(id)
-  else balsaIdsSelecionados.delete(id)
+  if (marcado) balsaValoresSelecionados.set(id, balsaValoresSelecionados.get(id) || '')
+  else balsaValoresSelecionados.delete(id)
+  filtrarBalsasContrato()
+  recalcularValorContrato()
+}
+
+window.atualizarValorBalsaContrato = function (id, valor) {
+  balsaValoresSelecionados.set(id, valor)
+  recalcularValorContrato()
+}
+
+// Soma os valores das balsas selecionadas + frete - desconto. O campo "Valor" continua
+// editável manualmente — ele só é sobrescrito quando algum desses componentes muda.
+window.recalcularValorContrato = function () {
+  const campoValor = document.getElementById('contrato-valor')
+  if (!campoValor) return
+
+  const somaBalsas = Array.from(balsaValoresSelecionados.values())
+    .reduce((acc, v) => acc + (parseFloat(v) || 0), 0)
+  const frete = parseFloat(document.getElementById('contrato-frete')?.value) || 0
+  const descTipo = document.getElementById('contrato-descontoTipo')?.value
+  const descValor = parseFloat(document.getElementById('contrato-descontoValor')?.value) || 0
+
+  const subtotal = somaBalsas + frete
+  const descontoBruto = descTipo === 'fixo' ? descValor : subtotal * (descValor / 100)
+  const descontoAplicado = Math.min(descontoBruto, subtotal)
+
+  campoValor.value = (subtotal - descontoAplicado).toFixed(2)
 }
 
 window.filtrarBalsasContrato = function () {
@@ -462,22 +503,14 @@ window.filtrarBalsasContrato = function () {
 
 window.abrirFormularioContrato = async function () {
   clienteSelecionadoId = null
-  balsaIdsSelecionados = new Set()
+  balsaValoresSelecionados = new Map()
   tipoContratoAtual = 'locacao'
   balsasDisponiveisCache = await apiFetch(`${API}/estoque?finalidade=${tipoContratoAtual}`).then(r => r.json())
 
   document.getElementById('contratos').innerHTML = `
     <div style="margin-top:20px;">
       <button class="btn btn-secondary" onclick="inicializarContratos()">← Voltar</button>
-      <h3 style="margin:20px 0;">Novo Contrato</h3>
-
-      <div style="max-width:260px; margin-bottom:16px;">
-        <label>Tipo de Contrato *</label>
-        <select id="contrato-tipo" class="form-control" onchange="trocarTipoContrato(this.value)">
-          <option value="locacao">Locação</option>
-          <option value="venda">Venda</option>
-        </select>
-      </div>
+      <h3 style="margin:20px 0;">Novo Contrato de Locação</h3>
 
       <div style="position:relative; margin-bottom:16px;">
         <label>Cliente * <small style="color:#999;">(busca por nome ou CPF/CNPJ — se não achar, preencha os dados abaixo para cadastrar um novo)</small></label>
@@ -501,7 +534,7 @@ window.abrirFormularioContrato = async function () {
         <div><label>Email</label><input type="text" id="contrato-cliente-email" class="form-control"></div>
       </div>
 
-      <h5 id="titulo-balsas-contrato" style="margin: 20px 0 10px;">Balsas Disponíveis (Locação)</h5>
+      <h5 id="titulo-balsas-contrato" style="margin: 20px 0 10px;">Balsas Disponíveis <small style="color:#999; font-weight:400;">(marque as balsas e informe o valor individual de cada uma)</small></h5>
 
       <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 8px;">
         <div>
@@ -524,7 +557,18 @@ window.abrirFormularioContrato = async function () {
       <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
         <div><label>Data Início *</label><input type="date" id="contrato-dataInicio" class="form-control" value="${new Date().toISOString().split('T')[0]}"></div>
         <div id="campo-dataFim"><label>Data Fim</label><input type="date" id="contrato-dataFim" class="form-control"></div>
-        <div><label>Valor</label><input type="number" id="contrato-valor" class="form-control" step="0.01"></div>
+        <div><label>Frete</label><input type="number" id="contrato-frete" class="form-control" step="0.01" min="0" oninput="recalcularValorContrato()"></div>
+        <div>
+          <label>Desconto</label>
+          <div style="display:flex; gap:8px;">
+            <select id="contrato-descontoTipo" class="form-control" style="max-width:90px;" onchange="recalcularValorContrato()">
+              <option value="percentual">%</option>
+              <option value="fixo">R$</option>
+            </select>
+            <input type="number" id="contrato-descontoValor" class="form-control" step="0.01" min="0" oninput="recalcularValorContrato()">
+          </div>
+        </div>
+        <div><label>Valor <small style="color:#999;">(soma das balsas + frete - desconto — pode ser ajustado manualmente)</small></label><input type="number" id="contrato-valor" class="form-control" step="0.01"></div>
         <div><label>Periodicidade</label>
           <select id="contrato-periodicidade" class="form-control">
             <option value="unico">Pagamento único</option>
@@ -550,7 +594,7 @@ window.abrirFormularioContrato = async function () {
 
 window.trocarTipoContrato = async function (tipo) {
   tipoContratoAtual = tipo
-  balsaIdsSelecionados = new Set()
+  balsaValoresSelecionados = new Map()
 
   const titulo = document.getElementById('titulo-balsas-contrato')
   titulo.textContent = `Balsas Disponíveis (${tipo === 'locacao' ? 'Locação' : 'Venda'})`
@@ -611,9 +655,9 @@ document.addEventListener('click', (e) => {
 })
 
 window.salvarContrato = async function () {
-  const balsaIds = Array.from(balsaIdsSelecionados)
+  const balsas = Array.from(balsaValoresSelecionados, ([balsaId, valor]) => ({ balsaId, valor: valor || null }))
 
-  if (balsaIds.length === 0) {
+  if (balsas.length === 0) {
     alert('Selecione ao menos uma balsa!')
     return
   }
@@ -664,10 +708,13 @@ window.salvarContrato = async function () {
   const body = {
     tipo: tipoContratoAtual,
     clienteId,
-    balsaIds,
+    balsas,
     dataInicio,
     dataFim: document.getElementById('contrato-dataFim').value || null,
     valor: valorPreenchido || null,
+    frete: document.getElementById('contrato-frete').value || null,
+    descontoTipo: document.getElementById('contrato-descontoTipo').value,
+    descontoValor: document.getElementById('contrato-descontoValor').value || null,
     periodicidadePagamento: document.getElementById('contrato-periodicidade').value,
     dataVencimento: dataVencimentoPreenchida || null,
     formaPagamento: document.getElementById('contrato-formaPagamento').value,

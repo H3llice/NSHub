@@ -255,6 +255,10 @@ model Contrato {
   dataInicio     DateTime
   dataFim        DateTime?
   valor          Float?
+  frete          Float?
+  descontoTipo   String?
+  descontoValor  Float?
+  // descontoTipo: percentual | fixo
   formaPagamento String?
   condicoesPagto String?
   periodicidadePagamento String    @default("unico")
@@ -277,6 +281,7 @@ model ContratoBalsa {
   contratoId Int
   balsa      Balsa    @relation(fields: [balsaId], references: [id])
   balsaId    Int
+  valor      Float?
 
   @@unique([contratoId, balsaId])
 }
