@@ -37,10 +37,15 @@ router.get('/dashboard', autenticar, async (req, res) => {
 
   const atrasados = ativos.filter(c => c.pagamentos.length > 0).length
 
+  const limiteVencimento = new Date()
+  limiteVencimento.setDate(limiteVencimento.getDate() + 30)
+  const vencendoEmBreve = ativos.filter(c => c.dataFim && new Date(c.dataFim) <= limiteVencimento).length
+
   res.json({
     total: ativos.length,
     atrasados,
-    emDia: ativos.length - atrasados
+    emDia: ativos.length - atrasados,
+    vencendoEmBreve
   })
 })
 

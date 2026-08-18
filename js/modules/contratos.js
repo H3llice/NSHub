@@ -413,6 +413,19 @@ window.verContrato = async function (id) {
         </div>
       ` : ''}
 
+      ${podeGerenciarContratos && c.status === 'ativo' && c.tipo === 'locacao' ? `
+        <div style="background:white; border-radius:6px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06); margin-bottom:16px;">
+          <div style="font-weight:700; color:#158815; margin-bottom:10px;">Renovar Contrato</div>
+          <div style="display:flex; gap:8px; align-items:end;">
+            <div>
+              <label style="font-size:12px;">Nova data de fim</label>
+              <input type="date" id="renovar-dataFim-${c.id}" class="form-control form-control-sm" value="${c.dataFim ? c.dataFim.split('T')[0] : ''}">
+            </div>
+            <button class="btn btn-sm btn-primary" onclick="renovarContrato(${c.id})">Renovar</button>
+          </div>
+        </div>
+      ` : ''}
+
       ${podeGerenciarContratos && c.status === 'ativo' ? `
         <div style="display:flex; gap:8px;">
           ${c.tipo === 'locacao' ? `<button class="btn btn-secondary" onclick="encerrarContrato(${c.id})">Encerrar Contrato</button>` : ''}
@@ -421,6 +434,24 @@ window.verContrato = async function (id) {
       ` : ''}
     </div>
   `
+}
+
+window.renovarContrato = async function (id) {
+  const novaData = document.getElementById(`renovar-dataFim-${id}`).value
+  if (!novaData) {
+    alert('Escolha a nova data de fim!')
+    return
+  }
+
+  const res = await apiJson(`${API}/contratos/${id}`, { method: 'PUT', body: JSON.stringify({ dataFim: novaData }) })
+
+  if (res.ok) {
+    alert('Contrato renovado com sucesso!')
+    verContrato(id)
+  } else {
+    const err = await res.json()
+    alert('Erro ao renovar contrato: ' + (err.erro || ''))
+  }
 }
 
 // ===== FORMULÁRIO — NOVO CONTRATO =============================================
@@ -756,7 +787,7 @@ export async function renderizarDashboardContratos() {
 
     painel.innerHTML = `
       <h5 style="margin-bottom:12px;">Contratos</h5>
-      <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:16px;">
+      <div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:16px;">
         <div style="background:white; border-radius:6px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06);">
           <div style="color:#999; font-size:12px;">Ativos</div>
           <div style="font-size:20px; font-weight:700;">${d.total}</div>
@@ -768,6 +799,10 @@ export async function renderizarDashboardContratos() {
         <div style="background:white; border-radius:6px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06);">
           <div style="color:#999; font-size:12px;">Atrasados</div>
           <div style="font-size:20px; font-weight:700; color:#dc3545;">${d.atrasados}</div>
+        </div>
+        <div style="background:white; border-radius:6px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06);">
+          <div style="color:#999; font-size:12px;">Vencendo em Breve <small>(30 dias)</small></div>
+          <div style="font-size:20px; font-weight:700; color:#fd7e14;">${d.vencendoEmBreve}</div>
         </div>
       </div>
     `

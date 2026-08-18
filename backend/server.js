@@ -137,10 +137,12 @@ setInterval(async () => {
       })
       if (jaExiste) continue
 
+      // Frete só entra na 1ª fatura (criada junto com o contrato) — as parcelas
+      // seguintes cobram só o valor recorrente (balsas - desconto), sem o frete.
       await prisma.pagamento.create({
         data: {
           contratoId: c.id,
-          valor: ultimaParcela.valor,
+          valor: (c.valor || 0) - (c.frete || 0),
           dataVencimento: proximoVencimento.toISOString(),
           referencia: `${String(proximoVencimento.getMonth() + 1).padStart(2, '0')}/${proximoVencimento.getFullYear()}`
         }
