@@ -44,12 +44,14 @@ router.post('/deploy', capturarRawBody, (req, res) => {
   console.log('📦 Webhook do GitHub recebido — iniciando deploy...')
   res.json({ ok: true, mensagem: 'Deploy iniciado' }) // responde rápido, processa o resto depois
 
-  // Para o pm2 antes do npm install/prisma — no Windows o processo rodando mantém a engine
-  // do Prisma (@prisma/client) travada, e os arquivos não podem ser sobrescritos com ela em uso.
+  // O restart do pm2 é sempre o ÚLTIMO passo — este handler roda DENTRO do processo nshub,
+  // então parar o pm2 antes de terminar o resto do script mataria o próprio script no meio
+  // (foi exatamente isso que quebrou um deploy anterior: o npm install/prisma nunca terminavam
+  // de rodar porque o processo que os disparou já tinha sido derrubado).
   // `db push` (não `migrate deploy`) porque as migrations não são versionadas neste repo;
   // sem --accept-data-loss, se algum dia uma mudança de schema for destrutiva, o push falha
   // e só isso — não apaga dado nenhum sozinho.
-  const comando = `cd "${raizProjeto}"; git pull; cd backend; pm2 stop nshub; npm install; npx prisma db push; pm2 start nshub`
+  const comando = `cd "${raizProjeto}"; git pull; cd backend; npm install; npx prisma db push; pm2 restart nshub`
 
   exec(comando, { shell: 'powershell.exe' }, (erro, stdout, stderr) => {
     if (erro) {
