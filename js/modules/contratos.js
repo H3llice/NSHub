@@ -480,11 +480,11 @@ window.recalcularValorContrato = function () {
   const descTipo = document.getElementById('contrato-descontoTipo')?.value
   const descValor = parseFloat(document.getElementById('contrato-descontoValor')?.value) || 0
 
-  const subtotal = somaBalsas + frete
-  const descontoBruto = descTipo === 'fixo' ? descValor : subtotal * (descValor / 100)
-  const descontoAplicado = Math.min(descontoBruto, subtotal)
+  // Desconto incide só sobre as balsas — o frete entra por fora, sem desconto
+  const descontoBruto = descTipo === 'fixo' ? descValor : somaBalsas * (descValor / 100)
+  const descontoAplicado = Math.min(descontoBruto, somaBalsas)
 
-  campoValor.value = (subtotal - descontoAplicado).toFixed(2)
+  campoValor.value = (somaBalsas - descontoAplicado + frete).toFixed(2)
 }
 
 window.filtrarBalsasContrato = function () {
