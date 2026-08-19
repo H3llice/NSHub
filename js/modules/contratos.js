@@ -230,8 +230,6 @@ function badgeStatusContrato(status) {
   return `<span style="background:${s.cor}; color:white; padding:2px 8px; border-radius:12px; font-size:12px;">${s.texto}</span>`
 }
 
-const TIPO_CONTRATO_LABEL = { locacao: 'Locação', venda: 'Venda' }
-
 export function inicializarContratos() {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'))
   document.getElementById('contratos').classList.add('active')
@@ -241,15 +239,7 @@ export function inicializarContratos() {
     <div class="tab">Contratos</div>
     ${podeGerenciarContratos ? `<button class="btn btn-success" onclick="abrirFormularioContrato()">+ Novo Contrato</button>` : ''}
 
-    <div style="display:flex; gap:16px; margin: 16px 0; max-width:560px;">
-      <div style="flex:1;">
-        <label style="font-size:12px;">Tipo</label>
-        <select id="filtro-tipo-contrato" class="form-control" onchange="carregarContratos()">
-          <option value="">Todos</option>
-          <option value="locacao">Locação</option>
-          <option value="venda">Venda</option>
-        </select>
-      </div>
+    <div style="display:flex; gap:16px; margin: 16px 0; max-width:280px;">
       <div style="flex:1;">
         <label style="font-size:12px;">Status</label>
         <select id="filtro-status-contrato" class="form-control" onchange="carregarContratos()">
@@ -265,7 +255,6 @@ export function inicializarContratos() {
       <thead>
         <tr>
           <th>Nº Contrato</th>
-          <th>Tipo</th>
           <th>Cliente</th>
           <th>Balsas</th>
           <th>Início</th>
@@ -276,7 +265,7 @@ export function inicializarContratos() {
         </tr>
       </thead>
       <tbody id="tabela-contratos">
-        <tr><td colspan="9" style="text-align:center; color:#999; padding:30px;">Carregando...</td></tr>
+        <tr><td colspan="8" style="text-align:center; color:#999; padding:30px;">Carregando...</td></tr>
       </tbody>
     </table>
   `
@@ -286,24 +275,22 @@ export function inicializarContratos() {
 
 window.carregarContratos = async function () {
   const status = document.getElementById('filtro-status-contrato')?.value || ''
-  const tipo = document.getElementById('filtro-tipo-contrato')?.value || ''
   const params = new URLSearchParams()
   if (status) params.append('status', status)
-  if (tipo) params.append('tipo', tipo)
 
   try {
     const contratos = await apiFetch(`${API}/contratos?${params}`).then(r => r.json())
     renderizarTabelaContratos(contratos)
   } catch {
     document.getElementById('tabela-contratos').innerHTML = `
-      <tr><td colspan="9" style="text-align:center; color:red; padding:30px;">Erro ao conectar com o servidor</td></tr>
+      <tr><td colspan="8" style="text-align:center; color:red; padding:30px;">Erro ao conectar com o servidor</td></tr>
     `
   }
 }
 
 function renderizarTabelaContratos(contratos) {
   const tabela = document.getElementById('tabela-contratos')
-  const colspan = podeGerenciarContratos ? 9 : 8
+  const colspan = podeGerenciarContratos ? 8 : 7
 
   if (contratos.length === 0) {
     tabela.innerHTML = `<tr><td colspan="${colspan}" style="text-align:center; color:#999; padding:30px;">Nenhum contrato encontrado</td></tr>`
@@ -317,14 +304,13 @@ function renderizarTabelaContratos(contratos) {
     const valor = c.valor ? 'R$ ' + c.valor.toFixed(2) : '-'
 
     const acoes = c.status === 'ativo' ? `
-      ${c.tipo === 'locacao' ? `<button class="btn btn-sm btn-secondary" onclick="encerrarContrato(${c.id})">Encerrar</button>` : ''}
+      <button class="btn btn-sm btn-secondary" onclick="encerrarContrato(${c.id})">Encerrar</button>
       <button class="btn btn-sm btn-danger" onclick="cancelarContrato(${c.id})">Cancelar</button>
     ` : ''
 
     return `
       <tr>
         <td><a href="#" onclick="verContrato(${c.id}); return false;" style="color:var(--verde); font-weight:600; text-decoration:none;">${c.numero}.${c.ano}</a></td>
-        <td>${TIPO_CONTRATO_LABEL[c.tipo] || c.tipo}</td>
         <td>${c.cliente.nome}</td>
         <td>${balsasTxt}</td>
         <td>${inicio}</td>
@@ -369,7 +355,6 @@ window.verContrato = async function (id) {
 
       <div style="display:flex; align-items:center; gap:12px; margin:20px 0;">
         <h3 style="margin:0;">Contrato ${c.numero}.${c.ano}</h3>
-        <span style="background:#6c757d; color:white; padding:2px 8px; border-radius:12px; font-size:12px;">${TIPO_CONTRATO_LABEL[c.tipo] || c.tipo}</span>
         ${badgeStatusContrato(c.status)}
       </div>
 
@@ -413,7 +398,7 @@ window.verContrato = async function (id) {
         </div>
       ` : ''}
 
-      ${podeGerenciarContratos && c.status === 'ativo' && c.tipo === 'locacao' ? `
+      ${podeGerenciarContratos && c.status === 'ativo' ? `
         <div style="background:white; border-radius:6px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06); margin-bottom:16px;">
           <div style="font-weight:700; color:#158815; margin-bottom:10px;">Renovar Contrato</div>
           <div style="display:flex; gap:8px; align-items:end;">
@@ -428,7 +413,7 @@ window.verContrato = async function (id) {
 
       ${podeGerenciarContratos && c.status === 'ativo' ? `
         <div style="display:flex; gap:8px;">
-          ${c.tipo === 'locacao' ? `<button class="btn btn-secondary" onclick="encerrarContrato(${c.id})">Encerrar Contrato</button>` : ''}
+          <button class="btn btn-secondary" onclick="encerrarContrato(${c.id})">Encerrar Contrato</button>
           <button class="btn btn-danger" onclick="cancelarContrato(${c.id})">Cancelar Contrato</button>
         </div>
       ` : ''}
@@ -458,7 +443,6 @@ window.renovarContrato = async function (id) {
 let balsasDisponiveisCache = []
 let clienteSelecionadoId = null
 let balsaValoresSelecionados = new Map() // balsaId -> valor individual (string)
-let tipoContratoAtual = 'locacao'
 
 function renderizarListaBalsasContrato(lista) {
   const container = document.getElementById('lista-balsas-contrato')
@@ -535,8 +519,7 @@ window.filtrarBalsasContrato = function () {
 window.abrirFormularioContrato = async function () {
   clienteSelecionadoId = null
   balsaValoresSelecionados = new Map()
-  tipoContratoAtual = 'locacao'
-  balsasDisponiveisCache = await apiFetch(`${API}/estoque?finalidade=${tipoContratoAtual}`).then(r => r.json())
+  balsasDisponiveisCache = await apiFetch(`${API}/estoque?finalidade=locacao`).then(r => r.json())
 
   document.getElementById('contratos').innerHTML = `
     <div style="margin-top:20px;">
@@ -565,7 +548,7 @@ window.abrirFormularioContrato = async function () {
         <div><label>Email</label><input type="text" id="contrato-cliente-email" class="form-control"></div>
       </div>
 
-      <h5 id="titulo-balsas-contrato" style="margin: 20px 0 10px;">Balsas Disponíveis <small style="color:#999; font-weight:400;">(marque as balsas e informe o valor individual de cada uma)</small></h5>
+      <h5 style="margin: 20px 0 10px;">Balsas Disponíveis <small style="color:#999; font-weight:400;">(marque as balsas e informe o valor individual de cada uma)</small></h5>
 
       <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 8px;">
         <div>
@@ -587,7 +570,7 @@ window.abrirFormularioContrato = async function () {
 
       <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
         <div><label>Data Início *</label><input type="date" id="contrato-dataInicio" class="form-control" value="${new Date().toISOString().split('T')[0]}"></div>
-        <div id="campo-dataFim"><label>Data Fim</label><input type="date" id="contrato-dataFim" class="form-control"></div>
+        <div><label>Data Fim</label><input type="date" id="contrato-dataFim" class="form-control"></div>
         <div><label>Frete</label><input type="number" id="contrato-frete" class="form-control" step="0.01" min="0" oninput="recalcularValorContrato()"></div>
         <div>
           <label>Desconto</label>
@@ -621,22 +604,6 @@ window.abrirFormularioContrato = async function () {
   `
 
   renderizarListaBalsasContrato(balsasDisponiveisCache)
-}
-
-window.trocarTipoContrato = async function (tipo) {
-  tipoContratoAtual = tipo
-  balsaValoresSelecionados = new Map()
-
-  const titulo = document.getElementById('titulo-balsas-contrato')
-  titulo.textContent = `Balsas Disponíveis (${tipo === 'locacao' ? 'Locação' : 'Venda'})`
-
-  // Contrato de venda não tem período — esconde o campo Data Fim
-  const campoDataFim = document.getElementById('campo-dataFim')
-  campoDataFim.style.display = tipo === 'venda' ? 'none' : 'block'
-  if (tipo === 'venda') document.getElementById('contrato-dataFim').value = ''
-
-  balsasDisponiveisCache = await apiFetch(`${API}/estoque?finalidade=${tipo}`).then(r => r.json())
-  filtrarBalsasContrato()
 }
 
 window.buscarClienteContrato = async function (q) {
@@ -737,7 +704,6 @@ window.salvarContrato = async function () {
   }
 
   const body = {
-    tipo: tipoContratoAtual,
     clienteId,
     balsas,
     dataInicio,

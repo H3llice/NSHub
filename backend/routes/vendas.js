@@ -4,73 +4,54 @@ import { autenticar, exigirPerfil } from '../middleware/auth.js'
 
 const router = Router()
 
-const STATUS_VALIDOS = ['ativo', 'encerrado', 'cancelado']
+const STATUS_VALIDOS = ['ativo', 'cancelado']
 
-// ─── Listar contratos ───────────────────────────────────────────────────────────
+// ─── Listar vendas ───────────────────────────────────────────────────────────
 router.get('/', autenticar, async (req, res) => {
   const { status } = req.query
 
   const where = {}
   if (status) where.status = status
 
-  const contratos = await prisma.contrato.findMany({
+  const vendas = await prisma.venda.findMany({
     where,
     include: {
       cliente: true,
+      vendedor: { select: { id: true, nome: true } },
       criadoPor: { select: { id: true, nome: true } },
       balsas: { include: { balsa: true } }
     },
     orderBy: { criadoEm: 'desc' }
   })
 
-  res.json(contratos)
+  res.json(vendas)
 })
 
-// ─── Dashboard de contratos (tela Início) — contagem por situação ──────────────
-router.get('/dashboard', autenticar, async (req, res) => {
-  const ativos = await prisma.contrato.findMany({
-    where: { status: 'ativo' },
-    include: { pagamentos: { where: { status: 'atrasado' }, select: { id: true } } }
-  })
-
-  const atrasados = ativos.filter(c => c.pagamentos.length > 0).length
-
-  const limiteVencimento = new Date()
-  limiteVencimento.setDate(limiteVencimento.getDate() + 30)
-  const vencendoEmBreve = ativos.filter(c => c.dataFim && new Date(c.dataFim) <= limiteVencimento).length
-
-  res.json({
-    total: ativos.length,
-    atrasados,
-    emDia: ativos.length - atrasados,
-    vencendoEmBreve
-  })
-})
-
-// ─── Buscar um contrato pelo ID ─────────────────────────────────────────────────
+// ─── Buscar uma venda pelo ID ──────────────────────────────────────────────────
 router.get('/:id', autenticar, async (req, res) => {
-  const contrato = await prisma.contrato.findUnique({
+  const venda = await prisma.venda.findUnique({
     where: { id: Number(req.params.id) },
     include: {
       cliente: true,
+      vendedor: { select: { id: true, nome: true } },
       criadoPor: { select: { id: true, nome: true } },
       balsas: { include: { balsa: true } }
     }
   })
-  if (!contrato) return res.status(404).json({ erro: 'Contrato não encontrado' })
-  res.json(contrato)
+  if (!venda) return res.status(404).json({ erro: 'Venda não encontrada' })
+  res.json(venda)
 })
 
-// ─── Criar contrato (só admin e gerente) ────────────────────────────────────────
+// ─── Criar venda (só admin e gerente) ───────────────────────────────────────────
 router.post('/', autenticar, exigirPerfil('admin', 'gerente'), async (req, res) => {
   const {
-    clienteId, balsas, dataInicio, dataFim,
+    clienteId, balsas, dataVenda, vendedorId,
     valor, frete, descontoTipo, descontoValor, formaPagamento, condicoesPagto, observacoes,
     periodicidadePagamento, dataVencimento
   } = req.body
 
-  if (!clienteId || !Array.isArray(balsas) || balsas.length === 0 || !dataInicio) {
-    return res.status(400).json({ erro: 'Cliente, ao menos uma balsa e data de início são obrigatórios' })
+  if (!clienteId || !Array.isArray(balsas) || balsas.length === 0 || !dataVenda || !vendedorId) {
+    return res.status(400).json({ erro: 'Cliente, vendedor responsável, ao menos uma balsa e data da venda são obrigatórios' })
   }
 
   const balsaIds = balsas.map(b => b.balsaId)
@@ -84,16 +65,18 @@ router.post('/', autenticar, exigirPerfil('admin', 'gerente'), async (req, res) 
   const cliente = await prisma.cliente.findUnique({ where: { id: parseInt(clienteId) } })
   if (!cliente) return res.status(400).json({ erro: 'Cliente não encontrado' })
 
+  const vendedor = await prisma.usuario.findUnique({ where: { id: parseInt(vendedorId) } })
+  if (!vendedor) return res.status(400).json({ erro: 'Vendedor responsável não encontrado' })
+
   const balsasEncontradas = await prisma.balsa.findMany({ where: { id: { in: balsaIds.map(Number) } } })
   if (balsasEncontradas.length !== balsaIds.length) {
     return res.status(400).json({ erro: 'Uma ou mais balsas selecionadas não foram encontradas' })
   }
 
-  // As balsas precisam ser do estoque de locação
-  const finalidadeErrada = balsasEncontradas.filter(b => b.finalidade !== 'locacao')
+  const finalidadeErrada = balsasEncontradas.filter(b => b.finalidade !== 'venda')
   if (finalidadeErrada.length > 0) {
     return res.status(400).json({
-      erro: `As seguintes balsas não pertencem ao estoque de locação: ${finalidadeErrada.map(b => b.numeroSerie).join(', ')}`
+      erro: `As seguintes balsas não pertencem ao estoque de venda: ${finalidadeErrada.map(b => b.numeroSerie).join(', ')}`
     })
   }
 
@@ -105,21 +88,20 @@ router.post('/', autenticar, exigirPerfil('admin', 'gerente'), async (req, res) 
   }
 
   const ano = new Date().getFullYear()
-  const ultimo = await prisma.contrato.findFirst({
+  const ultima = await prisma.venda.findFirst({
     where: { ano },
     orderBy: { numero: 'desc' }
   })
-  const proximoNumero = ultimo ? ultimo.numero + 1 : 1
+  const proximoNumero = ultima ? ultima.numero + 1 : 1
 
-  const contrato = await prisma.$transaction(async (tx) => {
-    const novoContrato = await tx.contrato.create({
+  const venda = await prisma.$transaction(async (tx) => {
+    const novaVenda = await tx.venda.create({
       data: {
         numero: proximoNumero,
         ano,
-        tipo: 'locacao',
         clienteId: parseInt(clienteId),
-        dataInicio: new Date(dataInicio).toISOString(),
-        dataFim: dataFim ? new Date(dataFim).toISOString() : null,
+        vendedorId: parseInt(vendedorId),
+        dataVenda: new Date(dataVenda).toISOString(),
         valor: valor ? parseFloat(valor) : null,
         frete: frete ? parseFloat(frete) : null,
         descontoTipo: descontoValor ? (descontoTipo || 'percentual') : null,
@@ -133,12 +115,12 @@ router.post('/', autenticar, exigirPerfil('admin', 'gerente'), async (req, res) 
           create: balsas.map(b => ({ balsaId: parseInt(b.balsaId), valor: b.valor ? parseFloat(b.valor) : null }))
         }
       },
-      include: { cliente: true, balsas: { include: { balsa: true } } }
+      include: { cliente: true, vendedor: { select: { id: true, nome: true } }, balsas: { include: { balsa: true } } }
     })
 
     await tx.balsa.updateMany({
       where: { id: { in: balsaIds.map(Number) } },
-      data: { status: 'locado' }
+      data: { status: 'vendido' }
     })
 
     // Cria a primeira parcela, se houver valor definido
@@ -146,7 +128,7 @@ router.post('/', autenticar, exigirPerfil('admin', 'gerente'), async (req, res) 
       const dataVenc = new Date(dataVencimento)
       await tx.pagamento.create({
         data: {
-          contratoId: novoContrato.id,
+          vendaId: novaVenda.id,
           valor: parseFloat(valor),
           dataVencimento: dataVenc.toISOString(),
           referencia: periodicidade === 'mensal'
@@ -156,27 +138,26 @@ router.post('/', autenticar, exigirPerfil('admin', 'gerente'), async (req, res) 
       })
     }
 
-    return novoContrato
+    return novaVenda
   })
 
-  res.json(contrato)
+  res.json(venda)
 })
 
-// ─── Editar contrato (só admin e gerente) ───────────────────────────────────────
-// Não permite trocar as balsas vinculadas aqui — só dados do contrato e status.
+// ─── Editar venda (só admin e gerente) ──────────────────────────────────────────
+// Não permite trocar as balsas vinculadas aqui — só dados da venda, o valor individual delas e status.
 router.put('/:id', autenticar, exigirPerfil('admin', 'gerente'), async (req, res) => {
   const id = Number(req.params.id)
-  const { dataInicio, dataFim, valor, frete, descontoTipo, descontoValor, balsas, formaPagamento, condicoesPagto, observacoes, status } = req.body
+  const { dataVenda, valor, frete, descontoTipo, descontoValor, balsas, formaPagamento, condicoesPagto, observacoes, status } = req.body
 
-  const contratoAtual = await prisma.contrato.findUnique({
+  const vendaAtual = await prisma.venda.findUnique({
     where: { id },
     include: { balsas: true }
   })
-  if (!contratoAtual) return res.status(404).json({ erro: 'Contrato não encontrado' })
+  if (!vendaAtual) return res.status(404).json({ erro: 'Venda não encontrada' })
 
   const dados = {}
-  if (dataInicio) dados.dataInicio = new Date(dataInicio).toISOString()
-  if (dataFim !== undefined) dados.dataFim = dataFim ? new Date(dataFim).toISOString() : null
+  if (dataVenda) dados.dataVenda = new Date(dataVenda).toISOString()
   if (valor !== undefined) dados.valor = valor ? parseFloat(valor) : null
   if (frete !== undefined) dados.frete = frete ? parseFloat(frete) : null
   if (descontoValor !== undefined) {
@@ -191,45 +172,41 @@ router.put('/:id', autenticar, exigirPerfil('admin', 'gerente'), async (req, res
     if (!STATUS_VALIDOS.includes(status)) {
       return res.status(400).json({ erro: `Status inválido. Use: ${STATUS_VALIDOS.join(', ')}` })
     }
-    // Contrato de venda não tem "encerrado" — venda é definitiva, só pode ser cancelada
-    if (contratoAtual.tipo === 'venda' && status === 'encerrado') {
-      return res.status(400).json({ erro: 'Contratos de venda não podem ser "encerrados", apenas cancelados' })
-    }
     dados.status = status
   }
 
-  const contrato = await prisma.$transaction(async (tx) => {
-    await tx.contrato.update({ where: { id }, data: dados })
+  const venda = await prisma.$transaction(async (tx) => {
+    await tx.venda.update({ where: { id }, data: dados })
 
-    // Ao encerrar ou cancelar o contrato, libera as balsas vinculadas de volta para disponível
-    const finalizando = status && ['encerrado', 'cancelado'].includes(status) && contratoAtual.status === 'ativo'
-    if (finalizando) {
-      const balsaIds = contratoAtual.balsas.map(cb => cb.balsaId)
+    // Ao cancelar a venda, libera as balsas vinculadas de volta para disponível
+    const cancelando = status === 'cancelado' && vendaAtual.status === 'ativo'
+    if (cancelando) {
+      const balsaIds = vendaAtual.balsas.map(vb => vb.balsaId)
       await tx.balsa.updateMany({
-        where: { id: { in: balsaIds }, status: { in: ['locado', 'vendido'] } },
+        where: { id: { in: balsaIds }, status: 'vendido' },
         data: { status: 'disponivel' }
       })
     }
 
-    // Permite corrigir o valor individual de balsas já vinculadas — não adiciona/remove balsas do contrato
+    // Permite corrigir o valor individual de balsas já vinculadas — não adiciona/remove balsas da venda
     if (Array.isArray(balsas)) {
       for (const b of balsas) {
-        const vinculada = contratoAtual.balsas.find(cb => cb.balsaId === parseInt(b.balsaId))
+        const vinculada = vendaAtual.balsas.find(vb => vb.balsaId === parseInt(b.balsaId))
         if (!vinculada) continue
-        await tx.contratoBalsa.update({
+        await tx.vendaBalsa.update({
           where: { id: vinculada.id },
           data: { valor: b.valor ? parseFloat(b.valor) : null }
         })
       }
     }
 
-    return tx.contrato.findUnique({
+    return tx.venda.findUnique({
       where: { id },
-      include: { cliente: true, balsas: { include: { balsa: true } } }
+      include: { cliente: true, vendedor: { select: { id: true, nome: true } }, balsas: { include: { balsa: true } } }
     })
   })
 
-  res.json(contrato)
+  res.json(venda)
 })
 
 export default router

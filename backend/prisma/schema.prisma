@@ -49,13 +49,13 @@ model Vendedor {
 }
 
 model Usuario {
-  id        Int      @id @default(autoincrement())
-  nome      String
-  email     String   @unique
-  senha     String
-  perfil    String   @default("usuario")
-  ativo     Boolean  @default(true)
-  criadoEm DateTime @default(now())
+  id               Int       @id @default(autoincrement())
+  nome             String
+  email            String    @unique
+  senha            String
+  perfil           String    @default("usuario")
+  ativo            Boolean   @default(true)
+  criadoEm         DateTime  @default(now())
   primeiroLogin    Boolean   @default(true)
   resetToken       String?
   resetTokenExpira DateTime?
@@ -66,24 +66,27 @@ model Usuario {
 
   contratos Contrato[]
 
+  vendasComoVendedor Venda[] @relation("VendaVendedor")
+  vendasCriadas      Venda[] @relation("VendaCriadoPor")
+
   pedidosAlmoxarifado PedidoAlmoxarifado[]
 }
 
 // etapa: solicitante | aprovacao | autorizacao
 // Cada assinatura pertence a UMA OrdemCompra OU UMA SolicitacaoCompra (nunca as duas)
 model Assinatura {
-  id            Int          @id @default(autoincrement())
-  ordemCompra   OrdemCompra? @relation(fields: [ocId], references: [id])
+  id            Int                @id @default(autoincrement())
+  ordemCompra   OrdemCompra?       @relation(fields: [ocId], references: [id])
   ocId          Int?
   solicitacao   SolicitacaoCompra? @relation(fields: [solicitacaoId], references: [id])
   solicitacaoId Int?
-  usuario       Usuario      @relation(fields: [usuarioId], references: [id])
+  usuario       Usuario            @relation(fields: [usuarioId], references: [id])
   usuarioId     Int
   etapa         String
   acao          String
   motivo        String?
   assinaturaImg String?
-  criadoEm      DateTime     @default(now())
+  criadoEm      DateTime           @default(now())
 }
 
 model OrdemCompra {
@@ -114,8 +117,8 @@ model OrdemCompra {
   canceladoEm    DateTime?
   valorTotal     Float?
 
-  geradaDeSolicitacaoId Int?                @unique
-  geradaDeSolicitacao   SolicitacaoCompra?  @relation("OcGerada", fields: [geradaDeSolicitacaoId], references: [id])
+  geradaDeSolicitacaoId Int?               @unique
+  geradaDeSolicitacao   SolicitacaoCompra? @relation("OcGerada", fields: [geradaDeSolicitacaoId], references: [id])
 
   itens       ItemOC[]
   anexos      Anexo[]
@@ -166,7 +169,7 @@ model SolicitacaoCompra {
   fornecedores FornecedorCotado[]
   assinaturas  Assinatura[]
 
-  ocGerada     OrdemCompra? @relation("OcGerada")
+  ocGerada OrdemCompra? @relation("OcGerada")
 }
 
 model ItemSolicitacao {
@@ -177,7 +180,7 @@ model ItemSolicitacao {
   unidade       String?
   descricao     String
 
-  precos        PrecoCotado[]
+  precos PrecoCotado[]
 }
 
 model FornecedorCotado {
@@ -193,7 +196,7 @@ model FornecedorCotado {
   favorito       Boolean           @default(false)
   escolhido      Boolean           @default(false)
 
-  precos         PrecoCotado[]
+  precos PrecoCotado[]
 }
 
 model PrecoCotado {
@@ -208,9 +211,9 @@ model PrecoCotado {
 }
 
 model Balsa {
-  id            Int      @id @default(autoincrement())
+  id            Int     @id @default(autoincrement())
   fabricante    String
-  numeroSerie   String   @unique
+  numeroSerie   String  @unique
   modelo        String
   anoFabricacao Int
   capacidade    Int
@@ -219,60 +222,62 @@ model Balsa {
   finalidade    String
   // finalidade: locacao | venda
 
-  status        String   @default("disponivel")
+  status String @default("disponivel")
   // status: disponivel | locado | vendido
 
-  criadoEm      DateTime @default(now())
-  atualizadoEm  DateTime @updatedAt
+  criadoEm     DateTime @default(now())
+  atualizadoEm DateTime @updatedAt
 
   contratosBalsa ContratoBalsa[]
+  vendasBalsa    VendaBalsa[]
 }
 
 model Cliente {
-  id         Int      @id @default(autoincrement())
+  id         Int    @id @default(autoincrement())
   tipoPessoa String
   // tipoPessoa: fisica | juridica
 
-  cpfCnpj    String   @unique
-  nome       String
-  telefone   String?
-  email      String?
-  endereco   String?
-  cidade     String?
-  criadoEm   DateTime @default(now())
+  cpfCnpj  String   @unique
+  nome     String
+  telefone String?
+  email    String?
+  endereco String?
+  cidade   String?
+  criadoEm DateTime @default(now())
 
-  contratos  Contrato[]
+  contratos Contrato[]
+  vendas    Venda[]
 }
 
 model Contrato {
-  id             Int       @id @default(autoincrement())
-  numero         Int
-  ano            Int
-  tipo           String
-  // tipo: locacao | venda
-  cliente        Cliente   @relation(fields: [clienteId], references: [id])
-  clienteId      Int
-  dataInicio     DateTime
-  dataFim        DateTime?
-  valor          Float?
-  frete          Float?
-  descontoTipo   String?
-  descontoValor  Float?
+  id                     Int       @id @default(autoincrement())
+  numero                 Int
+  ano                    Int
+  tipo                   String
+  // tipo: locacao (venda de balsa passou a ser tratada pelo model Venda)
+  cliente                Cliente   @relation(fields: [clienteId], references: [id])
+  clienteId              Int
+  dataInicio             DateTime
+  dataFim                DateTime?
+  valor                  Float?
+  frete                  Float?
+  descontoTipo           String?
+  descontoValor          Float?
   // descontoTipo: percentual | fixo
-  formaPagamento String?
-  condicoesPagto String?
+  formaPagamento         String?
+  condicoesPagto         String?
   periodicidadePagamento String    @default("unico")
-  observacoes    String?
-  status         String    @default("ativo")
+  observacoes            String?
+  status                 String    @default("ativo")
   // status: ativo | encerrado | cancelado
 
-  criadoPor      Usuario?  @relation(fields: [criadoPorId], references: [id])
-  criadoPorId    Int?
-  criadoEm       DateTime  @default(now())
-  atualizadoEm   DateTime  @updatedAt
+  criadoPor    Usuario? @relation(fields: [criadoPorId], references: [id])
+  criadoPorId  Int?
+  criadoEm     DateTime @default(now())
+  atualizadoEm DateTime @updatedAt
 
-  balsas         ContratoBalsa[]
-  pagamentos     Pagamento[]
+  balsas     ContratoBalsa[]
+  pagamentos Pagamento[]
 }
 
 model ContratoBalsa {
@@ -286,12 +291,56 @@ model ContratoBalsa {
   @@unique([contratoId, balsaId])
 }
 
+model Venda {
+  id                     Int      @id @default(autoincrement())
+  numero                 Int
+  ano                    Int
+  cliente                Cliente  @relation(fields: [clienteId], references: [id])
+  clienteId              Int
+  dataVenda              DateTime
+  valor                  Float?
+  frete                  Float?
+  descontoTipo           String?
+  descontoValor          Float?
+  // descontoTipo: percentual | fixo
+  formaPagamento         String?
+  condicoesPagto         String?
+  periodicidadePagamento String   @default("unico")
+  observacoes            String?
+  status                 String   @default("ativo")
+  // status: ativo | cancelado
+
+  vendedor   Usuario? @relation("VendaVendedor", fields: [vendedorId], references: [id])
+  vendedorId Int?
+
+  criadoPor    Usuario? @relation("VendaCriadoPor", fields: [criadoPorId], references: [id])
+  criadoPorId  Int?
+  criadoEm     DateTime @default(now())
+  atualizadoEm DateTime @updatedAt
+
+  balsas     VendaBalsa[]
+  pagamentos Pagamento[]
+}
+
+model VendaBalsa {
+  id      Int    @id @default(autoincrement())
+  venda   Venda  @relation(fields: [vendaId], references: [id])
+  vendaId Int
+  balsa   Balsa  @relation(fields: [balsaId], references: [id])
+  balsaId Int
+  valor   Float?
+
+  @@unique([vendaId, balsaId])
+}
+
 model Pagamento {
   id             Int       @id @default(autoincrement())
   contrato       Contrato? @relation(fields: [contratoId], references: [id])
   contratoId     Int?
-  clienteNome    String?   // usado quando não há contrato vinculado (conta avulsa)
-  descricao      String?   // usado quando não há contrato vinculado (conta avulsa)
+  venda          Venda?    @relation(fields: [vendaId], references: [id])
+  vendaId        Int?
+  clienteNome    String? // usado quando não há contrato/venda vinculado (conta avulsa)
+  descricao      String? // usado quando não há contrato/venda vinculado (conta avulsa)
   referencia     String?
   valor          Float
   dataVencimento DateTime
@@ -312,7 +361,7 @@ model Produto {
   criadoEm     DateTime @default(now())
   atualizadoEm DateTime @updatedAt
 
-  itensPedido  ItemPedidoAlmoxarifado[]
+  itensPedido ItemPedidoAlmoxarifado[]
 }
 
 model PedidoAlmoxarifado {
@@ -324,7 +373,7 @@ model PedidoAlmoxarifado {
   observacoes   String?
   criadoEm      DateTime @default(now())
 
-  itens         ItemPedidoAlmoxarifado[]
+  itens ItemPedidoAlmoxarifado[]
 }
 
 model ItemPedidoAlmoxarifado {

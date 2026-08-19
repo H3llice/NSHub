@@ -169,10 +169,11 @@ window.filtrarPagamentos = function () {
 
   if (busca) {
     filtrados = filtrados.filter(p => {
-      const cliente = (p.contrato?.cliente?.nome || p.clienteNome || '').toLowerCase()
+      const cliente = (p.contrato?.cliente?.nome || p.venda?.cliente?.nome || p.clienteNome || '').toLowerCase()
       const contratoNum = p.contrato ? `${p.contrato.numero}.${p.contrato.ano}`.toLowerCase() : ''
+      const vendaNum = p.venda ? `${p.venda.numero}.${p.venda.ano}`.toLowerCase() : ''
       const ref = (p.referencia || p.descricao || '').toLowerCase()
-      return cliente.includes(busca) || contratoNum.includes(busca) || ref.includes(busca)
+      return cliente.includes(busca) || contratoNum.includes(busca) || vendaNum.includes(busca) || ref.includes(busca)
     })
   }
 
@@ -193,9 +194,12 @@ function renderizarTabelaPagamentos(pagamentos) {
 
   tabela.innerHTML = pagamentos.map(p => {
     const c = p.contrato
+    const v = p.venda
     const venc = new Date(p.dataVencimento).toLocaleDateString('pt-BR')
-    const cliente = c?.cliente?.nome || p.clienteNome || '-'
-    const contratoTxt = c ? `${c.numero}.${c.ano}` : '<span style="color:#999;">Avulsa</span>'
+    const cliente = c?.cliente?.nome || v?.cliente?.nome || p.clienteNome || '-'
+    const contratoTxt = c
+      ? `${c.numero}.${c.ano}`
+      : v ? `Venda ${v.numero}.${v.ano}` : '<span style="color:#999;">Avulsa</span>'
     const refTxt = p.referencia || p.descricao || '-'
 
     const acoes = p.status === 'pago'
@@ -326,7 +330,7 @@ export async function renderizarDashboardInicio() {
           <ul style="list-style:none; padding:0; margin:0;">
             ${d.proximosVencimentos.map(p => `
               <li style="padding:6px 0; border-bottom:1px solid #eee; font-size:13px; display:flex; justify-content:space-between;">
-                <span>${p.contrato?.cliente?.nome || '-'} — Contrato ${p.contrato?.numero}.${p.contrato?.ano}</span>
+                <span>${p.contrato?.cliente?.nome || p.venda?.cliente?.nome || '-'} — ${p.contrato ? `Contrato ${p.contrato.numero}.${p.contrato.ano}` : p.venda ? `Venda ${p.venda.numero}.${p.venda.ano}` : 'Avulsa'}</span>
                 <span>${new Date(p.dataVencimento).toLocaleDateString('pt-BR')} · ${formatarMoeda(p.valor)}</span>
               </li>
             `).join('')}

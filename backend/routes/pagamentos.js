@@ -15,7 +15,8 @@ router.get('/', autenticar, async (req, res) => {
     const pagamentos = await prisma.pagamento.findMany({
         where,
         include: {
-            contrato: { include: { cliente: true, balsas: { include: { balsa: true } } } }
+            contrato: { include: { cliente: true, balsas: { include: { balsa: true } } } },
+            venda: { include: { cliente: true, balsas: { include: { balsa: true } } } }
         },
         orderBy: { dataVencimento: 'asc' }
     })
@@ -49,11 +50,11 @@ router.get('/dashboard', autenticar, async (req, res) => {
     const [pendentes, atrasados, pagos30dias] = await Promise.all([
         prisma.pagamento.findMany({
             where: { status: 'pendente' },
-            include: { contrato: { include: { cliente: true } } }
+            include: { contrato: { include: { cliente: true } }, venda: { include: { cliente: true } } }
         }),
         prisma.pagamento.findMany({
             where: { status: 'atrasado' },
-            include: { contrato: { include: { cliente: true } } }
+            include: { contrato: { include: { cliente: true } }, venda: { include: { cliente: true } } }
         }),
         prisma.pagamento.findMany({
             where: {

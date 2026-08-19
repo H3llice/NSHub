@@ -37,8 +37,8 @@
                     <button class="star-btn" onclick="toggleFavorito(event, 'orcamentos', 'Orçamentos')">☆</button>
                 </div>
                 <div class="menu-item">
-                    <a href="#" onclick="abrirPagina(event,'vendas')" style="flex: 1;">Vendas</a>
-                    <button class="star-btn" onclick="toggleFavorito(event, 'vendas', 'Vendas')">☆</button>
+                    <a href="#" onclick="abrirPagina(event,'vendas')" style="flex: 1;">Vendas de Balsa</a>
+                    <button class="star-btn" onclick="toggleFavorito(event, 'vendas', 'Vendas de Balsa')">☆</button>
                 </div>
                 <div class="menu-item">
                     <a href="#" onclick="abrirPagina(event,'contratos')" style="flex: 1;">Contratos locação</a>
@@ -47,6 +47,23 @@
                 <div class="menu-item">
                     <a href="#" onclick="abrirPagina(event,'notas')" style="flex: 1;">Notas fiscais</a>
                     <button class="star-btn" onclick="toggleFavorito(event, 'notas', 'Notas fiscais')">☆</button>
+                </div>
+            </div>
+
+            <a href="#" onclick="toggleMenu(event,'servicos')">🧰 Serviços</a>
+
+            <div id="servicos" class="submenu">
+                <div class="menu-item">
+                    <a href="#" onclick="abrirPagina(event,'os')" style="flex: 1;">Ordens de serviço</a>
+                    <button class="star-btn" onclick="toggleFavorito(event, 'os', 'Ordens de serviço')">☆</button>
+                </div>
+                <div class="menu-item">
+                    <a href="#" onclick="abrirPagina(event,'certificados')" style="flex: 1;">Certificados</a>
+                    <button class="star-btn" onclick="toggleFavorito(event, 'certificados', 'Certificados')">☆</button>
+                </div>
+                <div class="menu-item">
+                    <a href="#" onclick="abrirPagina(event,'relatorios')" style="flex: 1;">Relatórios</a>
+                    <button class="star-btn" onclick="toggleFavorito(event, 'relatorios', 'Relatórios')">☆</button>
                 </div>
             </div>
 
@@ -65,23 +82,6 @@
                 <div class="menu-item">
                     <a href="#" onclick="abrirPagina(event,'ocs')" style="flex: 1;">Ordens de Compra</a>
                     <button class="star-btn" onclick="toggleFavorito(event, 'ocs', 'Ordens de Compra')">☆</button>
-                </div>
-            </div>
-
-            <a href="#" onclick="toggleMenu(event,'servicos')">🧰 Serviços</a>
-
-            <div id="servicos" class="submenu">
-                <div class="menu-item">
-                    <a href="#" onclick="abrirPagina(event,'os')" style="flex: 1;">Ordens de serviço</a>
-                    <button class="star-btn" onclick="toggleFavorito(event, 'os', 'Ordens de serviço')">☆</button>
-                </div>
-                <div class="menu-item">
-                    <a href="#" onclick="abrirPagina(event,'certificados')" style="flex: 1;">Certificados</a>
-                    <button class="star-btn" onclick="toggleFavorito(event, 'certificados', 'Certificados')">☆</button>
-                </div>
-                <div class="menu-item">
-                    <a href="#" onclick="abrirPagina(event,'relatorios')" style="flex: 1;">Relatórios</a>
-                    <button class="star-btn" onclick="toggleFavorito(event, 'relatorios', 'Relatórios')">☆</button>
                 </div>
             </div>
 
@@ -138,7 +138,7 @@
                 <div class="novo-registro-menu">
                     <button class="btn btn-warning" onclick="toggleNovoRegistroMenu(event)">＋ Novo registro</button>
                     <div id="novo-registro-dropdown" class="novo-registro-dropdown">
-                        <a href="#" onclick="abrirPagina(event, 'vendas')">Venda de produto</a>
+                        <a href="#" onclick="novoRegistroVenda(event)">Venda de balsa</a>
                         <a href="#" onclick="novoRegistroContrato(event)">Contrato locação</a>
                         <a href="#" onclick="abrirPagina(event, 'certificados')">Certificado</a>
                         <a href="#" onclick="abrirPagina(event, 'os')">Ordem de serviço</a>
@@ -176,10 +176,7 @@
             <button class="btn btn-success">Novo orçamento</button>
         </div>
 
-        <div id="vendas" class="page">
-            <div class="tab">Vendas de produtos</div>
-            <button class="btn btn-success">Registrar venda</button>
-        </div>
+        <div id="vendas" class="page"></div>
 
         <div id="contratos" class="page">
             <div class="tab">Contratos</div>

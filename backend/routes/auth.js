@@ -45,6 +45,16 @@ router.post('/login', async (req, res) => {
   })
 })
 
+// ─── Listar usuários ativos (básico) — usado em dropdowns como "vendedor responsável" ──
+router.get('/simples', autenticar, async (req, res) => {
+  const usuarios = await prisma.usuario.findMany({
+    where: { ativo: true },
+    select: { id: true, nome: true },
+    orderBy: { nome: 'asc' }
+  })
+  res.json(usuarios)
+})
+
 // ─── Listar usuários (admin) ──────────────────────────────────────────────────
 router.get('/', autenticar, exigirPerfil('admin'), async (req, res) => {
   const usuarios = await prisma.usuario.findMany({

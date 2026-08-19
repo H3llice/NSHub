@@ -15,6 +15,7 @@ import webhookRouter from './routes/webhook.js'
 import estoqueRouter from './routes/estoque.js'
 import clientesRouter from './routes/clientes.js'
 import contratosRouter from './routes/contratos.js'
+import vendasRouter from './routes/vendas.js'
 import pagamentosRouter from './routes/pagamentos.js'
 import almoxarifadoRouter from './routes/almoxarifado.js'
 import { notificarPagamentoAtrasado } from './email.js'
@@ -57,6 +58,7 @@ app.use('/solicitacoes', solicitacoesRouter)
 app.use('/estoque', estoqueRouter)
 app.use('/clientes', clientesRouter)
 app.use('/contratos', contratosRouter)
+app.use('/vendas', vendasRouter)
 app.use('/pagamentos', pagamentosRouter)
 app.use('/almoxarifado', almoxarifadoRouter)
 

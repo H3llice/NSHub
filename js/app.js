@@ -1,6 +1,7 @@
 import { inicializarOCs } from './modules/ocs.js'
 import { inicializarEstoque, renderizarDashboardEstoque } from './modules/estoque.js'
 import { inicializarClientes, inicializarContratos, renderizarDashboardContratos } from './modules/contratos.js'
+import { inicializarVendas } from './modules/vendas.js'
 import { inicializarContasReceber, renderizarDashboardInicio } from './modules/pagamentos.js'
 import { inicializarFornecedores } from './modules/fornecedores.js'
 import { inicializarSolicitacoes } from './modules/solicitacoes.js'
@@ -84,6 +85,10 @@ window.abrirPagina = function (event, id) {
 
     if (id === 'contratos') {
         inicializarContratos()
+    }
+
+    if (id === 'vendas') {
+        inicializarVendas()
     }
 
     if (id === 'contasReceber') {
@@ -252,6 +257,14 @@ window.novoRegistroContrato = function (event) {
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'))
     document.getElementById('contratos').classList.add('active')
     abrirFormularioContrato()
+    document.getElementById('novo-registro-dropdown').classList.remove('show')
+}
+
+window.novoRegistroVenda = function (event) {
+    event.preventDefault()
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'))
+    document.getElementById('vendas').classList.add('active')
+    abrirFormularioVenda()
     document.getElementById('novo-registro-dropdown').classList.remove('show')
 }
 
