@@ -6,7 +6,9 @@ if (!JWT_SECRET) {
 }
 
 export function autenticar(req, res, next) {
-  const token = req.headers.authorization?.replace('Bearer ', '')
+  // Aceita o token também via query string (?token=) para casos de navegação direta
+  // (abrir PDF/anexo em nova aba), onde não dá pra mandar o header Authorization.
+  const token = req.headers.authorization?.replace('Bearer ', '') || req.query.token
 
   if (!token) {
     return res.status(401).json({ erro: 'Token não fornecido' })

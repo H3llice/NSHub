@@ -41,6 +41,9 @@ async function apiJson(url, options = {}) {
 
 const usuarioAtual = JSON.parse(localStorage.getItem('ns_usuario') || 'null')
 const perfil = usuarioAtual?.perfil || 'usuario'
+// Usado nos links de PDF/anexo abertos direto em nova aba — não dá pra mandar
+// o header Authorization nesse caso, então o token vai como query string.
+const tokenAtual = localStorage.getItem('ns_token')
 
 const STATUS_LABEL = {
   aberta: { texto: 'Aberta', cor: '#6c757d' },
@@ -125,7 +128,7 @@ export function inicializarOCs() {
     </table>
   `
 
-  fetch(`${API}/empresas`, { headers: { 'ngrok-skip-browser-warning': 'true' } }).then(r => r.json()).then(empresas => {
+  apiFetch(`${API}/empresas`).then(r => r.json()).then(empresas => {
     const select = document.getElementById('filtro-empresa')
     empresas.forEach(e => {
       select.innerHTML += `<option value="${e.id}">${e.sigla}</option>`
@@ -232,7 +235,7 @@ function botoesParaPerfil(oc, numero) {
     btns.push(`<button class="btn btn-sm btn-info" onclick="editarOC(${oc.id})">${label}</button>`)
   }
 
-  btns.push(`<a class="btn btn-sm btn-secondary" href="${API}/pdf/${oc.id}" target="_blank">PDF</a>`)
+  btns.push(`<a class="btn btn-sm btn-secondary" href="${API}/pdf/${oc.id}?token=${encodeURIComponent(tokenAtual)}" target="_blank">PDF</a>`)
 
   if ((perfil === 'gerente' || perfil === 'admin') && s === 'aguardando_aprovacao') {
     btns.push(`<button class="btn btn-sm btn-success" onclick="abrirModalAssinatura(${oc.id}, 'aprovar')">✓ Aprovar</button>`)
@@ -306,7 +309,7 @@ window.verOC = async function (id) {
     const label = s === 'aprovada' ? '📎 Adicionar Anexo' : '✏️ Editar'
     botoesVer.push(`<button class="btn btn-info" onclick="editarOC(${oc.id})">${label}</button>`)
   }
-  botoesVer.push(`<a class="btn btn-secondary" href="${API}/pdf/${oc.id}" target="_blank">📄 PDF</a>`)
+  botoesVer.push(`<a class="btn btn-secondary" href="${API}/pdf/${oc.id}?token=${encodeURIComponent(tokenAtual)}" target="_blank">📄 PDF</a>`)
   if ((perfil === 'gerente' || perfil === 'admin') && s === 'aguardando_aprovacao') {
     botoesVer.push(`<button class="btn btn-success" onclick="abrirModalAssinatura(${oc.id}, 'aprovar')">✓ Aprovar</button>`)
     botoesVer.push(`<button class="btn btn-danger" onclick="abrirModalRecusa(${oc.id})">✗ Recusar</button>`)
@@ -395,7 +398,7 @@ window.verOC = async function (id) {
             ${oc.anexos.map(a => `
               <li style="padding:6px 0; border-bottom:1px solid #eee; display:flex; justify-content:space-between; font-size:13px;">
                 <span>📎 ${a.nomeOriginal} <small style="color:#999;">(${a.tipo})</small></span>
-                <a href="${API}/uploads/${a.nomeArquivo}" target="_blank" style="color:#158815;">Ver</a>
+                <a href="${API}/uploads/${a.nomeArquivo}?token=${encodeURIComponent(tokenAtual)}" target="_blank" style="color:#158815;">Ver</a>
               </li>
             `).join('')}
           </ul>
@@ -613,7 +616,7 @@ window.confirmarRecusa = async function (ocId) {
 }
 
 window.abrirFormularioOC = async function () {
-  const empresas = await fetch(`${API}/empresas`, { headers: { 'ngrok-skip-browser-warning': 'true' } }).then(r => r.json())
+  const empresas = await apiFetch(`${API}/empresas`).then(r => r.json())
   const opcoesEmpresas = empresas.map(e =>
     `<option value="${e.id}">${e.nome} (${e.sigla})</option>`
   ).join('')
@@ -811,7 +814,7 @@ window.fecharFormularioOC = function () {
 window.editarOC = async function (id) {
   const [oc, empresas] = await Promise.all([
     apiFetch(`${API}/ocs/${id}`).then(r => r.json()),
-    fetch(`${API}/empresas`, { headers: { 'ngrok-skip-browser-warning': 'true' } }).then(r => r.json()),
+    apiFetch(`${API}/empresas`).then(r => r.json()),
   ])
 
   const opcoesEmpresas = empresas.map(e =>
@@ -970,7 +973,7 @@ window.buscarFornecedor = async function (q) {
     return
   }
 
-  const results = await fetch(`${API}/fornecedores/buscar?q=${encodeURIComponent(q)}`, { headers: { 'ngrok-skip-browser-warning': 'true' } }).then(r => r.json())
+  const results = await apiFetch(`${API}/fornecedores/buscar?q=${encodeURIComponent(q)}`).then(r => r.json())
 
   if (results.length === 0) {
     div.style.display = 'none'

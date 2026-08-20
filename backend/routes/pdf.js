@@ -4,10 +4,24 @@ import puppeteer from 'puppeteer'
 import { PDFDocument } from 'pdf-lib'
 import fs from 'fs'
 import path from 'path'
+import { autenticar } from '../middleware/auth.js'
 
 const router = Router()
 
-router.get('/:id', async (req, res) => {
+// Escapa texto livre antes de interpolar no HTML do PDF — evita que um campo
+// como "instruções" ou "descrição do item" injete tags/script no template
+// renderizado pelo Puppeteer.
+function escapeHtml(valor) {
+  if (valor === null || valor === undefined) return ''
+  return String(valor)
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;')
+}
+
+router.get('/:id', autenticar, async (req, res) => {
   const oc = await prisma.ordemCompra.findUnique({
     where: { id: Number(req.params.id) },
     include: {
@@ -54,8 +68,8 @@ router.get('/:id', async (req, res) => {
 
     return `
       <div class="assinatura">
-        <div class="cargo">${cargo}</div>
-        <div class="nome" style="min-height:16px;">${nome}</div>
+        <div class="cargo">${escapeHtml(cargo)}</div>
+        <div class="nome" style="min-height:16px;">${escapeHtml(nome)}</div>
         <div style="height:54px; display:flex; align-items:flex-end; justify-content:center;">
           ${assinatura?.assinaturaImg
         ? `<img src="${assinatura.assinaturaImg}" style="max-height:50px; max-width:140px;">`
@@ -65,12 +79,12 @@ router.get('/:id', async (req, res) => {
         <div class="linha-assinatura" style="border-color:${cor};"></div>
         <div style="font-size:9px; color:${cor}; min-height:14px;">
           ${assinatura
-        ? `${assinatura.acao === 'aprovada' ? '✓ ' : '✗ '}${assinatura.usuario?.nome || ''} — ${new Date(assinatura.criadoEm).toLocaleDateString('pt-BR')}`
+        ? `${assinatura.acao === 'aprovada' ? '✓ ' : '✗ '}${escapeHtml(assinatura.usuario?.nome)} — ${new Date(assinatura.criadoEm).toLocaleDateString('pt-BR')}`
         : ''
       }
         </div>
         ${recusada && assinatura?.motivo
-        ? `<div style="font-size:9px; color:#dc3545; margin-top:2px;">Motivo: ${assinatura.motivo}</div>`
+        ? `<div style="font-size:9px; color:#dc3545; margin-top:2px;">Motivo: ${escapeHtml(assinatura.motivo)}</div>`
         : ''
       }
       </div>
@@ -153,19 +167,19 @@ router.get('/:id', async (req, res) => {
 
       <div class="secao">
         <div class="secao-titulo">Dados para Faturamento e Entrega</div>
-        <strong>${oc.empresa?.nome || ''}</strong><br>
-        ENDEREÇO: ${oc.empresa?.endereco || ''}, ${oc.empresa?.cidade || ''} CEP: ${oc.empresa?.cep || ''} &nbsp; Tel. ${oc.empresa?.telefone || ''}<br>
-        CNPJ ${oc.empresa?.cnpj || ''} &nbsp;&nbsp; INSC EST ${oc.empresa?.inscEstadual || ''} &nbsp;&nbsp; ${oc.empresa?.email || ''}
+        <strong>${escapeHtml(oc.empresa?.nome)}</strong><br>
+        ENDEREÇO: ${escapeHtml(oc.empresa?.endereco)}, ${escapeHtml(oc.empresa?.cidade)} CEP: ${escapeHtml(oc.empresa?.cep)} &nbsp; Tel. ${escapeHtml(oc.empresa?.telefone)}<br>
+        CNPJ ${escapeHtml(oc.empresa?.cnpj)} &nbsp;&nbsp; INSC EST ${escapeHtml(oc.empresa?.inscEstadual)} &nbsp;&nbsp; ${escapeHtml(oc.empresa?.email)}
       </div>
 
       <div class="secao">
         <div class="secao-titulo">Dados do Fornecedor</div>
-        <div class="linha"><span class="label">Empresa</span> ${oc.fornecedor?.nome || ''}</div>
-        <div class="linha"><span class="label">Endereço</span> ${oc.fornecedor?.endereco || ''}</div>
-        <div class="linha"><span class="label">Cidade e CEP</span> ${oc.fornecedor?.cidade || ''}</div>
-        <div class="linha"><span class="label">C N P J</span> ${oc.fornecedor?.documento || ''}</div>
-        <div class="linha"><span class="label">Telefone</span> ${oc.fornecedor?.telefone || ''}</div>
-        <div class="linha"><span class="label">Vendedor</span> ${oc.vendedor?.nome || ''}</div>
+        <div class="linha"><span class="label">Empresa</span> ${escapeHtml(oc.fornecedor?.nome)}</div>
+        <div class="linha"><span class="label">Endereço</span> ${escapeHtml(oc.fornecedor?.endereco)}</div>
+        <div class="linha"><span class="label">Cidade e CEP</span> ${escapeHtml(oc.fornecedor?.cidade)}</div>
+        <div class="linha"><span class="label">C N P J</span> ${escapeHtml(oc.fornecedor?.documento)}</div>
+        <div class="linha"><span class="label">Telefone</span> ${escapeHtml(oc.fornecedor?.telefone)}</div>
+        <div class="linha"><span class="label">Vendedor</span> ${escapeHtml(oc.vendedor?.nome)}</div>
       </div>
 
       <table>
@@ -178,8 +192,8 @@ router.get('/:id', async (req, res) => {
           ${oc.itens.map(item => `
             <tr>
               <td>${item.quantidade}</td>
-              <td>${item.unidade || ''}</td>
-              <td>${item.descricao}</td>
+              <td>${escapeHtml(item.unidade)}</td>
+              <td>${escapeHtml(item.descricao)}</td>
               <td>${item.valorUni ? 'R$ ' + item.valorUni.toFixed(2) : ''}</td>
               <td>${item.ipi ? item.ipi + '%' : ''}</td>
               <td>${item.valorTotal ? 'R$ ' + item.valorTotal.toFixed(2) : ''}</td>
@@ -196,19 +210,19 @@ router.get('/:id', async (req, res) => {
         <div class="secao-titulo">Condições Comerciais</div>
         <div class="condicoes-grid">
           <div><strong>Data Pedido</strong> ${dataPedido}</div>
-          <div><strong>Condições Pagto</strong> ${oc.condicoesPagto || ''}</div>
-          <div><strong>Forma de Pagto</strong> ${oc.formaPagto || ''}</div>
-          <div><strong>Prazo de entrega</strong> ${oc.prazoEntrega || ''}</div>
-          <div><strong>Incoterms</strong> ${oc.incoterms || ''}</div>
-          <div><strong>Transportadora</strong> ${oc.transportadora || ''}</div>
-          <div><strong>Endereço</strong> ${oc.enderecoTransp || ''}</div>
-          <div><strong>Tel e contato</strong> ${oc.telefoneTransp || ''}</div>
+          <div><strong>Condições Pagto</strong> ${escapeHtml(oc.condicoesPagto)}</div>
+          <div><strong>Forma de Pagto</strong> ${escapeHtml(oc.formaPagto)}</div>
+          <div><strong>Prazo de entrega</strong> ${escapeHtml(oc.prazoEntrega)}</div>
+          <div><strong>Incoterms</strong> ${escapeHtml(oc.incoterms)}</div>
+          <div><strong>Transportadora</strong> ${escapeHtml(oc.transportadora)}</div>
+          <div><strong>Endereço</strong> ${escapeHtml(oc.enderecoTransp)}</div>
+          <div><strong>Tel e contato</strong> ${escapeHtml(oc.telefoneTransp)}</div>
         </div>
       </div>
 
       <div class="instrucoes">
         <div class="secao-titulo">Instruções ou Condições Especiais</div>
-        ${oc.instrucoes || ''}
+        ${escapeHtml(oc.instrucoes)}
       </div>
 
       <div class="assinaturas">
@@ -240,6 +254,9 @@ router.get('/:id', async (req, res) => {
   // ===== GERA PDF COM PUPPETEER =====
   const browser = await puppeteer.launch({ args: ['--no-sandbox'] })
   const page = await browser.newPage()
+  // O template é só marcação estática pra impressão — desabilita JS pra fechar
+  // a superfície de injeção mesmo que algum campo escape do escapeHtml() acima.
+  await page.setJavaScriptEnabled(false)
   await page.setContent(html, { waitUntil: 'networkidle0' })
   const ocPdfBytes = await page.pdf({ format: 'A4', printBackground: true })
   await browser.close()

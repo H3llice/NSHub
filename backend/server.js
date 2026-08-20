@@ -11,6 +11,7 @@ import fornecedoresRouter from './routes/fornecedores.js'
 import anexosRouter from './routes/anexos.js'
 import pdfRouter from './routes/pdf.js'
 import authRouter from './routes/auth.js'
+import { autenticar } from './middleware/auth.js'
 import webhookRouter from './routes/webhook.js'
 import estoqueRouter from './routes/estoque.js'
 import clientesRouter from './routes/clientes.js'
@@ -51,7 +52,7 @@ app.use('/auth', authRouter)
 app.use('/empresas', empresasRouter)
 app.use('/fornecedores', fornecedoresRouter)
 app.use('/anexos', anexosRouter)
-app.use('/uploads', express.static('uploads'))
+app.use('/uploads', autenticar, express.static('uploads'))
 app.use('/pdf', pdfRouter)
 app.use('/ocs', ocsRouter)
 app.use('/solicitacoes', solicitacoesRouter)

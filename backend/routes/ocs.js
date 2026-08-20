@@ -8,7 +8,7 @@ const router = Router()
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3000'
 
 // ─── Listar todas as OCs ──────────────────────────────────────────────────────
-router.get('/', async (req, res) => {
+router.get('/', autenticar, async (req, res) => {
   const { busca, empresa, status, dataInicio, dataFim, pagina = 1 } = req.query
   const porPagina = 50
 
@@ -55,7 +55,7 @@ router.get('/', async (req, res) => {
 })
 
 // ─── Buscar uma OC pelo ID ────────────────────────────────────────────────────
-router.get('/:id', async (req, res) => {
+router.get('/:id', autenticar, async (req, res) => {
   const oc = await prisma.ordemCompra.findUnique({
     where: { id: Number(req.params.id) },
     include: {
@@ -362,8 +362,17 @@ router.post('/:id/recusar', autenticar, exigirPerfil('gerente', 'financeiro', 'a
 })
 
 // ─── Cancelar OC ─────────────────────────────────────────────────────────────
+// Só quem criou a OC ou um admin pode cancelar
 router.delete('/:id', autenticar, async (req, res) => {
   const id = Number(req.params.id)
+
+  const oc = await prisma.ordemCompra.findUnique({ where: { id } })
+  if (!oc) return res.status(404).json({ erro: 'OC não encontrada' })
+
+  if (oc.criadoPorId !== req.usuario.id && req.usuario.perfil !== 'admin') {
+    return res.status(403).json({ erro: 'Só quem criou a OC ou um administrador pode cancelá-la' })
+  }
+
   await prisma.ordemCompra.update({
     where: { id },
     data: { status: 'cancelada', canceladoEm: new Date() }
@@ -372,8 +381,16 @@ router.delete('/:id', autenticar, async (req, res) => {
 })
 
 // ─── Restaurar OC cancelada ───────────────────────────────────────────────────
+// Mesma regra do cancelamento: só quem criou a OC ou um admin pode restaurar
 router.post('/:id/restaurar', autenticar, async (req, res) => {
   const id = Number(req.params.id)
+
+  const ocAtual = await prisma.ordemCompra.findUnique({ where: { id } })
+  if (!ocAtual) return res.status(404).json({ erro: 'OC não encontrada' })
+
+  if (ocAtual.criadoPorId !== req.usuario.id && req.usuario.perfil !== 'admin') {
+    return res.status(403).json({ erro: 'Só quem criou a OC ou um administrador pode restaurá-la' })
+  }
 
   const ano = new Date().getFullYear()
   const ultima = await prisma.ordemCompra.findFirst({

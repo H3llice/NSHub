@@ -106,7 +106,7 @@ export function inicializarSolicitacoes() {
     </table>
   `
 
-  fetch(`${API}/empresas`, { headers: { 'ngrok-skip-browser-warning': 'true' } }).then(r => r.json()).then(empresas => {
+  apiFetch(`${API}/empresas`).then(r => r.json()).then(empresas => {
     const select = document.getElementById('filtro-sc-empresa')
     empresas.forEach(e => {
       select.innerHTML += `<option value="${e.id}">${e.sigla}</option>`
@@ -221,7 +221,7 @@ function novoFornecedorSC() {
 }
 
 window.abrirFormularioSolicitacao = async function (dadosExistentes = null) {
-  const empresas = await fetch(`${API}/empresas`, { headers: { 'ngrok-skip-browser-warning': 'true' } }).then(r => r.json())
+  const empresas = await apiFetch(`${API}/empresas`).then(r => r.json())
   const opcoesEmpresas = empresas.map(e =>
     `<option value="${e.id}" ${dadosExistentes?.empresaId === e.id ? 'selected' : ''}>${e.nome} (${e.sigla})</option>`
   ).join('')
