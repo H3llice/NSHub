@@ -41,6 +41,9 @@ async function apiJson(url, options = {}) {
 
 const usuarioAtual = JSON.parse(localStorage.getItem('ns_usuario') || 'null')
 const perfil = usuarioAtual?.perfil || 'usuario'
+// Usado no link de PDF aberto direto em nova aba — não dá pra mandar o header
+// Authorization nesse caso, então o token vai como query string.
+const tokenAtual = localStorage.getItem('ns_token')
 
 const STATUS_LABEL = {
   aguardando_aprovacao: { texto: 'Ag. Aprovação', cor: '#fd7e14' },
@@ -174,6 +177,8 @@ function renderizarTabelaSC(solicitacoes) {
     const btns = []
     const editavel = ['aguardando_aprovacao', 'recusada'].includes(sc.status)
     if (editavel) btns.push(`<button class="btn btn-sm btn-info" onclick="editarSolicitacao(${sc.id})">Editar</button>`)
+
+    btns.push(`<a class="btn btn-sm btn-secondary" href="${API}/pdf/solicitacao/${sc.id}?token=${encodeURIComponent(tokenAtual)}" target="_blank">PDF</a>`)
 
     if ((perfil === 'gerente' || perfil === 'admin') && sc.status === 'aguardando_aprovacao') {
       btns.push(`<button class="btn btn-sm btn-success" onclick="verSolicitacao(${sc.id})">Analisar</button>`)
@@ -481,7 +486,10 @@ window.verSolicitacao = async function (id) {
     <div style="margin-top:20px;">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
         <button class="btn btn-secondary" onclick="inicializarSolicitacoes()">← Voltar</button>
-        ${sc.status === 'aguardando_aprovacao' ? `<button class="btn btn-danger" onclick="abrirModalRecusaSC(${sc.id})">Recusar</button>` : ''}
+        <div style="display:flex; gap:8px;">
+          <a class="btn btn-secondary" href="${API}/pdf/solicitacao/${sc.id}?token=${encodeURIComponent(tokenAtual)}" target="_blank">📄 PDF</a>
+          ${sc.status === 'aguardando_aprovacao' ? `<button class="btn btn-danger" onclick="abrirModalRecusaSC(${sc.id})">Recusar</button>` : ''}
+        </div>
       </div>
 
       <div style="display:flex; align-items:center; gap:12px; margin-bottom:20px;">
