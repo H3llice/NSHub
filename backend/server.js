@@ -27,7 +27,24 @@ const __dirname = path.dirname(__filename)
 const app = express()
 const prisma = new PrismaClient()
 
-app.use(cors())
+// ─── CORS ──────────────────────────────────────────────────────────────────────
+// O frontend é servido pelo próprio Express (mesma origem do BASE_URL), então
+// nenhum site de terceiro precisa acessar a API — só libera a origem de produção
+// e localhost/127.0.0.1 em qualquer porta, pra não travar dev local (ex.: Live Server).
+const origemProducao = process.env.BASE_URL
+const origemLocalRegex = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/
+
+app.use(cors({
+  origin(origin, callback) {
+    // Sem header Origin = requisição same-origin, server-to-server ou via curl — libera.
+    // Origem não permitida: `false` (não `Error`) faz o cors só omitir o header de liberação
+    // em vez de derrubar a request com exceção — sem handler de erro global ainda, um
+    // Error aqui vazaria stack trace com caminho do servidor pra quem tentasse.
+    if (!origin) return callback(null, true)
+    const permitida = origin === origemProducao || origemLocalRegex.test(origin)
+    callback(null, permitida)
+  }
+}))
 
 // ─── Webhook do GitHub ──────────────────────────────────────────────────────────
 // Precisa vir ANTES do express.json() global, porque o webhook usa seu próprio
