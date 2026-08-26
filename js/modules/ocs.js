@@ -204,7 +204,7 @@ function renderizarTabela(ocs) {
 
   tabela.innerHTML = ocs.map(oc => {
     const total = oc.itens.reduce((acc, item) => acc + (item.valorTotal || 0), 0)
-    const data = new Date(oc.dataPedido).toLocaleDateString('pt-BR')
+    const data = new Date(oc.dataPedido).toLocaleDateString('pt-BR', {timeZone: 'UTC'})
     const numero = `OC ${oc.numero}.${oc.ano}-${oc.empresa?.sigla || ''}`
     const cancelada = oc.status === 'cancelada'
 
@@ -259,7 +259,7 @@ window.verOC = async function (id) {
 
   const total = oc.itens.reduce((acc, item) => acc + (item.valorTotal || 0), 0)
   const numero = `OC ${oc.numero}.${oc.ano}-${oc.empresa?.sigla || ''}`
-  const dataPedido = oc.dataPedido ? new Date(oc.dataPedido).toLocaleDateString('pt-BR') : '-'
+  const dataPedido = oc.dataPedido ? new Date(oc.dataPedido).toLocaleDateString('pt-BR', {timeZone: 'UTC'}) : '-'
 
   const asSolicitante = oc.assinaturas?.find(a => a.etapa === 'solicitante')
   const asAprovacao = oc.assinaturas?.find(a => a.etapa === 'aprovacao')
