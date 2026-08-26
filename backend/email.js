@@ -10,20 +10,27 @@ const transporter = nodemailer.createTransport({
   }
 })
 
-const FINANCEIRO = [
-  process.env.EMAIL_FINANCEIRO
-].filter(Boolean)
+// Cada variável de ambiente aceita um ou mais emails separados por vírgula
+// (ex: EMAIL_CHEFE=fulano@natalsafety.com.br,ciclano@natalsafety.com.br)
+function listaEmails(...variaveis) {
+  return variaveis
+    .flatMap(v => (v ?? '').split(','))
+    .map(e => e.trim())
+    .filter(Boolean)
+}
 
-const GERENTES = [
+const FINANCEIRO = listaEmails(process.env.EMAIL_FINANCEIRO)
+
+const GERENTES = listaEmails(
   process.env.EMAIL_GERENTE,
   process.env.EMAIL_CHEFE,
   process.env.EMAIL_USER1
-].filter(Boolean)
+)
 
-const CONTAS_A_RECEBER = [
+const CONTAS_A_RECEBER = listaEmails(
   process.env.EMAIL_RENTAL,
   process.env.EMAIL_MARITIME
-].filter(Boolean)
+)
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function formatarOC(oc) {
