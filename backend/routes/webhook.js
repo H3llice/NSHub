@@ -44,23 +44,24 @@ router.post('/deploy', capturarRawBody, (req, res) => {
   console.log('📦 Webhook do GitHub recebido — iniciando deploy...')
   res.json({ ok: true, mensagem: 'Deploy iniciado' }) // responde rápido, processa o resto depois
 
-  // O restart do pm2 é sempre o ÚLTIMO passo — este handler roda DENTRO do processo nshub,
-  // então parar o pm2 antes de terminar o resto do script mataria o próprio script no meio
-  // (foi exatamente isso que quebrou um deploy anterior: o npm install/prisma nunca terminavam
-  // de rodar porque o processo que os disparou já tinha sido derrubado).
-  // `db push` (não `migrate deploy`) porque as migrations não são versionadas neste repo;
-  // sem --accept-data-loss, se algum dia uma mudança de schema for destrutiva, o push falha
-  // e só isso — não apaga dado nenhum sozinho.
-  const comando = `cd "${raizProjeto}"; git pull; cd backend; npm install; npx prisma db push; pm2 restart nshub`
+  // O deploy roda via Agendador de Tarefas do Windows (deploy.ps1), não como filho direto
+  // deste processo — porque o script precisa dar `pm2 stop nshub` pra liberar o arquivo da
+  // query engine do Prisma (trava no Windows enquanto o processo que a carregou tá rodando;
+  // sem parar o nshub antes, `prisma db push` nunca conseguia regenerar o client). Como este
+  // handler roda DENTRO do processo nshub, se disparássemos o script como filho dele o próprio
+  // `pm2 stop` mataria a árvore de processos junto (foi exatamente esse tipo de problema que já
+  // quebrou um deploy antes — ver commit 851f958). Uma tarefa do Agendador roda como processo
+  // do serviço Task Scheduler, não como filho do nshub, então sobrevive ao `pm2 stop`.
+  const scriptDeploy = path.join(raizProjeto, 'backend', 'scripts', 'deploy.bat')
+  const NOME_TAREFA = 'NSHubDeploy'
+  const comando = `schtasks /Create /TN "${NOME_TAREFA}" /TR "\"${scriptDeploy}\"" /SC ONCE /ST 23:59 /F && schtasks /Run /TN "${NOME_TAREFA}"`
 
-  exec(comando, { shell: 'powershell.exe' }, (erro, stdout, stderr) => {
+  exec(comando, { shell: 'cmd.exe' }, (erro, stdout, stderr) => {
     if (erro) {
-      console.error('❌ Erro no deploy automático:', erro.message)
+      console.error('❌ Erro ao agendar deploy:', erro.message)
       return
     }
-    console.log('✅ Deploy automático concluído:')
-    console.log(stdout)
-    if (stderr) console.log('stderr:', stderr)
+    console.log('🚀 Deploy disparado via Agendador de Tarefas — log em backend/deploy.log')
   })
 })
 
