@@ -266,6 +266,15 @@ window.abrirFormularioSolicitacao = async function (dadosExistentes = null) {
         </select>
       </div>
 
+      <div style="max-width:400px; margin-bottom:16px;">
+        <label>Departamento Destino</label>
+        <select id="sc-departamentoDestino" class="form-control">
+          <option value="">Não informado</option>
+          <option value="tecnico" ${dadosExistentes?.departamentoDestino === 'tecnico' ? 'selected' : ''}>Técnico</option>
+          <option value="administrativo" ${dadosExistentes?.departamentoDestino === 'administrativo' ? 'selected' : ''}>Administrativo</option>
+        </select>
+      </div>
+
       <div style="margin-bottom:16px;">
         <label>Instruções</label>
         <textarea id="sc-instrucoes" class="form-control" rows="2">${dadosExistentes?.instrucoes || ''}</textarea>
@@ -409,6 +418,7 @@ window.renderizarMatrizPrecosSC = function () {
 window.salvarSolicitacao = async function (id) {
   const empresaId = parseInt(document.getElementById('sc-empresaId').value)
   const instrucoes = document.getElementById('sc-instrucoes').value
+  const departamentoDestino = document.getElementById('sc-departamentoDestino').value || null
 
   if (!empresaId) {
     alert('Empresa é obrigatória!')
@@ -435,7 +445,7 @@ window.salvarSolicitacao = async function (id) {
       return { itemIndex, fornecedorIndex, valor }
     })
 
-  const body = { empresaId, instrucoes, itens, fornecedores, precos: precosArray }
+  const body = { empresaId, instrucoes, departamentoDestino, itens, fornecedores, precos: precosArray }
 
   const url = id ? `${API}/solicitacoes/${id}` : `${API}/solicitacoes`
   const method = id ? 'PUT' : 'POST'
@@ -604,6 +614,23 @@ window.confirmarRecusaSC = async function (id) {
   }
 }
 
+// Mesma lista de "Justificativa Técnica/Comercial" do formulário oficial NS-PC-SGQ-16
+// (espelhada em backend/routes/solicitacoes.js — sem módulo compartilhado entre front/back neste projeto).
+const JUSTIFICATIVAS_APROVACAO = [
+  { valor: 'menor_preco', label: 'Menor Preço' },
+  { valor: 'prazo_urgencia', label: 'Prazo de Entrega que Atende Urgência' },
+  { valor: 'fornecedor_unico', label: 'Único Fornecedor Qualificado' },
+  { valor: 'marca_especifica', label: 'Marca Específica Exigida em Contrato' },
+  { valor: 'condicao_pagamento', label: 'Condição de Pagamento Favorável' },
+  { valor: 'outro', label: 'Outro' }
+]
+
+window.aoMudarJustificativaSC = function () {
+  const valor = document.getElementById('sc-justificativa').value
+  const campoOutro = document.getElementById('sc-justificativa-outro')
+  if (campoOutro) campoOutro.style.display = valor === 'outro' ? 'block' : 'none'
+}
+
 // ===== MODAL DE ASSINATURA (canvas) — reaproveitado para solicitante e aprovação =====
 window.abrirModalAssinaturaSC = function (id, acao) {
   if (acao === 'aprovar') {
@@ -629,6 +656,16 @@ window.abrirModalAssinaturaSC = function (id, acao) {
       <p style="font-size:13px; color:#555; margin-bottom:12px;">Desenhe sua assinatura abaixo (opcional):</p>
       <canvas id="canvas-assinatura-sc" width="420" height="120" style="border:1px solid #ddd; border-radius:4px; cursor:crosshair; touch-action:none; width:100%;"></canvas>
       <div style="margin-top:8px;"><button class="btn btn-sm btn-secondary" onclick="limparCanvasSC()">Limpar</button></div>
+      ${acao === 'aprovar' ? `
+        <div style="margin-top:16px;">
+          <label style="font-weight:600; font-size:13px;">Justificativa Técnica/Comercial (opcional)</label>
+          <select id="sc-justificativa" class="form-control" onchange="aoMudarJustificativaSC()">
+            <option value="">Selecione...</option>
+            ${JUSTIFICATIVAS_APROVACAO.map(j => `<option value="${j.valor}">${j.label}</option>`).join('')}
+          </select>
+          <textarea id="sc-justificativa-outro" class="form-control" rows="2" style="margin-top:8px; display:none;" placeholder="Descreva o motivo"></textarea>
+        </div>
+      ` : ''}
       <div style="margin-top:16px; padding:12px; background:#f0fff0; border-radius:4px; font-size:13px;">
         <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
           <input type="checkbox" id="checkbox-confirmar-sc">
@@ -701,8 +738,10 @@ window.confirmarAssinaturaSC = async function (id, acao) {
 
   if (acao === 'aprovar') {
     const fornecedorEscolhidoId = document.getElementById('sc-fornecedor-escolhido').value
+    const justificativa = document.getElementById('sc-justificativa').value
+    const justificativaOutro = document.getElementById('sc-justificativa-outro').value.trim()
     const res = await apiJson(`${API}/solicitacoes/${id}/aprovar`, {
-      method: 'POST', body: JSON.stringify({ fornecedorEscolhidoId, assinaturaImg })
+      method: 'POST', body: JSON.stringify({ fornecedorEscolhidoId, assinaturaImg, justificativa, justificativaOutro })
     })
     if (res.ok) {
       document.getElementById('modal-assinatura-sc').remove()

@@ -158,6 +158,8 @@ model SolicitacaoCompra {
   criadoPorId Int?
   dataPedido  DateTime @default(now())
   instrucoes  String?
+  departamentoDestino String?
+  // departamentoDestino: tecnico | administrativo
   status      String   @default("aguardando_aprovacao")
   // status: aguardando_aprovacao | aprovada | recusada | cancelada
 

@@ -4,6 +4,16 @@ import { autenticar, exigirPerfil } from '../middleware/auth.js'
 
 const router = Router()
 
+// Opções da "Justificativa Técnica/Comercial" do formulário oficial NS-PC-SGQ-16 —
+// a assinatura de aprovação guarda o texto já resolvido (label ou o texto livre de "outro") em `motivo`.
+const JUSTIFICATIVAS_APROVACAO = {
+  menor_preco: 'Menor Preço',
+  prazo_urgencia: 'Prazo de Entrega que Atende Urgência',
+  fornecedor_unico: 'Único Fornecedor Qualificado',
+  marca_especifica: 'Marca Específica Exigida em Contrato',
+  condicao_pagamento: 'Condição de Pagamento Favorável'
+}
+
 // ─── Listar solicitações ──────────────────────────────────────────────────────
 router.get('/', autenticar, async (req, res) => {
   const { busca, empresa, status, pagina = 1 } = req.query
@@ -79,7 +89,7 @@ router.get('/:id', autenticar, async (req, res) => {
 //   precos: [{ itemIndex, fornecedorIndex, valor }]   // referencia pelo índice nos arrays acima
 // }
 router.post('/', autenticar, async (req, res) => {
-  const { empresaId, instrucoes, itens, fornecedores, precos } = req.body
+  const { empresaId, instrucoes, departamentoDestino, itens, fornecedores, precos } = req.body
 
   if (!empresaId || !itens?.length || !fornecedores?.length) {
     return res.status(400).json({ erro: 'Empresa, itens e ao menos um fornecedor cotado são obrigatórios' })
@@ -101,6 +111,7 @@ router.post('/', autenticar, async (req, res) => {
         empresaId: parseInt(empresaId),
         criadoPorId: req.usuario.id,
         instrucoes,
+        departamentoDestino: departamentoDestino || null,
         itens: { create: itens.map(i => ({
           quantidade: parseFloat(i.quantidade) || 0,
           unidade: i.unidade || null,
@@ -155,7 +166,7 @@ router.put('/:id', autenticar, async (req, res) => {
     return res.status(400).json({ erro: 'Solicitação não pode ser editada neste status' })
   }
 
-  const { empresaId, instrucoes, itens, fornecedores, precos } = req.body
+  const { empresaId, instrucoes, departamentoDestino, itens, fornecedores, precos } = req.body
 
   await prisma.$transaction(async (tx) => {
     // Remove itens/fornecedores/preços antigos e recria (mais simples que diff incremental)
@@ -168,6 +179,7 @@ router.put('/:id', autenticar, async (req, res) => {
       data: {
         empresaId: parseInt(empresaId),
         instrucoes,
+        departamentoDestino: departamentoDestino || null,
         status: atual.status === 'recusada' ? 'aguardando_aprovacao' : atual.status,
         itens: { create: itens.map(i => ({
           quantidade: parseFloat(i.quantidade) || 0,
@@ -242,16 +254,21 @@ router.post('/:id/assinar-solicitante', autenticar, async (req, res) => {
 // ─── Aprovar solicitação (gerente) — escolhe fornecedor e gera a OC ───────────
 router.post('/:id/aprovar', autenticar, exigirPerfil('gerente', 'admin'), async (req, res) => {
   const id = Number(req.params.id)
-  const { fornecedorEscolhidoId, assinaturaImg } = req.body
+  const { fornecedorEscolhidoId, assinaturaImg, justificativa, justificativaOutro } = req.body
 
   if (!fornecedorEscolhidoId) {
     return res.status(400).json({ erro: 'É necessário escolher um fornecedor para aprovar' })
   }
 
+  const motivoAprovacao = justificativa === 'outro'
+    ? (justificativaOutro?.trim() || null)
+    : (JUSTIFICATIVAS_APROVACAO[justificativa] || null)
+
   const solicitacao = await prisma.solicitacaoCompra.findUnique({
     where: { id },
     include: {
       empresa: true,
+      criadoPor: true,
       itens: { include: { precos: true } },
       fornecedores: { include: { precos: true } },
       assinaturas: { include: { usuario: true } }
@@ -304,6 +321,7 @@ router.post('/:id/aprovar', autenticar, exigirPerfil('gerente', 'admin'), async 
         usuarioId: req.usuario.id,
         etapa: 'aprovacao',
         acao: 'aprovada',
+        motivo: motivoAprovacao,
         assinaturaImg: assinaturaImg || null
       }
     })
@@ -368,6 +386,7 @@ router.post('/:id/aprovar', autenticar, exigirPerfil('gerente', 'admin'), async 
         usuarioId: req.usuario.id,
         etapa: 'aprovacao',
         acao: 'aprovada',
+        motivo: motivoAprovacao,
         assinaturaImg: assinaturaImg || null
       }
     })
