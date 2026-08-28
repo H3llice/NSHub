@@ -339,6 +339,10 @@ router.get('/solicitacao/:id', autenticar, async (req, res) => {
   const logoBase64 = fs.existsSync(logoPath)
     ? `data:image/png;base64,${fs.readFileSync(logoPath).toString('base64')}`
     : ''
+  const rodapePath = path.resolve('assets/rodape.png')
+  const rodapeBase64 = fs.existsSync(rodapePath)
+    ? `data:image/png;base64,${fs.readFileSync(rodapePath).toString('base64')}`
+    : ''
 
   const asSolicitante = sc.assinaturas.find(a => a.etapa === 'solicitante')
   const asAprovacao = sc.assinaturas.find(a => a.etapa === 'aprovacao')
@@ -379,19 +383,34 @@ router.get('/solicitacao/:id', autenticar, async (req, res) => {
       <meta charset="UTF-8">
       <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: Arial, sans-serif; font-size: 10.5px; padding: 20px; }
+        body { font-family: Arial, sans-serif; font-size: 10.5px; padding: 20px; padding-bottom: 80px; }
 
         table { width: 100%; border-collapse: collapse; }
         td, th { border: 1px solid #000; padding: 5px; text-align: left; vertical-align: top; }
 
-        .doc-header-table { margin-bottom: 10px; }
-        .doc-header-table .logo-cell { width: 110px; text-align: center; }
-        .doc-header-table .logo-cell img { width: 90px; height: auto; }
-        .doc-header-table .titulo-cell { text-align: center; font-weight: bold; font-size: 13px; }
-        .doc-header-table .controle-cell { width: 200px; font-size: 9.5px; line-height: 1.6; }
+        .header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 16px;
+          padding-bottom: 8px;
+        }
+        .header img { width: 100%; height: auto; }
 
-        .aviso { border: 1px solid #000; padding: 6px; text-align: center; margin-bottom: 10px; font-size: 10px; }
-        .aviso strong { font-size: 12px; display: block; margin-top: 2px; }
+        h1 { text-align: center; font-size: 20px; letter-spacing: 2px; margin-bottom: 12px; }
+
+        .aviso { border: 1px solid #000; padding: 6px 10px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; font-size: 10px; }
+        .aviso strong { font-size: 13px; }
+        .aviso .controle { font-size: 8.5px; text-align: right; line-height: 1.5; border-left: 1px solid #000; padding-left: 10px; margin-left: 10px; }
+
+        .rodape {
+          position: fixed;
+          bottom: 0;
+          left: 0;
+          right: 0;
+          padding: 0 20px;
+        }
+        .rodape img { width: 100%; display: block; }
 
         .dados-topo { margin-bottom: 10px; }
         .dados-topo td { font-size: 10px; }
@@ -428,22 +447,22 @@ router.get('/solicitacao/:id', autenticar, async (req, res) => {
     </head>
     <body>
 
-      <table class="doc-header-table">
-        <tr>
-          <td class="logo-cell">${logoBase64 ? `<img src="${logoBase64}" />` : ''}</td>
-          <td class="titulo-cell">FORMULÁRIO DE AQUISIÇÃO:<br>PEDIDO DE COMPRA</td>
-          <td class="controle-cell">
-            <strong>Código:</strong> ${escapeHtml(numero)}<br>
-            <strong>Nº Revisão:</strong> 06/2026<br>
-            <strong>Data de Expedição:</strong> 11/06/2026<br>
-            <strong>Ref. Procedimento:</strong> NS-PC-SGQ-16
-          </td>
-        </tr>
-      </table>
+      <div class="header">
+        ${logoBase64 ? `<img src="${logoBase64}" />` : ''}
+      </div>
+
+      <h1>SOLICITAÇÃO DE COMPRA</h1>
 
       <div class="aviso">
-        Número da solicitação:
-        <strong>${escapeHtml(numero)}</strong>
+        <div>
+          Número da solicitação:
+          <strong>${escapeHtml(numero)}</strong>
+        </div>
+        <div class="controle">
+          <strong>Nº Revisão:</strong> 06/2026<br>
+          <strong>Data de Expedição:</strong> 11/06/2026<br>
+          <strong>Ref. Procedimento:</strong> NS-PC-SGQ-16
+        </div>
       </div>
 
       ${linhaDadosTopo}
@@ -555,6 +574,10 @@ router.get('/solicitacao/:id', autenticar, async (req, res) => {
             </td>
           </tr>
         </table>
+      </div>
+
+      <div class="rodape">
+        ${rodapeBase64 ? `<img src="${rodapeBase64}" />` : ''}
       </div>
 
     </body>
