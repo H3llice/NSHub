@@ -123,6 +123,13 @@ router.post('/', autenticar, async (req, res) => {
           telefone: f.telefone || null,
           prazoEntrega: f.prazoEntrega || null,
           condicoesPagto: f.condicoesPagto || null,
+          formaPagto: f.formaPagto || null,
+          chavePix: f.formaPagto === 'pix' ? (f.chavePix || null) : null,
+          codigoBarras: f.formaPagto === 'boleto' ? (f.codigoBarras || null) : null,
+          tipoConta: f.formaPagto === 'transferencia' ? (f.tipoConta || null) : null,
+          agencia: f.formaPagto === 'transferencia' ? (f.agencia || null) : null,
+          contaNumero: f.formaPagto === 'transferencia' ? (f.contaNumero || null) : null,
+          formaPagtoOutro: f.formaPagto === 'outro' ? (f.formaPagtoOutro || null) : null,
           observacoes: f.observacoes || null,
           favorito: !!f.favorito
         })) }
@@ -192,6 +199,13 @@ router.put('/:id', autenticar, async (req, res) => {
           telefone: f.telefone || null,
           prazoEntrega: f.prazoEntrega || null,
           condicoesPagto: f.condicoesPagto || null,
+          formaPagto: f.formaPagto || null,
+          chavePix: f.formaPagto === 'pix' ? (f.chavePix || null) : null,
+          codigoBarras: f.formaPagto === 'boleto' ? (f.codigoBarras || null) : null,
+          tipoConta: f.formaPagto === 'transferencia' ? (f.tipoConta || null) : null,
+          agencia: f.formaPagto === 'transferencia' ? (f.agencia || null) : null,
+          contaNumero: f.formaPagto === 'transferencia' ? (f.contaNumero || null) : null,
+          formaPagtoOutro: f.formaPagto === 'outro' ? (f.formaPagtoOutro || null) : null,
           observacoes: f.observacoes || null,
           favorito: !!f.favorito
         })) }
@@ -326,6 +340,13 @@ router.post('/:id/aprovar', autenticar, exigirPerfil('gerente', 'admin'), async 
       }
     })
 
+    const chavePixCotado = fornecedorEscolhido.formaPagto === 'pix' ? fornecedorEscolhido.chavePix : null
+    // Dados bancários (tipo de conta/agência/número), como o PIX, são dado mestre do fornecedor —
+    // reaproveitados nas próximas compras. Código de barras e "outro" são específicos da compra.
+    const dadosBancariosCotado = fornecedorEscolhido.formaPagto === 'transferencia'
+      ? { tipoConta: fornecedorEscolhido.tipoConta, agencia: fornecedorEscolhido.agencia, contaNumero: fornecedorEscolhido.contaNumero }
+      : {}
+
     // Cria ou reusa um Fornecedor cadastrado com o nome do fornecedor cotado
     // (a OC exige fornecedorId vinculado a um Fornecedor real do sistema)
     let fornecedorCadastro = await tx.fornecedor.findFirst({
@@ -336,9 +357,23 @@ router.post('/:id/aprovar', autenticar, exigirPerfil('gerente', 'admin'), async 
         data: {
           nome: fornecedorEscolhido.nome,
           documento: fornecedorEscolhido.documento,
-          telefone: fornecedorEscolhido.telefone
+          telefone: fornecedorEscolhido.telefone,
+          chavePix: chavePixCotado,
+          ...dadosBancariosCotado
         }
       })
+    } else {
+      // Fornecedor já cadastrado ainda sem chave PIX / dados bancários salvos — grava pra próxima compra
+      const atualizacoes = {
+        ...(chavePixCotado && !fornecedorCadastro.chavePix && { chavePix: chavePixCotado }),
+        ...(dadosBancariosCotado.contaNumero && !fornecedorCadastro.contaNumero && dadosBancariosCotado)
+      }
+      if (Object.keys(atualizacoes).length) {
+        fornecedorCadastro = await tx.fornecedor.update({
+          where: { id: fornecedorCadastro.id },
+          data: atualizacoes
+        })
+      }
     }
 
     const ultima = await tx.ordemCompra.findFirst({
@@ -356,6 +391,11 @@ router.post('/:id/aprovar', autenticar, exigirPerfil('gerente', 'admin'), async 
         fornecedorId: fornecedorCadastro.id,
         criadoPorId: solicitacao.criadoPorId,
         condicoesPagto: fornecedorEscolhido.condicoesPagto,
+        formaPagto: fornecedorEscolhido.formaPagto,
+        chavePix: chavePixCotado,
+        codigoBarras: fornecedorEscolhido.formaPagto === 'boleto' ? fornecedorEscolhido.codigoBarras : null,
+        formaPagtoOutro: fornecedorEscolhido.formaPagto === 'outro' ? fornecedorEscolhido.formaPagtoOutro : null,
+        ...dadosBancariosCotado,
         prazoEntrega: fornecedorEscolhido.prazoEntrega,
         instrucoes: fornecedorEscolhido.observacoes,
         solicitante: solicitacao.criadoPor?.nome,

@@ -91,6 +91,10 @@ router.post('/', autenticar, async (req, res) => {
         ...(fornecedorEndereco  && { endereco:  fornecedorEndereco }),
         ...(fornecedorCidade    && { cidade:    fornecedorCidade }),
         ...(fornecedorTelefone  && { telefone:  fornecedorTelefone }),
+        ...(dados.formaPagto === 'pix' && dados.chavePix && { chavePix: dados.chavePix }),
+        ...(dados.formaPagto === 'transferencia' && dados.tipoConta && dados.agencia && dados.contaNumero && {
+          tipoConta: dados.tipoConta, agencia: dados.agencia, contaNumero: dados.contaNumero
+        }),
       }
     })
   }
@@ -180,6 +184,10 @@ router.put('/:id', autenticar, async (req, res) => {
         ...(fornecedorEndereco  && { endereco:  fornecedorEndereco }),
         ...(fornecedorCidade    && { cidade:    fornecedorCidade }),
         ...(fornecedorTelefone  && { telefone:  fornecedorTelefone }),
+        ...(resto.formaPagto === 'pix' && resto.chavePix && { chavePix: resto.chavePix }),
+        ...(resto.formaPagto === 'transferencia' && resto.tipoConta && resto.agencia && resto.contaNumero && {
+          tipoConta: resto.tipoConta, agencia: resto.agencia, contaNumero: resto.contaNumero
+        }),
       }
     })
   }
@@ -191,6 +199,12 @@ router.put('/:id', autenticar, async (req, res) => {
     dataPedido: dataPedido ? new Date(dataPedido).toISOString() : undefined,
     condicoesPagto: resto.condicoesPagto,
     formaPagto: resto.formaPagto,
+    chavePix: resto.formaPagto === 'pix' ? (resto.chavePix || null) : null,
+    codigoBarras: resto.formaPagto === 'boleto' ? (resto.codigoBarras || null) : null,
+    tipoConta: resto.formaPagto === 'transferencia' ? (resto.tipoConta || null) : null,
+    agencia: resto.formaPagto === 'transferencia' ? (resto.agencia || null) : null,
+    contaNumero: resto.formaPagto === 'transferencia' ? (resto.contaNumero || null) : null,
+    formaPagtoOutro: resto.formaPagto === 'outro' ? (resto.formaPagtoOutro || null) : null,
     prazoEntrega: resto.prazoEntrega,
     incoterms: resto.incoterms,
     transportadora: resto.transportadora,

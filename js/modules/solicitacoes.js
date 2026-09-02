@@ -217,12 +217,26 @@ window.cancelarSolicitacao = async function (id, numero) {
 // acessar e mutar sem precisar reassinar a referência do objeto.
 window.scEstado = { itens: [], fornecedores: [], precos: {} }
 
+const FORMAS_PAGAMENTO = { boleto: 'Boleto', transferencia: 'Transferência', pix: 'PIX', outro: 'Outro' }
+const TIPOS_CONTA = { corrente: 'Conta Corrente', poupanca: 'Poupança' }
+
+function opcoesFormaPagto(selecionada) {
+  const opcoes = [['', 'Forma pagto...'], ...Object.entries(FORMAS_PAGAMENTO)]
+  return opcoes.map(([valor, label]) =>
+    `<option value="${valor}" ${selecionada === valor ? 'selected' : ''}>${label}</option>`
+  ).join('')
+}
+
 function novoItemSC() {
   window.scEstado.itens.push({ quantidade: '', unidade: '', descricao: '' })
 }
 
 function novoFornecedorSC() {
-  window.scEstado.fornecedores.push({ nome: '', documento: '', telefone: '', prazoEntrega: '', condicoesPagto: '', observacoes: '', favorito: false })
+  window.scEstado.fornecedores.push({
+    nome: '', documento: '', telefone: '', prazoEntrega: '', condicoesPagto: '',
+    formaPagto: '', chavePix: '', codigoBarras: '', tipoConta: '', agencia: '', contaNumero: '', formaPagtoOutro: '',
+    observacoes: '', favorito: false
+  })
 }
 
 window.abrirFormularioSolicitacao = async function (dadosExistentes = null) {
@@ -236,6 +250,9 @@ window.abrirFormularioSolicitacao = async function (dadosExistentes = null) {
     window.scEstado.fornecedores = dadosExistentes.fornecedores.map(f => ({
       nome: f.nome, documento: f.documento || '', telefone: f.telefone || '',
       prazoEntrega: f.prazoEntrega || '', condicoesPagto: f.condicoesPagto || '',
+      formaPagto: f.formaPagto || '', chavePix: f.chavePix || '',
+      codigoBarras: f.codigoBarras || '', tipoConta: f.tipoConta || '', agencia: f.agencia || '', contaNumero: f.contaNumero || '',
+      formaPagtoOutro: f.formaPagtoOutro || '',
       observacoes: f.observacoes || '', favorito: f.favorito
     }))
     window.scEstado.precos = {}
@@ -345,14 +362,39 @@ function renderizarFornecedoresSC() {
         <input type="text" class="form-control" placeholder="Telefone" value="${f.telefone}" oninput="scEstado.fornecedores[${i}].telefone = this.value">
         <button class="btn btn-sm btn-danger" onclick="removerFornecedorSC(${i})">✕</button>
       </div>
-      <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:8px;">
+      <div style="display:grid; grid-template-columns: 1fr 1fr 1fr 100px; gap:8px;">
         <input type="text" class="form-control" placeholder="Prazo de entrega" value="${f.prazoEntrega}" oninput="scEstado.fornecedores[${i}].prazoEntrega = this.value">
         <input type="text" class="form-control" placeholder="Condições pagto" value="${f.condicoesPagto}" oninput="scEstado.fornecedores[${i}].condicoesPagto = this.value">
+        <select class="form-control" onchange="scEstado.fornecedores[${i}].formaPagto = this.value; renderizarFornecedoresSC()">${opcoesFormaPagto(f.formaPagto)}</select>
         <label style="display:flex; align-items:center; gap:6px; font-size:13px;">
           <input type="checkbox" ${f.favorito ? 'checked' : ''} onchange="scEstado.fornecedores[${i}].favorito = this.checked">
           Favorito
         </label>
       </div>
+      ${f.formaPagto === 'pix' ? `
+        <div style="margin-top:8px;">
+          <input type="text" class="form-control" placeholder="Chave PIX *" value="${f.chavePix}" oninput="scEstado.fornecedores[${i}].chavePix = this.value">
+        </div>
+      ` : ''}
+      ${f.formaPagto === 'boleto' ? `
+        <div style="margin-top:8px;">
+          <input type="text" class="form-control" placeholder="Código de barras (opcional)" value="${f.codigoBarras || ''}" oninput="scEstado.fornecedores[${i}].codigoBarras = this.value">
+        </div>
+      ` : ''}
+      ${f.formaPagto === 'transferencia' ? `
+        <div style="margin-top:8px; display:grid; grid-template-columns: 1fr 1fr 1fr; gap:8px;">
+          <select class="form-control" onchange="scEstado.fornecedores[${i}].tipoConta = this.value">${['', ...Object.keys(TIPOS_CONTA)].map(v =>
+    `<option value="${v}" ${f.tipoConta === v ? 'selected' : ''}>${v ? TIPOS_CONTA[v] : 'Tipo de conta *'}</option>`
+  ).join('')}</select>
+          <input type="text" class="form-control" placeholder="Agência *" value="${f.agencia || ''}" oninput="scEstado.fornecedores[${i}].agencia = this.value">
+          <input type="text" class="form-control" placeholder="Número da conta *" value="${f.contaNumero || ''}" oninput="scEstado.fornecedores[${i}].contaNumero = this.value">
+        </div>
+      ` : ''}
+      ${f.formaPagto === 'outro' ? `
+        <div style="margin-top:8px;">
+          <input type="text" class="form-control" placeholder="Especifique (opcional)" value="${f.formaPagtoOutro || ''}" oninput="scEstado.fornecedores[${i}].formaPagtoOutro = this.value">
+        </div>
+      ` : ''}
     </div>
   `).join('')
 }
@@ -435,6 +477,14 @@ window.salvarSolicitacao = async function (id) {
   }
   if (fornecedores.length === 0 || fornecedores.some(f => !f.nome)) {
     alert('Todos os fornecedores precisam de um nome!')
+    return
+  }
+  if (fornecedores.some(f => f.formaPagto === 'pix' && !f.chavePix)) {
+    alert('Informe a chave PIX de todos os fornecedores com forma de pagamento PIX!')
+    return
+  }
+  if (fornecedores.some(f => f.formaPagto === 'transferencia' && (!f.tipoConta || !f.agencia || !f.contaNumero))) {
+    alert('Informe tipo de conta, agência e número da conta de todos os fornecedores com forma de pagamento Transferência!')
     return
   }
 
@@ -553,6 +603,13 @@ window.verSolicitacao = async function (id) {
               ${f.telefone ? `Tel: ${f.telefone}<br>` : ''}
               ${f.prazoEntrega ? `Prazo: ${f.prazoEntrega}<br>` : ''}
               ${f.condicoesPagto ? `Pagto: ${f.condicoesPagto}<br>` : ''}
+              ${f.formaPagto ? `Forma: ${FORMAS_PAGAMENTO[f.formaPagto] || f.formaPagto}${(() => {
+    if (f.formaPagto === 'pix' && f.chavePix) return ` (${f.chavePix})`
+    if (f.formaPagto === 'boleto' && f.codigoBarras) return ` (${f.codigoBarras})`
+    if (f.formaPagto === 'transferencia') return ` (${TIPOS_CONTA[f.tipoConta] || f.tipoConta || ''} Ag.${f.agencia || '-'} Cc${f.contaNumero || '-'})`
+    if (f.formaPagto === 'outro' && f.formaPagtoOutro) return ` (${f.formaPagtoOutro})`
+    return ''
+  })()}<br>` : ''}
               ${f.observacoes ? `<em>${f.observacoes}</em>` : ''}
             </div>
           `).join('')}

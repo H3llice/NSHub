@@ -351,7 +351,11 @@ window.verOC = async function (id) {
             <div><span style="color:#999;">Data</span><br><strong>${dataPedido}</strong></div>
             <div><span style="color:#999;">Empresa</span><br><strong>${oc.empresa?.sigla || '-'}</strong></div>
             <div><span style="color:#999;">Cond. Pagto</span><br><strong>${oc.condicoesPagto || '-'}</strong></div>
-            <div><span style="color:#999;">Forma Pagto</span><br><strong>${oc.formaPagto || '-'}</strong></div>
+            <div><span style="color:#999;">Forma Pagto</span><br><strong>${FORMAS_PAGAMENTO[oc.formaPagto] || oc.formaPagto || '-'}</strong></div>
+            ${oc.formaPagto === 'pix' && oc.chavePix ? `<div><span style="color:#999;">Chave PIX</span><br><strong>${oc.chavePix}</strong></div>` : ''}
+            ${oc.formaPagto === 'boleto' && oc.codigoBarras ? `<div><span style="color:#999;">Código de Barras</span><br><strong>${oc.codigoBarras}</strong></div>` : ''}
+            ${oc.formaPagto === 'transferencia' ? `<div><span style="color:#999;">Dados Bancários</span><br><strong>${TIPOS_CONTA[oc.tipoConta] || oc.tipoConta || '-'} — Ag. ${oc.agencia || '-'} — Cc ${oc.contaNumero || '-'}</strong></div>` : ''}
+            ${oc.formaPagto === 'outro' && oc.formaPagtoOutro ? `<div><span style="color:#999;">Especificação</span><br><strong>${oc.formaPagtoOutro}</strong></div>` : ''}
             <div><span style="color:#999;">Prazo Entrega</span><br><strong>${oc.prazoEntrega || '-'}</strong></div>
             <div><span style="color:#999;">Incoterms</span><br><strong>${oc.incoterms || '-'}</strong></div>
             <div><span style="color:#999;">Solicitante</span><br><strong>${oc.solicitante || '-'}</strong></div>
@@ -650,7 +654,11 @@ window.abrirFormularioOC = async function () {
         <div><label>Vendedor</label><input type="text" id="oc-vendedor-nome" class="form-control"></div>
         <div><label>Data do Pedido *</label><input type="date" id="oc-dataPedido" class="form-control" value="${new Date().toISOString().split('T')[0]}"></div>
         <div><label>Condições de Pagamento</label><input type="text" id="oc-condicoesPagto" class="form-control" placeholder="Ex: 30/60/90 dias"></div>
-        <div><label>Forma de Pagamento</label><input type="text" id="oc-formaPagto" class="form-control" placeholder="Ex: Boleto bancário"></div>
+        <div>
+          <label>Forma de Pagamento</label>
+          <select id="oc-formaPagto" class="form-control" onchange="togglePagtoDetalhesOC()">${opcoesFormaPagto()}</select>
+        </div>
+        ${blocoDetalhesPagtoOC()}
         <div><label>Prazo de Entrega</label><input type="text" id="oc-prazoEntrega" class="form-control" placeholder="Ex: 15 dias úteis"></div>
         <div><label>Incoterms</label><input type="text" id="oc-incoterms" class="form-control" placeholder="Ex: CIF, FOB"></div>
         <div><label>Transportadora</label><input type="text" id="oc-transportadora" class="form-control"></div>
@@ -734,6 +742,11 @@ window.salvarOC = async function () {
     return
   }
 
+  const formaPagto = document.getElementById('oc-formaPagto').value
+  const detalhesPagto = lerDetalhesPagtoOC(formaPagto)
+  const erroPagto = validarDetalhesPagtoOC(formaPagto, detalhesPagto)
+  if (erroPagto) { alert(erroPagto); return }
+
   if (!fornecedorId) {
     const novoFornecedor = await apiJson(`${API}/fornecedores`, {
       method: 'POST',
@@ -743,6 +756,7 @@ window.salvarOC = async function () {
         endereco: document.getElementById('oc-fornecedor-end').value,
         cidade: document.getElementById('oc-fornecedor-cidade').value,
         telefone: document.getElementById('oc-fornecedor-tel').value,
+        ...dadosFornecedorMestreDoPagto(detalhesPagto),
       })
     }).then(r => r.json())
     fornecedorId = novoFornecedor.id
@@ -767,7 +781,8 @@ window.salvarOC = async function () {
     fornecedorTelefone: document.getElementById('oc-fornecedor-tel').value,
     dataPedido: document.getElementById('oc-dataPedido').value,
     condicoesPagto: document.getElementById('oc-condicoesPagto').value,
-    formaPagto: document.getElementById('oc-formaPagto').value,
+    formaPagto,
+    ...detalhesPagto,
     prazoEntrega: document.getElementById('oc-prazoEntrega').value,
     incoterms: document.getElementById('oc-incoterms').value,
     transportadora: document.getElementById('oc-transportadora').value,
@@ -889,7 +904,11 @@ window.editarOC = async function (id) {
         <div><label>Vendedor</label><input type="text" id="oc-vendedor-nome" class="form-control" value="${oc.vendedor?.nome || ''}" ${somenteLeitura ? 'disabled' : ''}></div>
         <div><label>Data do Pedido *</label><input type="date" id="oc-dataPedido" class="form-control" value="${oc.dataPedido?.split('T')[0] || ''}" ${somenteLeitura ? 'disabled' : ''}></div>
         <div><label>Condições de Pagamento</label><input type="text" id="oc-condicoesPagto" class="form-control" value="${oc.condicoesPagto || ''}" ${somenteLeitura ? 'disabled' : ''}></div>
-        <div><label>Forma de Pagamento</label><input type="text" id="oc-formaPagto" class="form-control" value="${oc.formaPagto || ''}" ${somenteLeitura ? 'disabled' : ''}></div>
+        <div>
+          <label>Forma de Pagamento</label>
+          <select id="oc-formaPagto" class="form-control" onchange="togglePagtoDetalhesOC()" ${somenteLeitura ? 'disabled' : ''}>${opcoesFormaPagto(oc.formaPagto)}</select>
+        </div>
+        ${blocoDetalhesPagtoOC(oc, somenteLeitura)}
         <div><label>Prazo de Entrega</label><input type="text" id="oc-prazoEntrega" class="form-control" value="${oc.prazoEntrega || ''}" ${somenteLeitura ? 'disabled' : ''}></div>
         <div><label>Incoterms</label><input type="text" id="oc-incoterms" class="form-control" value="${oc.incoterms || ''}" ${somenteLeitura ? 'disabled' : ''}></div>
         <div><label>Transportadora</label><input type="text" id="oc-transportadora" class="form-control" value="${oc.transportadora || ''}" ${somenteLeitura ? 'disabled' : ''}></div>
@@ -965,6 +984,89 @@ window.editarOC = async function (id) {
   `
 }
 
+const FORMAS_PAGAMENTO = { boleto: 'Boleto', transferencia: 'Transferência', pix: 'PIX', outro: 'Outro' }
+const TIPOS_CONTA = { corrente: 'Conta Corrente', poupanca: 'Poupança' }
+
+function opcoesFormaPagto(selecionada) {
+  const opcoes = [['', 'Selecione...'], ...Object.entries(FORMAS_PAGAMENTO)]
+  return opcoes.map(([valor, label]) =>
+    `<option value="${valor}" ${selecionada === valor ? 'selected' : ''}>${label}</option>`
+  ).join('')
+}
+
+// Bloco de campos extras que aparece embaixo do dropdown "Forma de Pagamento", trocando
+// de conteúdo conforme a forma escolhida. Todos os blocos ficam no DOM o tempo todo (só
+// escondidos via display:none) pra não perder o que já foi digitado ao alternar a forma.
+function blocoDetalhesPagtoOC(oc = {}, desabilitado = false) {
+  const dis = desabilitado ? 'disabled' : ''
+  return `
+    <div style="grid-column: 1 / -1; display:grid; grid-template-columns: 1fr 1fr; gap:16px;">
+      <div id="oc-detalhe-pix" style="display:${oc.formaPagto === 'pix' ? 'block' : 'none'};">
+        <label>Chave PIX *</label>
+        <input type="text" id="oc-chavePix" class="form-control" value="${oc.chavePix || ''}" ${dis}>
+      </div>
+      <div id="oc-detalhe-boleto" style="display:${oc.formaPagto === 'boleto' ? 'block' : 'none'};">
+        <label>Código de Barras</label>
+        <input type="text" id="oc-codigoBarras" class="form-control" value="${oc.codigoBarras || ''}" ${dis}>
+      </div>
+      <div id="oc-detalhe-outro" style="display:${oc.formaPagto === 'outro' ? 'block' : 'none'};">
+        <label>Especifique</label>
+        <input type="text" id="oc-formaPagtoOutro" class="form-control" value="${oc.formaPagtoOutro || ''}" ${dis}>
+      </div>
+      <div id="oc-detalhe-transferencia" style="grid-column: 1 / -1; display:${oc.formaPagto === 'transferencia' ? 'grid' : 'none'}; grid-template-columns: 1fr 1fr 1fr; gap:16px;">
+        <div>
+          <label>Tipo de Conta *</label>
+          <select id="oc-tipoConta" class="form-control" ${dis}>
+            <option value="">Selecione...</option>
+            ${Object.entries(TIPOS_CONTA).map(([valor, label]) => `<option value="${valor}" ${oc.tipoConta === valor ? 'selected' : ''}>${label}</option>`).join('')}
+          </select>
+        </div>
+        <div><label>Agência *</label><input type="text" id="oc-agencia" class="form-control" value="${oc.agencia || ''}" ${dis}></div>
+        <div><label>Número da Conta *</label><input type="text" id="oc-contaNumero" class="form-control" value="${oc.contaNumero || ''}" ${dis}></div>
+      </div>
+    </div>
+  `
+}
+
+window.togglePagtoDetalhesOC = function () {
+  const forma = document.getElementById('oc-formaPagto').value
+  document.getElementById('oc-detalhe-pix').style.display = forma === 'pix' ? 'block' : 'none'
+  document.getElementById('oc-detalhe-boleto').style.display = forma === 'boleto' ? 'block' : 'none'
+  document.getElementById('oc-detalhe-outro').style.display = forma === 'outro' ? 'block' : 'none'
+  document.getElementById('oc-detalhe-transferencia').style.display = forma === 'transferencia' ? 'grid' : 'none'
+}
+
+// Lê os campos extras de pagamento do form conforme a forma escolhida — os campos das
+// outras formas ficam null e não vão pro corpo salvo, mesmo que ainda tenham valor digitado.
+function lerDetalhesPagtoOC(formaPagto) {
+  return {
+    chavePix: formaPagto === 'pix' ? document.getElementById('oc-chavePix').value.trim() : null,
+    codigoBarras: formaPagto === 'boleto' ? document.getElementById('oc-codigoBarras').value.trim() : null,
+    tipoConta: formaPagto === 'transferencia' ? document.getElementById('oc-tipoConta').value : null,
+    agencia: formaPagto === 'transferencia' ? document.getElementById('oc-agencia').value.trim() : null,
+    contaNumero: formaPagto === 'transferencia' ? document.getElementById('oc-contaNumero').value.trim() : null,
+    formaPagtoOutro: formaPagto === 'outro' ? document.getElementById('oc-formaPagtoOutro').value.trim() : null,
+  }
+}
+
+// PIX e Transferência precisam dos dados pra viabilizar o pagamento; Boleto e Outro ficam opcionais.
+function validarDetalhesPagtoOC(formaPagto, d) {
+  if (formaPagto === 'pix' && !d.chavePix) return 'Informe a chave PIX!'
+  if (formaPagto === 'transferencia' && (!d.tipoConta || !d.agencia || !d.contaNumero)) {
+    return 'Informe tipo de conta, agência e número da conta para a transferência!'
+  }
+  return null
+}
+
+// Chave PIX e dados bancários são dado mestre do fornecedor (reaproveitados nas próximas
+// compras); código de barras e "outro" são específicos da compra e não entram aqui.
+function dadosFornecedorMestreDoPagto(d) {
+  return {
+    ...(d.chavePix && { chavePix: d.chavePix }),
+    ...(d.tipoConta && d.agencia && d.contaNumero && { tipoConta: d.tipoConta, agencia: d.agencia, contaNumero: d.contaNumero }),
+  }
+}
+
 window.buscarFornecedor = async function (q) {
   const div = document.getElementById('sugestoes-fornecedor')
   if (q.length < 2) {
@@ -1000,6 +1102,10 @@ window.selecionarFornecedor = function (f) {
   document.getElementById('oc-fornecedor-end').value = f.endereco || ''
   document.getElementById('oc-fornecedor-cidade').value = f.cidade || ''
   document.getElementById('oc-fornecedor-tel').value = f.telefone || ''
+  document.getElementById('oc-chavePix').value = f.chavePix || ''
+  document.getElementById('oc-tipoConta').value = f.tipoConta || ''
+  document.getElementById('oc-agencia').value = f.agencia || ''
+  document.getElementById('oc-contaNumero').value = f.contaNumero || ''
   document.getElementById('sugestoes-fornecedor').style.display = 'none'
 }
 
@@ -1091,6 +1197,11 @@ window.atualizarOC = async function (id) {
 
   if (!empresaId || !fornecedorNome) { alert('Empresa e Fornecedor são obrigatórios!'); return }
 
+  const formaPagto = document.getElementById('oc-formaPagto').value
+  const detalhesPagto = lerDetalhesPagtoOC(formaPagto)
+  const erroPagto = validarDetalhesPagtoOC(formaPagto, detalhesPagto)
+  if (erroPagto) { alert(erroPagto); return }
+
   if (!fornecedorId) {
     const novoFornecedor = await apiJson(`${API}/fornecedores`, {
       method: 'POST',
@@ -1100,6 +1211,7 @@ window.atualizarOC = async function (id) {
         endereco: document.getElementById('oc-fornecedor-end').value,
         cidade: document.getElementById('oc-fornecedor-cidade').value,
         telefone: document.getElementById('oc-fornecedor-tel').value,
+        ...dadosFornecedorMestreDoPagto(detalhesPagto),
       })
     }).then(r => r.json())
     fornecedorId = novoFornecedor.id
@@ -1124,7 +1236,8 @@ window.atualizarOC = async function (id) {
     fornecedorTelefone: document.getElementById('oc-fornecedor-tel').value,
     dataPedido: document.getElementById('oc-dataPedido').value,
     condicoesPagto: document.getElementById('oc-condicoesPagto').value,
-    formaPagto: document.getElementById('oc-formaPagto').value,
+    formaPagto,
+    ...detalhesPagto,
     prazoEntrega: document.getElementById('oc-prazoEntrega').value,
     incoterms: document.getElementById('oc-incoterms').value,
     transportadora: document.getElementById('oc-transportadora').value,

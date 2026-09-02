@@ -33,6 +33,11 @@ model Fornecedor {
   documento    String?
   inscEstadual String?
   telefone     String?
+  chavePix     String?
+  tipoConta    String?
+  // tipoConta: corrente | poupanca
+  agencia      String?
+  contaNumero  String?
   criadoEm     DateTime @default(now())
 
   ordensCompra OrdemCompra[]
@@ -104,6 +109,12 @@ model OrdemCompra {
   dataPedido     DateTime   @default(now())
   condicoesPagto String?
   formaPagto     String?
+  chavePix       String?
+  codigoBarras   String?
+  tipoConta      String?
+  agencia        String?
+  contaNumero    String?
+  formaPagtoOutro String?
   prazoEntrega   String?
   incoterms      String?
   transportadora String?
@@ -194,6 +205,13 @@ model FornecedorCotado {
   telefone       String?
   prazoEntrega   String?
   condicoesPagto String?
+  formaPagto     String?
+  chavePix       String?
+  codigoBarras   String?
+  tipoConta      String?
+  agencia        String?
+  contaNumero    String?
+  formaPagtoOutro String?
   observacoes    String?
   favorito       Boolean           @default(false)
   escolhido      Boolean           @default(false)

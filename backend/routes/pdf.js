@@ -21,6 +21,9 @@ function escapeHtml(valor) {
     .replaceAll("'", '&#39;')
 }
 
+const FORMAS_PAGAMENTO = { boleto: 'Boleto', transferencia: 'Transferência', pix: 'PIX', outro: 'Outro' }
+const TIPOS_CONTA = { corrente: 'Conta Corrente', poupanca: 'Poupança' }
+
 function blocoAssinatura({ cargo, nome, assinatura }) {
   const recusada = assinatura?.acao === 'recusada'
   const cor = recusada ? '#dc3545' : '#000'
@@ -211,7 +214,11 @@ router.get('/:id', autenticar, async (req, res) => {
         <div class="condicoes-grid">
           <div><strong>Data Pedido</strong> ${dataPedido}</div>
           <div><strong>Condições Pagto</strong> ${escapeHtml(oc.condicoesPagto)}</div>
-          <div><strong>Forma de Pagto</strong> ${escapeHtml(oc.formaPagto)}</div>
+          <div><strong>Forma de Pagto</strong> ${escapeHtml(FORMAS_PAGAMENTO[oc.formaPagto] || oc.formaPagto)}</div>
+          ${oc.formaPagto === 'pix' && oc.chavePix ? `<div><strong>Chave PIX</strong> ${escapeHtml(oc.chavePix)}</div>` : ''}
+          ${oc.formaPagto === 'boleto' && oc.codigoBarras ? `<div><strong>Código de Barras</strong> ${escapeHtml(oc.codigoBarras)}</div>` : ''}
+          ${oc.formaPagto === 'transferencia' ? `<div><strong>Dados Bancários</strong> ${escapeHtml(TIPOS_CONTA[oc.tipoConta] || oc.tipoConta)} — Ag. ${escapeHtml(oc.agencia)} — Cc ${escapeHtml(oc.contaNumero)}</div>` : ''}
+          ${oc.formaPagto === 'outro' && oc.formaPagtoOutro ? `<div><strong>Forma de Pagto (especificação)</strong> ${escapeHtml(oc.formaPagtoOutro)}</div>` : ''}
           <div><strong>Prazo de entrega</strong> ${escapeHtml(oc.prazoEntrega)}</div>
           <div><strong>Incoterms</strong> ${escapeHtml(oc.incoterms)}</div>
           <div><strong>Transportadora</strong> ${escapeHtml(oc.transportadora)}</div>
@@ -507,6 +514,18 @@ router.get('/solicitacao/:id', autenticar, async (req, res) => {
           <tr class="linha-label">
             <td colspan="2">CONDIÇÕES DE PAGAMENTO</td>
             ${sc.fornecedores.map(f => `<td class="${f.escolhido ? 'col-escolhido' : ''}">${f.condicoesPagto ? escapeHtml(f.condicoesPagto) : '-'}</td>`).join('')}
+          </tr>
+          <tr class="linha-label">
+            <td colspan="2">FORMA DE PAGAMENTO</td>
+            ${sc.fornecedores.map(f => {
+    const label = f.formaPagto ? (FORMAS_PAGAMENTO[f.formaPagto] || f.formaPagto) : '-'
+    let detalhe = ''
+    if (f.formaPagto === 'pix' && f.chavePix) detalhe = ` (${f.chavePix})`
+    else if (f.formaPagto === 'boleto' && f.codigoBarras) detalhe = ` (${f.codigoBarras})`
+    else if (f.formaPagto === 'transferencia') detalhe = ` (${TIPOS_CONTA[f.tipoConta] || f.tipoConta || ''} Ag.${f.agencia || '-'} Cc${f.contaNumero || '-'})`
+    else if (f.formaPagto === 'outro' && f.formaPagtoOutro) detalhe = ` (${f.formaPagtoOutro})`
+    return `<td class="${f.escolhido ? 'col-escolhido' : ''}">${escapeHtml(label)}${escapeHtml(detalhe)}</td>`
+  }).join('')}
           </tr>
           <tr class="linha-label">
             <td colspan="2">OBSERVAÇÕES COMERCIAIS</td>
