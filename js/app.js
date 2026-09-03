@@ -216,9 +216,9 @@ window.addEventListener('load', () => {
     atualizarFavoritos();
     atualizarTabelaCertificados();
     renderizarDashboardInicio();
+    renderizarDashboardOCs();
     renderizarDashboardContratos();
     renderizarDashboardEstoque();
-    renderizarDashboardOCs();
 
     // ── Abre OC direto se vier do link do email ──────────────
     const hash = window.location.hash // ex: #oc-42

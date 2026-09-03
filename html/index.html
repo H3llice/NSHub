@@ -70,6 +70,10 @@
             <a href="#" onclick="toggleMenu(event,'financeiro')">💰 Financeiro</a>
             <div id="financeiro" class="submenu">
                 <div class="menu-item">
+                    <a href="#" onclick="abrirPagina(event,'contasPagar')" style="flex: 1;">Contas a Pagar</a>
+                    <button class="star-btn" onclick="toggleFavorito(event, 'contasPagar', 'Contas a Pagar')">☆</button>
+                </div>
+                <div class="menu-item">
                     <a href="#" onclick="abrirPagina(event,'contasReceber')" style="flex: 1;">Contas a Receber</a>
                     <button class="star-btn"
                         onclick="toggleFavorito(event, 'contasReceber', 'Contas a Receber')">☆</button>
@@ -82,10 +86,6 @@
                 <div class="menu-item">
                     <a href="#" onclick="abrirPagina(event,'ocs')" style="flex: 1;">Ordens de Compra</a>
                     <button class="star-btn" onclick="toggleFavorito(event, 'ocs', 'Ordens de Compra')">☆</button>
-                </div>
-                <div class="menu-item">
-                    <a href="#" onclick="abrirPagina(event,'contasPagar')" style="flex: 1;">Contas a Pagar</a>
-                    <button class="star-btn" onclick="toggleFavorito(event, 'contasPagar', 'Contas a Pagar')">☆</button>
                 </div>
             </div>
 
