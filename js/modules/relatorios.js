@@ -43,6 +43,8 @@ async function apiJson(url, options = {}) {
 // RELATÓRIOS DE SERVIÇO DE BALSAS (Serviços → Relatórios)
 // ══════════════════════════════════════════════════════════════════════════
 
+const tokenAtual = localStorage.getItem('ns_token')
+
 // Itens do kit de sobrevivência (Lista de Verificação e Reparos) — cada um tem
 // quantidade / substituído / validade; racoesSolidas e racoesLiquidas têm um
 // campo extra (peso/volume). Mesma lista da aba "Relatorio de Serviço" do papel.
@@ -57,7 +59,7 @@ const KIT_ITENS = [
   { key: 'pesca', label: 'Estojo de pesca' },
   { key: 'reparos', label: 'Estojo de reparos' },
   { key: 'enjoo', label: 'Comprimidos contra enjoo' },
-  { key: 'bateriaResgate', label: 'Bateria de resgate' },
+  { key: 'bateriaResgate', label: 'Luz de Resgate' },
 ]
 
 // Checklist de componentes — só verificado sim/não
@@ -106,15 +108,27 @@ export function inicializarRelatorios() {
           <th>Data</th>
           <th>Status</th>
           <th>Ações</th>
+          <th>Certificado</th>
         </tr>
       </thead>
       <tbody id="tabela-relatorios">
-        <tr><td colspan="6" style="text-align:center; color:#999; padding:30px;">Carregando...</td></tr>
+        <tr><td colspan="7" style="text-align:center; color:#999; padding:30px;">Carregando...</td></tr>
       </tbody>
     </table>
   `
 
   carregarRelatorios()
+}
+
+// Botão de certificado na lista de relatórios: só existe a partir de um relatório
+// concluído — antes disso não há o que gerar.
+function botaoCertificado(r) {
+  if (r.status !== 'concluido') return '<span style="color:#999; font-size:12px;">—</span>'
+  if (!r.certificado) {
+    return `<button class="btn btn-sm btn-warning" onclick="gerarCertificadoDeRelatorio(${r.id})">Gerar Certificado</button>`
+  }
+  const rotulo = r.certificado.status === 'emitido' ? '✅ Emitido' : '⏳ Pendente'
+  return `<button class="btn btn-sm btn-secondary" onclick="abrirCertificado(${r.certificado.id})">Ver Certificado (${rotulo})</button>`
 }
 
 async function carregarRelatorios() {
@@ -123,7 +137,7 @@ async function carregarRelatorios() {
     const tabela = document.getElementById('tabela-relatorios')
 
     if (resp.relatorios.length === 0) {
-      tabela.innerHTML = `<tr><td colspan="6" style="text-align:center; color:#999; padding:30px;">Nenhum relatório cadastrado ainda</td></tr>`
+      tabela.innerHTML = `<tr><td colspan="7" style="text-align:center; color:#999; padding:30px;">Nenhum relatório cadastrado ainda</td></tr>`
       return
     }
 
@@ -135,11 +149,12 @@ async function carregarRelatorios() {
         <td>${new Date(r.data).toLocaleDateString('pt-BR')}</td>
         <td>${r.status === 'concluido' ? '✅ Concluído' : '📝 Preenchendo'}</td>
         <td><button class="btn btn-sm btn-info" onclick="editarRelatorio(${r.id})">${r.status === 'concluido' ? 'Ver' : 'Editar'}</button></td>
+        <td>${botaoCertificado(r)}</td>
       </tr>
     `).join('')
   } catch {
     document.getElementById('tabela-relatorios').innerHTML = `
-      <tr><td colspan="6" style="text-align:center; color:red; padding:30px;">Erro ao conectar com o servidor</td></tr>
+      <tr><td colspan="7" style="text-align:center; color:red; padding:30px;">Erro ao conectar com o servidor</td></tr>
     `
   }
 }
@@ -152,6 +167,9 @@ let cilindrosSomenteLeitura = false
 // Relatório sempre nasce de uma OS — gera o form já preenchido com os dados dela
 // (embarcação + equipamento), que o técnico pode ajustar antes de salvar.
 window.gerarRelatorioDeOS = async function (ordemServicoId) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'))
+  document.getElementById('relatorios').classList.add('active')
+
   cilindrosEstado = [{}]
   cilindrosSomenteLeitura = false
   const [os, empresas] = await Promise.all([
@@ -180,6 +198,9 @@ window.gerarRelatorioDeOS = async function (ordemServicoId) {
 }
 
 window.editarRelatorio = async function (id) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'))
+  document.getElementById('relatorios').classList.add('active')
+
   const [r, empresas] = await Promise.all([
     apiFetch(`${API}/relatorios/${id}`).then(res => res.json()),
     apiFetch(`${API}/empresas`).then(res => res.json())
@@ -201,6 +222,7 @@ function renderFormularioRelatorio(r, empresas) {
   return `
     <div style="margin-top:20px;">
       <button class="btn btn-secondary" onclick="inicializarRelatorios()">← Voltar</button>
+      ${r?.id ? `<a class="btn btn-secondary" style="margin-left:8px;" href="${API}/relatorios/${r.id}/pdf?token=${encodeURIComponent(tokenAtual)}" target="_blank">📄 PDF</a>` : ''}
       <h3 style="margin:20px 0;">${r?.id ? `Relatório ${r.numero}/${r.ano}` : 'Novo Relatório de Serviço'} ${somenteLeitura ? '<span style="color:#198754;">✓ Concluído</span>' : ''}</h3>
       <input type="hidden" id="rel-ordemServicoId" value="${r?.ordemServicoId || ''}">
 
@@ -221,10 +243,12 @@ function renderFormularioRelatorio(r, empresas) {
 
       <h5 style="margin:24px 0 10px;">Equipamento (balsa atendida)</h5>
       <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:16px;">
-        <div><label>Tipo</label><input type="text" id="rel-equipTipo" class="form-control" value="${r?.equipTipo || ''}" ${dis}></div>
+        <div><label>Tipo</label><input type="text" id="rel-equipTipo" class="form-control" value="${r?.equipTipo || 'BALSA INFLÁVEL'}" ${dis}></div>
         <div><label>Nº Série</label><input type="text" id="rel-equipNumeroSerie" class="form-control" value="${r?.equipNumeroSerie || ''}" ${dis}></div>
         <div><label>Ano Fabricação</label><input type="text" id="rel-equipAnoFabricacao" class="form-control" placeholder="Ex: 01/2010" value="${r?.equipAnoFabricacao || ''}" ${dis}></div>
         <div><label>Marca/Fabricante</label><input type="text" id="rel-equipFabricante" class="form-control" value="${r?.equipFabricante || ''}" ${dis}></div>
+        <div><label>Modelo</label><input type="text" id="rel-equipModelo" class="form-control" value="${r?.equipModelo || ''}" ${dis}></div>
+        <div><label>Classe</label><input type="text" id="rel-equipClasse" class="form-control" placeholder="Ex: Classe II Pack B" value="${r?.equipClasse || ''}" ${dis}></div>
         <div><label>Capacidade (pessoas)</label><input type="number" id="rel-equipCapacidade" class="form-control" value="${r?.equipCapacidade ?? ''}" ${dis}></div>
         <div></div>
         <div><label>Nº Certificado de Revisão anterior</label><input type="text" id="rel-certRevisaoNumero" class="form-control" value="${r?.certRevisaoNumero || ''}" ${dis}></div>
@@ -274,7 +298,7 @@ function renderFormularioRelatorio(r, empresas) {
 
       <h5 style="margin:24px 0 10px;">Cilindros</h5>
       <table class="table-certificados">
-        <thead><tr><th>Nº</th><th>Nº Válvula</th><th>Teste</th><th>Carga CO2 (kg)</th><th>Carga N2 (kg)</th><th>Fabricante</th><th>Ano Fab.</th><th>Val. Hidrostática</th><th>Cabo Int. (m)</th><th>Cabo Ext. (m)</th><th>Altura Máx. (m)</th><th>Classe</th>${somenteLeitura ? '' : '<th></th>'}</tr></thead>
+        <thead><tr><th>Nº</th><th>Nº Válvula</th><th>Teste</th><th>Carga (kg)</th><th>Carga CO2 (kg)</th><th>Carga N2 (kg)</th><th>Fabricante</th><th>Ano Fab.</th><th>Val. Hidrostática</th><th>Cabo Int. (m)</th><th>Cabo Ext. (m)</th><th>Altura Máx. (m)</th><th>Classe</th>${somenteLeitura ? '' : '<th></th>'}</tr></thead>
         <tbody id="lista-cilindros"></tbody>
       </table>
       ${somenteLeitura ? '' : '<button class="btn btn-secondary btn-sm" style="margin-top:8px;" onclick="adicionarCilindro()">+ Cilindro</button>'}
@@ -381,6 +405,15 @@ function renderFormularioRelatorio(r, empresas) {
           ${r?.id ? `<button type="button" class="btn btn-warning" onclick="concluirRelatorio(${r.id})">Concluir e Assinar</button>` : ''}
         </div>
       `}
+
+      ${somenteLeitura ? `
+        <div style="margin-top:20px;">
+          ${!r.certificado
+            ? `<button type="button" class="btn btn-warning" onclick="gerarCertificadoDeRelatorio(${r.id})">Gerar Certificado</button>`
+            : `<button type="button" class="btn btn-secondary" onclick="abrirCertificado(${r.certificado.id})">Ver Certificado (${r.certificado.status === 'emitido' ? '✅ Emitido' : '⏳ Pendente'})</button>`
+          }
+        </div>
+      ` : ''}
     </div>
   `
 }
@@ -443,6 +476,7 @@ function renderizarCilindros() {
       <td><input type="text" class="form-control form-control-sm" id="cil-numero-${i}" value="${c.numero || ''}" ${dis}></td>
       <td><input type="text" class="form-control form-control-sm" id="cil-valvulaNumero-${i}" value="${c.valvulaNumero || ''}" ${dis}></td>
       <td><input type="text" class="form-control form-control-sm" id="cil-teste-${i}" value="${c.teste || ''}" ${dis}></td>
+      <td><input type="number" step="0.01" class="form-control form-control-sm" id="cil-carga-${i}" value="${c.carga ?? ''}" ${dis}></td>
       <td><input type="number" step="0.01" class="form-control form-control-sm" id="cil-cargaCO2-${i}" value="${c.cargaCO2 ?? ''}" ${dis}></td>
       <td><input type="number" step="0.01" class="form-control form-control-sm" id="cil-cargaN2-${i}" value="${c.cargaN2 ?? ''}" ${dis}></td>
       <td><input type="text" class="form-control form-control-sm" id="cil-fabricante-${i}" value="${c.fabricante || ''}" ${dis}></td>
@@ -468,9 +502,9 @@ window.removerCilindro = function (i) {
 }
 
 function lerCilindrosDoForm() {
-  const campos = ['numero', 'valvulaNumero', 'teste', 'cargaCO2', 'cargaN2', 'fabricante', 'anoFabricacao',
+  const campos = ['numero', 'valvulaNumero', 'teste', 'carga', 'cargaCO2', 'cargaN2', 'fabricante', 'anoFabricacao',
     'validadeHidrostatica', 'caboInternoMetros', 'caboExternoMetros', 'alturaMaximaEstocagemMetros', 'classe']
-  const numericos = ['cargaCO2', 'cargaN2', 'caboInternoMetros', 'caboExternoMetros', 'alturaMaximaEstocagemMetros']
+  const numericos = ['carga', 'cargaCO2', 'cargaN2', 'caboInternoMetros', 'caboExternoMetros', 'alturaMaximaEstocagemMetros']
 
   return cilindrosEstado.map((_, i) => {
     const c = {}
@@ -496,6 +530,8 @@ function lerFormularioRelatorio() {
     equipNumeroSerie: document.getElementById('rel-equipNumeroSerie').value,
     equipAnoFabricacao: document.getElementById('rel-equipAnoFabricacao').value,
     equipFabricante: document.getElementById('rel-equipFabricante').value,
+    equipModelo: document.getElementById('rel-equipModelo').value,
+    equipClasse: document.getElementById('rel-equipClasse').value,
     equipCapacidade: document.getElementById('rel-equipCapacidade').value,
     certRevisaoNumero: document.getElementById('rel-certRevisaoNumero').value,
     certRevisaoDataExpedicao: document.getElementById('rel-certRevisaoDataExpedicao').value,
@@ -598,3 +634,6 @@ window.concluirRelatorio = async function (id) {
     alert('Erro: ' + (err.erro || 'Falha ao concluir'))
   }
 }
+
+// Exposta em window para funcionar em onclick inline (ex: botão "← Voltar")
+window.inicializarRelatorios = inicializarRelatorios

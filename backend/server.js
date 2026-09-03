@@ -17,6 +17,7 @@ import estoqueRouter from './routes/estoque.js'
 import clientesRouter from './routes/clientes.js'
 import embarcacoesRouter from './routes/embarcacoes.js'
 import relatoriosRouter from './routes/relatorios.js'
+import certificadosRouter from './routes/certificados.js'
 import ordensServicoRouter from './routes/ordens-servico.js'
 import contratosRouter from './routes/contratos.js'
 import vendasRouter from './routes/vendas.js'
@@ -80,6 +81,7 @@ app.use('/estoque', estoqueRouter)
 app.use('/clientes', clientesRouter)
 app.use('/embarcacoes', embarcacoesRouter)
 app.use('/relatorios', relatoriosRouter)
+app.use('/certificados', certificadosRouter)
 app.use('/ordens-servico', ordensServicoRouter)
 app.use('/contratos', contratosRouter)
 app.use('/vendas', vendasRouter)

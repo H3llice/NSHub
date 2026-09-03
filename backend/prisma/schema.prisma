@@ -24,6 +24,7 @@ model Empresa {
   solicitacoes  SolicitacaoCompra[]
   relatorios    Relatorio[]
   ordensServico OrdemServico[]
+  certificados  Certificado[]
 }
 
 model Fornecedor {
@@ -80,6 +81,7 @@ model Usuario {
 
   relatorios    Relatorio[]
   ordensServico OrdemServico[]
+  certificados  Certificado[]
 }
 
 // etapa: solicitante | aprovacao | autorizacao
@@ -92,6 +94,8 @@ model Assinatura {
   solicitacaoId Int?
   relatorio     Relatorio?         @relation(fields: [relatorioId], references: [id])
   relatorioId   Int?
+  certificado   Certificado?       @relation(fields: [certificadoId], references: [id])
+  certificadoId Int?
   usuario       Usuario            @relation(fields: [usuarioId], references: [id])
   usuarioId     Int
   etapa         String
@@ -293,6 +297,7 @@ model Embarcacao {
 
   relatorios    Relatorio[]
   ordensServico OrdemServico[]
+  certificados  Certificado[]
 }
 
 model Contrato {
@@ -500,6 +505,8 @@ model Relatorio {
   equipNumeroSerie         String?
   equipAnoFabricacao       String?
   equipFabricante          String?
+  equipModelo              String?
+  equipClasse              String?
   equipCapacidade          Int?
   certRevisaoNumero        String?
   certRevisaoDataExpedicao String?
@@ -593,6 +600,7 @@ model Relatorio {
   cilindros   CilindroRelatorio[]
   testeImo    TesteImo?
   assinaturas Assinatura[]
+  certificado Certificado?
 }
 
 model CilindroRelatorio {
@@ -603,6 +611,7 @@ model CilindroRelatorio {
   numero                      String?
   valvulaNumero               String?
   teste                       String?
+  carga                       Float?
   cargaCO2                    Float?
   cargaN2                     Float?
   fabricante                  String?
@@ -675,4 +684,37 @@ model TesteImo {
 
   criadoEm     DateTime @default(now())
   atualizadoEm DateTime @updatedAt
+}
+
+// ─── Certificado (etapa final do fluxo: OS → Relatório → Certificado) ─────────
+// Gerado manualmente a partir de um Relatório concluído (botão "Gerar Certificado").
+// Nasce "pendente" e só vira "emitido" quando um gerente/admin revisa e emite
+// (define data de emissão e validade). Por enquanto só cobre balsa — os outros
+// tipos do formulário avulso antigo (baleeira/turco/colete) ainda não têm
+// OS/Relatório próprios.
+// status: pendente | emitido
+model Certificado {
+  id           Int        @id @default(autoincrement())
+  numero       Int
+  ano          Int
+  empresa      Empresa    @relation(fields: [empresaId], references: [id])
+  empresaId    Int
+  embarcacao   Embarcacao @relation(fields: [embarcacaoId], references: [id])
+  embarcacaoId Int
+  relatorio    Relatorio  @relation(fields: [relatorioId], references: [id])
+  relatorioId  Int        @unique
+
+  dataEmissao DateTime?
+  validade    String?
+  // validade é texto livre (digitável), mesmo padrão dos outros campos de validade do Relatorio
+  observacoes String?
+
+  status      String   @default("pendente")
+  criadoPor   Usuario? @relation(fields: [criadoPorId], references: [id])
+  criadoPorId Int?
+
+  criadoEm     DateTime @default(now())
+  atualizadoEm DateTime @updatedAt
+
+  assinaturas Assinatura[]
 }

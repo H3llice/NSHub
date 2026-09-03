@@ -9,6 +9,7 @@ import { inicializarAlmoxarifado } from './modules/almoxarifado.js'
 import { inicializarEmbarcacoes } from './modules/embarcacoes.js'
 import { inicializarRelatorios } from './modules/relatorios.js'
 import { inicializarOrdensServico } from './modules/ordens-servico.js'
+import './modules/certificados.js'
 
 
 let favoritos = JSON.parse(localStorage.getItem('favoritos')) || [];

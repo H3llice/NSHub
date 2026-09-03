@@ -1,4 +1,7 @@
 import { Router } from 'express'
+import { PDFDocument, StandardFonts, rgb } from 'pdf-lib'
+import fs from 'fs'
+import path from 'path'
 import { prisma } from '../server.js'
 import { autenticar } from '../middleware/auth.js'
 
@@ -6,7 +9,7 @@ const router = Router()
 
 const CAMPOS_RELATORIO = [
   'empresaId', 'embarcacaoId', 'data',
-  'equipTipo', 'equipNumeroSerie', 'equipAnoFabricacao', 'equipFabricante', 'equipCapacidade',
+  'equipTipo', 'equipNumeroSerie', 'equipAnoFabricacao', 'equipFabricante', 'equipModelo', 'equipClasse', 'equipCapacidade',
   'certRevisaoNumero', 'certRevisaoDataExpedicao',
   'foguetesQtd', 'foguetesSubstituido', 'foguetesValidade',
   'fachosQtd', 'fachosSubstituido', 'fachosValidade',
@@ -28,7 +31,7 @@ const CAMPOS_RELATORIO = [
 ]
 
 const CAMPOS_CILINDRO = [
-  'numero', 'valvulaNumero', 'teste', 'cargaCO2', 'cargaN2', 'fabricante', 'anoFabricacao',
+  'numero', 'valvulaNumero', 'teste', 'carga', 'cargaCO2', 'cargaN2', 'fabricante', 'anoFabricacao',
   'validadeHidrostatica', 'caboInternoMetros', 'caboExternoMetros', 'alturaMaximaEstocagemMetros', 'classe'
 ]
 
@@ -67,7 +70,7 @@ router.get('/', autenticar, async (req, res) => {
   const [relatorios, total] = await Promise.all([
     prisma.relatorio.findMany({
       where,
-      include: { embarcacao: { include: { armador: true } }, empresa: true, ordemServico: true },
+      include: { embarcacao: { include: { armador: true } }, empresa: true, ordemServico: true, certificado: true },
       orderBy: { numero: 'desc' },
       take: porPagina,
       skip: (parseInt(pagina) - 1) * porPagina
@@ -89,7 +92,8 @@ router.get('/:id', autenticar, async (req, res) => {
       criadoPor: true,
       cilindros: true,
       testeImo: true,
-      assinaturas: { include: { usuario: true }, orderBy: { criadoEm: 'asc' } }
+      assinaturas: { include: { usuario: true }, orderBy: { criadoEm: 'asc' } },
+      certificado: true
     }
   })
   if (!relatorio) return res.status(404).json({ erro: 'Relatório não encontrado' })
@@ -210,6 +214,159 @@ router.post('/:id/concluir', autenticar, async (req, res) => {
   ])
 
   res.json(atualizado)
+})
+
+// ─── Geração do PDF do Relatório (Lista de Verificação e Reparos de Balsa) ─────
+// Mesma técnica do Certificado: imagem de fundo real do modelo em papel
+// (assets/relatorio-balsa-fundo.jpeg, extraída do .docm) + valores desenhados
+// nas coordenadas originais das caixas de texto do Word (extraídas do XML, não
+// estimadas). As seções em lista (kit, componentes, testes) têm espaçamento
+// uniforme entre linhas, então usamos um y inicial + passo por linha em vez de
+// repetir 70+ coordenadas na mão.
+const MM = 2.83465
+const MARGEM_ESQUERDA_MM = 10
+const MARGEM_TOPO_MM = 12.7
+const IMG_LARGURA_MM = 180
+const IMG_ALTURA_MM = 270
+
+// Ordem = mesma do KIT_ITENS do frontend (js/modules/relatorios.js)
+const KIT_ITENS_ORDEM = [
+  'foguetes', 'fachos', 'fumigeno', 'pilhas', 'racoesSolidas', 'racoesLiquidas',
+  'medicamentos', 'pesca', 'reparos', 'enjoo', 'bateriaResgate'
+]
+const KIT_LINHA_Y0 = 31.1
+const KIT_LINHA_PASSO = 4.46
+const KIT_COL_QTD_X = 7.3
+const KIT_COL_SUBSTITUIDO_X = 129.5
+const KIT_COL_VALIDADE_X = 149.0
+
+// 16 componentes em 3 colunas (6, 6, 4), mesma ordem do COMPONENTES do frontend
+const COMPONENTES_COLUNAS = [
+  { x: 6.0, chaves: ['ancoraFlutuante', 'remos', 'quadroSinais', 'facaCaboFlutuante', 'espelhoSinalizacao', 'copoGraduado'] },
+  { x: 70.0, chaves: ['aroFlutuante', 'jarrosAgua', 'documentacao', 'lanternaEstanque', 'apito', 'protecaoTermica'] },
+  { x: 127.8, chaves: ['esponja', 'refletorRadar', 'abridorLatas', 'foleManual'] },
+]
+const COMPONENTES_LINHA_Y0 = 93.2
+const COMPONENTES_LINHA_PASSO = 4.46
+
+// 5 testes de flutuador, mesma ordem do TESTES_FLUTUADOR do frontend
+const TESTES_FLUTUADOR_ORDEM = ['nap', 'wp', 'gi', 'fs', 'ol']
+const TESTES_LINHA_Y0 = 129.1
+const TESTES_LINHA_PASSO = 4.375
+const TESTES_COL_X = 103.0
+const TEST_VALOR_POS = { x: 142.7, y: 132.6 }
+const TEMP_VALOR_POS = { x: 142.9, y: 141.1 }
+
+// Cilindro — grade de 4 linhas x 2 colunas (múltiplos cilindros: valores juntados com " / ")
+const CILINDRO_COL_ESQUERDA_X = 47.4
+const CILINDRO_COL_DIREITA_X = 142.9
+const CILINDRO_LINHAS_Y = [154.1, 159.1, 164.4, 169.3]
+
+const DATA_ATENDIMENTO_POS = { x: 139.7, y: 243.7 }
+const TECNICO_NOME_POS = { x: 51.4, y: 259.4 }
+
+function formatarKg(v) {
+  return v === null || v === undefined ? '' : v.toFixed(3).replace('.', ',')
+}
+
+// Junta o mesmo campo de todos os cilindros numa única string ("A / B / C") —
+// o papel só tem espaço fixo para 1 cilindro, então múltiplos ficam lado a lado.
+function juntarCilindros(cilindros, campo, formatador = (v) => v ?? '') {
+  return cilindros
+    .map(c => formatador(c[campo]))
+    .filter(v => v !== '' && v !== null && v !== undefined)
+    .join(' / ')
+}
+
+router.get('/:id/pdf', autenticar, async (req, res) => {
+  const relatorio = await prisma.relatorio.findUnique({
+    where: { id: Number(req.params.id) },
+    include: {
+      embarcacao: { include: { armador: true } },
+      empresa: true,
+      criadoPor: true,
+      cilindros: true,
+      testeImo: true,
+    }
+  })
+  if (!relatorio) return res.status(404).json({ erro: 'Relatório não encontrado' })
+
+  const pdfDoc = await PDFDocument.create()
+  const page = pdfDoc.addPage([595.28, 841.89])
+  const alturaPagina = page.getHeight()
+
+  const fundoBytes = fs.readFileSync(path.resolve('assets/relatorio-balsa-fundo.jpeg'))
+  const fundoImg = await pdfDoc.embedJpg(fundoBytes)
+  page.drawImage(fundoImg, {
+    x: MARGEM_ESQUERDA_MM * MM,
+    y: alturaPagina - (MARGEM_TOPO_MM + IMG_ALTURA_MM) * MM,
+    width: IMG_LARGURA_MM * MM,
+    height: IMG_ALTURA_MM * MM,
+  })
+
+  const fonteNegrito = await pdfDoc.embedFont(StandardFonts.HelveticaBold)
+  const preto = rgb(0.1, 0.1, 0.1)
+
+  function texto(valor, xMm, yMm, size = 9) {
+    if (valor === null || valor === undefined || valor === '') return
+    const yTopoPt = alturaPagina - (MARGEM_TOPO_MM + yMm) * MM
+    page.drawText(String(valor), {
+      x: (MARGEM_ESQUERDA_MM + xMm) * MM,
+      y: yTopoPt - size,
+      size,
+      font: fonteNegrito,
+      color: preto,
+    })
+  }
+
+  // ─── Kit de sobrevivência ─────────────────────────────────────────────────
+  KIT_ITENS_ORDEM.forEach((chave, i) => {
+    const y = KIT_LINHA_Y0 + i * KIT_LINHA_PASSO
+    texto(relatorio[`${chave}Qtd`], KIT_COL_QTD_X, y)
+    texto(relatorio[`${chave}Substituido`] ? 'S' : 'N', KIT_COL_SUBSTITUIDO_X, y)
+    texto(relatorio[`${chave}Validade`], KIT_COL_VALIDADE_X, y)
+  })
+
+  // ─── Checklist de componentes ───────────────────────────────────────────────
+  COMPONENTES_COLUNAS.forEach(coluna => {
+    coluna.chaves.forEach((chave, i) => {
+      const y = COMPONENTES_LINHA_Y0 + i * COMPONENTES_LINHA_PASSO
+      texto(relatorio[chave] ? 'S' : 'N', coluna.x, y)
+    })
+  })
+
+  // ─── Teste dos flutuadores ──────────────────────────────────────────────────
+  TESTES_FLUTUADOR_ORDEM.forEach((chave, i) => {
+    const y = TESTES_LINHA_Y0 + i * TESTES_LINHA_PASSO
+    texto(relatorio[`${chave}Realizado`] ? 'S' : 'N', TESTES_COL_X, y)
+  })
+  const primeiroValorTeste = TESTES_FLUTUADOR_ORDEM
+    .map(chave => relatorio[`${chave}Valor`])
+    .find(v => v !== null && v !== undefined)
+  texto(primeiroValorTeste, TEST_VALOR_POS.x, TEST_VALOR_POS.y)
+  texto(relatorio.temperatura, TEMP_VALOR_POS.x, TEMP_VALOR_POS.y)
+
+  // ─── Cilindro(s) ────────────────────────────────────────────────────────────
+  const cilindros = relatorio.cilindros
+  texto(juntarCilindros(cilindros, 'numero'), CILINDRO_COL_ESQUERDA_X, CILINDRO_LINHAS_Y[0])
+  texto(juntarCilindros(cilindros, 'valvulaNumero'), CILINDRO_COL_DIREITA_X, CILINDRO_LINHAS_Y[0])
+  texto(juntarCilindros(cilindros, 'teste'), CILINDRO_COL_ESQUERDA_X, CILINDRO_LINHAS_Y[1])
+  texto(juntarCilindros(cilindros, 'carga', formatarKg), CILINDRO_COL_DIREITA_X, CILINDRO_LINHAS_Y[1])
+  texto(juntarCilindros(cilindros, 'cargaCO2', formatarKg), CILINDRO_COL_ESQUERDA_X, CILINDRO_LINHAS_Y[2])
+  texto(juntarCilindros(cilindros, 'cargaN2', formatarKg), CILINDRO_COL_DIREITA_X, CILINDRO_LINHAS_Y[2])
+  texto(juntarCilindros(cilindros, 'fabricante'), CILINDRO_COL_ESQUERDA_X, CILINDRO_LINHAS_Y[3])
+  texto(juntarCilindros(cilindros, 'anoFabricacao'), CILINDRO_COL_DIREITA_X, CILINDRO_LINHAS_Y[3])
+
+  // ─── Rodapé ──────────────────────────────────────────────────────────────────
+  texto(new Date(relatorio.data).toLocaleDateString('pt-BR', { timeZone: 'UTC' }), DATA_ATENDIMENTO_POS.x, DATA_ATENDIMENTO_POS.y)
+  texto(relatorio.criadoPor?.nome, TECNICO_NOME_POS.x, TECNICO_NOME_POS.y)
+
+  const pdfBytes = await pdfDoc.save()
+  const nomeArquivo = `Relatorio ${relatorio.numero}.${relatorio.ano}.pdf`
+
+  res.setHeader('Content-Type', 'application/pdf')
+  res.setHeader('Content-Disposition', `inline; filename*=UTF-8''${encodeURIComponent(nomeArquivo)}`)
+  res.send(Buffer.from(pdfBytes))
 })
 
 export default router
