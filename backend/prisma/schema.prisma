@@ -20,8 +20,10 @@ model Empresa {
   email        String?
   criadoEm     DateTime @default(now())
 
-  ordensCompra OrdemCompra[]
-  solicitacoes SolicitacaoCompra[]
+  ordensCompra  OrdemCompra[]
+  solicitacoes  SolicitacaoCompra[]
+  relatorios    Relatorio[]
+  ordensServico OrdemServico[]
 }
 
 model Fornecedor {
@@ -75,6 +77,9 @@ model Usuario {
   vendasCriadas      Venda[] @relation("VendaCriadoPor")
 
   pedidosAlmoxarifado PedidoAlmoxarifado[]
+
+  relatorios    Relatorio[]
+  ordensServico OrdemServico[]
 }
 
 // etapa: solicitante | aprovacao | autorizacao
@@ -85,6 +90,8 @@ model Assinatura {
   ocId          Int?
   solicitacao   SolicitacaoCompra? @relation(fields: [solicitacaoId], references: [id])
   solicitacaoId Int?
+  relatorio     Relatorio?         @relation(fields: [relatorioId], references: [id])
+  relatorioId   Int?
   usuario       Usuario            @relation(fields: [usuarioId], references: [id])
   usuarioId     Int
   etapa         String
@@ -95,38 +102,38 @@ model Assinatura {
 }
 
 model OrdemCompra {
-  id             Int        @id @default(autoincrement())
-  numero         Int
-  ano            Int
-  empresa        Empresa    @relation(fields: [empresaId], references: [id])
-  empresaId      Int
-  fornecedor     Fornecedor @relation(fields: [fornecedorId], references: [id])
-  fornecedorId   Int
-  vendedor       Vendedor?  @relation(fields: [vendedorId], references: [id])
-  vendedorId     Int?
-  criadoPor      Usuario?   @relation(fields: [criadoPorId], references: [id])
-  criadoPorId    Int?
-  dataPedido     DateTime   @default(now())
-  condicoesPagto String?
-  formaPagto     String?
-  chavePix       String?
-  codigoBarras   String?
-  tipoConta      String?
-  agencia        String?
-  contaNumero    String?
+  id              Int        @id @default(autoincrement())
+  numero          Int
+  ano             Int
+  empresa         Empresa    @relation(fields: [empresaId], references: [id])
+  empresaId       Int
+  fornecedor      Fornecedor @relation(fields: [fornecedorId], references: [id])
+  fornecedorId    Int
+  vendedor        Vendedor?  @relation(fields: [vendedorId], references: [id])
+  vendedorId      Int?
+  criadoPor       Usuario?   @relation(fields: [criadoPorId], references: [id])
+  criadoPorId     Int?
+  dataPedido      DateTime   @default(now())
+  condicoesPagto  String?
+  formaPagto      String?
+  chavePix        String?
+  codigoBarras    String?
+  tipoConta       String?
+  agencia         String?
+  contaNumero     String?
   formaPagtoOutro String?
-  prazoEntrega   String?
-  incoterms      String?
-  transportadora String?
-  enderecoTransp String?
-  telefoneTransp String?
-  instrucoes     String?
-  solicitante    String?
-  status         String     @default("aguardando_solicitante")
-  criadoEm       DateTime   @default(now())
-  atualizadoEm   DateTime   @updatedAt
-  canceladoEm    DateTime?
-  valorTotal     Float?
+  prazoEntrega    String?
+  incoterms       String?
+  transportadora  String?
+  enderecoTransp  String?
+  telefoneTransp  String?
+  instrucoes      String?
+  solicitante     String?
+  status          String     @default("aguardando_solicitante")
+  criadoEm        DateTime   @default(now())
+  atualizadoEm    DateTime   @updatedAt
+  canceladoEm     DateTime?
+  valorTotal      Float?
 
   geradaDeSolicitacaoId Int?               @unique
   geradaDeSolicitacao   SolicitacaoCompra? @relation("OcGerada", fields: [geradaDeSolicitacaoId], references: [id])
@@ -160,18 +167,18 @@ model Anexo {
 }
 
 model SolicitacaoCompra {
-  id          Int      @id @default(autoincrement())
-  numero      Int
-  ano         Int
-  empresa     Empresa  @relation(fields: [empresaId], references: [id])
-  empresaId   Int
-  criadoPor   Usuario? @relation(fields: [criadoPorId], references: [id])
-  criadoPorId Int?
-  dataPedido  DateTime @default(now())
-  instrucoes  String?
+  id                  Int      @id @default(autoincrement())
+  numero              Int
+  ano                 Int
+  empresa             Empresa  @relation(fields: [empresaId], references: [id])
+  empresaId           Int
+  criadoPor           Usuario? @relation(fields: [criadoPorId], references: [id])
+  criadoPorId         Int?
+  dataPedido          DateTime @default(now())
+  instrucoes          String?
   departamentoDestino String?
   // departamentoDestino: tecnico | administrativo
-  status      String   @default("aguardando_aprovacao")
+  status              String   @default("aguardando_aprovacao")
   // status: aguardando_aprovacao | aprovada | recusada | cancelada
 
   criadoEm     DateTime  @default(now())
@@ -197,24 +204,24 @@ model ItemSolicitacao {
 }
 
 model FornecedorCotado {
-  id             Int               @id @default(autoincrement())
-  solicitacao    SolicitacaoCompra @relation(fields: [solicitacaoId], references: [id])
-  solicitacaoId  Int
-  nome           String
-  documento      String?
-  telefone       String?
-  prazoEntrega   String?
-  condicoesPagto String?
-  formaPagto     String?
-  chavePix       String?
-  codigoBarras   String?
-  tipoConta      String?
-  agencia        String?
-  contaNumero    String?
+  id              Int               @id @default(autoincrement())
+  solicitacao     SolicitacaoCompra @relation(fields: [solicitacaoId], references: [id])
+  solicitacaoId   Int
+  nome            String
+  documento       String?
+  telefone        String?
+  prazoEntrega    String?
+  condicoesPagto  String?
+  formaPagto      String?
+  chavePix        String?
+  codigoBarras    String?
+  tipoConta       String?
+  agencia         String?
+  contaNumero     String?
   formaPagtoOutro String?
-  observacoes    String?
-  favorito       Boolean           @default(false)
-  escolhido      Boolean           @default(false)
+  observacoes     String?
+  favorito        Boolean           @default(false)
+  escolhido       Boolean           @default(false)
 
   precos PrecoCotado[]
 }
@@ -265,8 +272,25 @@ model Cliente {
   cidade   String?
   criadoEm DateTime @default(now())
 
-  contratos Contrato[]
-  vendas    Venda[]
+  contratos     Contrato[]
+  vendas        Venda[]
+  embarcacoes   Embarcacao[]
+  ordensServico OrdemServico[]
+}
+
+model Embarcacao {
+  id            Int      @id @default(autoincrement())
+  nome          String
+  // nome do navio
+  armador       Cliente  @relation(fields: [armadorId], references: [id])
+  armadorId     Int
+  portoRegistro String?
+  email         String?
+  telefone      String?
+  criadoEm      DateTime @default(now())
+
+  relatorios    Relatorio[]
+  ordensServico OrdemServico[]
 }
 
 model Contrato {
@@ -404,4 +428,249 @@ model ItemPedidoAlmoxarifado {
   produtoId  Int
   quantidade Float
   valorUni   Float?
+}
+
+// ─── Ordem de Serviço (abre o atendimento; precede o Relatório) ───────────────
+// Fluxo: OS (abertura, cliente entrega equipamento) → Relatório (técnico) → Certificado (gerente, pendente).
+// status: aberta | concluida — concluida quando o cliente retira o equipamento e assina o canhoto.
+model OrdemServico {
+  id            Int        @id @default(autoincrement())
+  numero        Int
+  ano           Int
+  empresa       Empresa    @relation(fields: [empresaId], references: [id])
+  empresaId     Int
+  cliente       Cliente    @relation(fields: [clienteId], references: [id])
+  clienteId     Int
+  aosCuidadosDe String?
+  embarcacao    Embarcacao @relation(fields: [embarcacaoId], references: [id])
+  embarcacaoId  Int
+
+  dataEmissao     DateTime  @default(now())
+  dataInicio      DateTime?
+  previsaoEntrega DateTime?
+
+  equipamentoRecebido    String?
+  equipNumeroSerie       String?
+  equipMarca             String?
+  equipModelo            String?
+  // vencimentoCertificacao é texto livre (digitável), mesmo motivo dos campos de validade do Relatorio
+  vencimentoCertificacao String?
+
+  problemaApresentado String?
+  servicoApresentado  String?
+  observacoes         String?
+
+  // Canhoto de conclusão — preenchido/assinado quando o cliente retira o equipamento
+  dataConclusao     DateTime?
+  horaEntrada       String?
+  horaSaida         String?
+  assinaturaCliente String?
+
+  status       String   @default("aberta")
+  criadoPor    Usuario? @relation(fields: [criadoPorId], references: [id])
+  criadoPorId  Int?
+  criadoEm     DateTime @default(now())
+  atualizadoEm DateTime @updatedAt
+
+  relatorio Relatorio?
+}
+
+// ─── Relatório de Serviço de Balsas (etapa "Relatório" do fluxo Certificados) ──
+// Fluxo: OS → Relatório (técnico) → Certificado (gerente, pendente). Todo Relatorio
+// nasce de uma OrdemServico (ordemServicoId obrigatório e único).
+// status: preenchendo | concluido
+model Relatorio {
+  id             Int          @id @default(autoincrement())
+  numero         Int
+  ano            Int
+  empresa        Empresa      @relation(fields: [empresaId], references: [id])
+  empresaId      Int
+  embarcacao     Embarcacao   @relation(fields: [embarcacaoId], references: [id])
+  embarcacaoId   Int
+  ordemServico   OrdemServico @relation(fields: [ordemServicoId], references: [id])
+  ordemServicoId Int          @unique
+  data           DateTime     @default(now())
+  criadoPor      Usuario?     @relation(fields: [criadoPorId], references: [id])
+  criadoPorId    Int?
+
+  // Equipamento (a balsa física atendida — não confundir com a Embarcacao/navio)
+  equipTipo                String?
+  equipNumeroSerie         String?
+  equipAnoFabricacao       String?
+  equipFabricante          String?
+  equipCapacidade          Int?
+  certRevisaoNumero        String?
+  certRevisaoDataExpedicao String?
+
+  // Lista de verificação — kit de sobrevivência (quantidade / substituído / validade cada)
+  // validade é texto livre (digitável), não data — costuma vir aproximada ("05/2027", "indeterminado")
+  foguetesQtd         Int?
+  foguetesSubstituido Boolean @default(false)
+  foguetesValidade    String?
+
+  fachosQtd         Int?
+  fachosSubstituido Boolean @default(false)
+  fachosValidade    String?
+
+  fumigenoQtd         Int?
+  fumigenoSubstituido Boolean @default(false)
+  fumigenoValidade    String?
+
+  pilhasQtd         Int?
+  pilhasSubstituido Boolean @default(false)
+  pilhasValidade    String?
+
+  racoesSolidasQtd         Int?
+  racoesSolidasPesoGramas  Float?
+  racoesSolidasSubstituido Boolean @default(false)
+  racoesSolidasValidade    String?
+
+  racoesLiquidasQtd         Int?
+  racoesLiquidasVolumeMl    Float?
+  racoesLiquidasSubstituido Boolean @default(false)
+  racoesLiquidasValidade    String?
+
+  medicamentosQtd         Int?
+  medicamentosSubstituido Boolean @default(false)
+  medicamentosValidade    String?
+
+  pescaQtd         Int?
+  pescaSubstituido Boolean @default(false)
+  pescaValidade    String?
+
+  reparosQtd         Int?
+  reparosSubstituido Boolean @default(false)
+  reparosValidade    String?
+
+  enjooQtd         Int?
+  enjooSubstituido Boolean @default(false)
+  enjooValidade    String?
+
+  bateriaResgateQtd         Int?
+  bateriaResgateSubstituido Boolean @default(false)
+  bateriaResgateValidade    String?
+
+  // Checklist de componentes (verificado sim/não)
+  ancoraFlutuante    Boolean @default(false)
+  remos              Boolean @default(false)
+  quadroSinais       Boolean @default(false)
+  facaCaboFlutuante  Boolean @default(false)
+  espelhoSinalizacao Boolean @default(false)
+  copoGraduado       Boolean @default(false)
+  aroFlutuante       Boolean @default(false)
+  jarrosAgua         Boolean @default(false)
+  documentacao       Boolean @default(false)
+  lanternaEstanque   Boolean @default(false)
+  apito              Boolean @default(false)
+  protecaoTermica    Boolean @default(false)
+  esponja            Boolean @default(false)
+  refletorRadar      Boolean @default(false)
+  abridorLatas       Boolean @default(false)
+  foleManual         Boolean @default(false)
+
+  // Teste de flutuadores (resumo)
+  napRealizado Boolean @default(false)
+  napValor     Float?
+  wpRealizado  Boolean @default(false)
+  wpValor      Float?
+  giRealizado  Boolean @default(false)
+  giValor      Float?
+  fsRealizado  Boolean @default(false)
+  fsValor      Float?
+  olRealizado  Boolean @default(false)
+  olValor      Float?
+  temperatura  String?
+
+  revisaoAnualOk Boolean?
+  observacoes    String?
+  status         String   @default("preenchendo")
+
+  criadoEm     DateTime @default(now())
+  atualizadoEm DateTime @updatedAt
+
+  cilindros   CilindroRelatorio[]
+  testeImo    TesteImo?
+  assinaturas Assinatura[]
+}
+
+model CilindroRelatorio {
+  id          Int       @id @default(autoincrement())
+  relatorio   Relatorio @relation(fields: [relatorioId], references: [id])
+  relatorioId Int
+
+  numero                      String?
+  valvulaNumero               String?
+  teste                       String?
+  cargaCO2                    Float?
+  cargaN2                     Float?
+  fabricante                  String?
+  anoFabricacao               String?
+  validadeHidrostatica        String?
+  caboInternoMetros           Float?
+  caboExternoMetros           Float?
+  alturaMaximaEstocagemMetros Float?
+  classe                      String?
+}
+
+// Testes formais de acordo com a Resolução IMO A.761(18) — versão detalhada dos
+// mesmos 5 testes já resumidos em Relatorio (nap/wp/gi/fs/ol).
+model TesteImo {
+  id          Int       @id @default(autoincrement())
+  relatorio   Relatorio @relation(fields: [relatorioId], references: [id])
+  relatorioId Int       @unique
+
+  wpRealizado Boolean?
+  wpAnual     Boolean?
+
+  wpSupInicioTemp     String?
+  wpSupInicioPressao  Float?
+  wpSupTerminoTemp    String?
+  wpSupTerminoPressao Float?
+  wpSupDiff           Float?
+  wpSupDiffPct        Float?
+
+  wpInfInicioTemp     String?
+  wpInfInicioPressao  Float?
+  wpInfTerminoTemp    String?
+  wpInfTerminoPressao Float?
+  wpInfDiff           Float?
+  wpInfDiffPct        Float?
+
+  giRealizado          Boolean?
+  giPressaoMaxSuperior Float?
+  giPressaoMaxInferior Float?
+  giTuboSuperiorOk     Boolean?
+  giTuboInferiorOk     Boolean?
+
+  napRealizado Boolean?
+
+  napSupInicio  Float?
+  napSupTermino Float?
+  napSupDiff    Float?
+  napSupDiffPct Float?
+
+  napInfInicio  Float?
+  napInfTermino Float?
+  napInfDiff    Float?
+  napInfDiffPct Float?
+
+  napRachaduras      Boolean?
+  napAberturaCostura Boolean?
+
+  fsRealizado   Boolean?
+  fsResultadoOk Boolean?
+  fsObservacoes String?
+
+  olRealizado   Boolean?
+  olPessoasNr   Int?
+  olPesoPessoas Float?
+  olPesoBalsa   Float?
+  olPesoTotal   Float?
+  olObservacoes String?
+
+  tecnicoNome       String?
+  controladoPorNome String?
+
+  criadoEm     DateTime @default(now())
+  atualizadoEm DateTime @updatedAt
 }

@@ -6,6 +6,9 @@ import { inicializarContasReceber, renderizarDashboardInicio } from './modules/p
 import { inicializarFornecedores } from './modules/fornecedores.js'
 import { inicializarSolicitacoes } from './modules/solicitacoes.js'
 import { inicializarAlmoxarifado } from './modules/almoxarifado.js'
+import { inicializarEmbarcacoes } from './modules/embarcacoes.js'
+import { inicializarRelatorios } from './modules/relatorios.js'
+import { inicializarOrdensServico } from './modules/ordens-servico.js'
 
 
 let favoritos = JSON.parse(localStorage.getItem('favoritos')) || [];
@@ -105,6 +108,18 @@ window.abrirPagina = function (event, id) {
 
     if (id === 'almoxarifado') {
         inicializarAlmoxarifado()
+    }
+
+    if (id === 'embarcacoes') {
+        inicializarEmbarcacoes()
+    }
+
+    if (id === 'relatorios') {
+        inicializarRelatorios()
+    }
+
+    if (id === 'os') {
+        inicializarOrdensServico()
     }
 }
 
