@@ -4,6 +4,7 @@ import fs from 'fs'
 import path from 'path'
 import { prisma } from '../server.js'
 import { autenticar, exigirPerfil } from '../middleware/auth.js'
+import { desenharPaginaRelatorio, INCLUDE_PDF_RELATORIO } from './relatorios.js'
 
 const router = Router()
 
@@ -185,7 +186,11 @@ function valoresCertificado(c) {
 router.get('/:id/pdf', autenticar, async (req, res) => {
   const certificado = await prisma.certificado.findUnique({
     where: { id: Number(req.params.id) },
-    include: INCLUDE_PADRAO
+    include: {
+      embarcacao: { include: { armador: true } },
+      empresa: true,
+      relatorio: { include: INCLUDE_PDF_RELATORIO },
+    }
   })
   if (!certificado) return res.status(404).json({ erro: 'Certificado não encontrado' })
 
@@ -242,6 +247,12 @@ router.get('/:id/pdf', autenticar, async (req, res) => {
         height: alturaPt,
       })
     }
+  }
+
+  // Segunda página — Relatório (Lista de Verificação e Reparos), igual ao .docm
+  // original, que tem Certificado + Relatório no mesmo documento de 2 páginas.
+  if (certificado.relatorio) {
+    await desenharPaginaRelatorio(pdfDoc, certificado.relatorio)
   }
 
   const pdfBytes = await pdfDoc.save()

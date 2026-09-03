@@ -43,6 +43,16 @@ async function apiJson(url, options = {}) {
 // ORDENS DE SERVIÇO (Serviços → Ordens de serviço) — precede o Relatório
 // ══════════════════════════════════════════════════════════════════════════
 
+const STATUS_LABEL = {
+  aberta: { texto: 'Aberta', cor: '#6c757d' },
+  concluida: { texto: 'Concluída', cor: '#198754' },
+}
+
+function badgeStatus(status) {
+  const s = STATUS_LABEL[status] || { texto: status, cor: '#6c757d' }
+  return `<span style="background:${s.cor}; color:white; padding:2px 8px; border-radius:12px; font-size:12px;">${s.texto}</span>`
+}
+
 export function inicializarOrdensServico() {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'))
   document.getElementById('os').classList.add('active')
@@ -87,7 +97,7 @@ async function carregarOrdensServico() {
         <td>${os.embarcacao?.nome || '-'}</td>
         <td>${os.cliente?.nome || '-'}</td>
         <td>${new Date(os.dataEmissao).toLocaleDateString('pt-BR')}</td>
-        <td>${os.status === 'concluida' ? '✅ Concluída' : '📋 Aberta'}</td>
+        <td>${badgeStatus(os.status)}</td>
         <td>
           <button class="btn btn-sm btn-info" onclick="editarOS(${os.id})">${os.status === 'aberta' ? 'Editar' : 'Ver'}</button>
           ${!os.relatorio ? `<button class="btn btn-sm btn-warning" onclick="gerarRelatorioDeOS(${os.id})">Gerar Relatório</button>` : `<button class="btn btn-sm btn-secondary" onclick="editarRelatorio(${os.relatorio.id})">Ver Relatório</button>`}
@@ -124,11 +134,17 @@ function renderFormularioOS(os, empresas) {
   ).join('')
 
   return `
-    <div style="margin-top:20px;">
-      <button class="btn btn-secondary" onclick="inicializarOrdensServico()">← Voltar</button>
-      <h3 style="margin:20px 0;">${os ? `Ordem de Serviço ${os.numero}/${os.ano}` : 'Nova Ordem de Serviço'} ${somenteLeitura ? '<span style="color:#198754;">✓ Concluída</span>' : ''}</h3>
+    <div style="margin-top:20px; max-width:900px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+        <button class="btn btn-secondary" onclick="inicializarOrdensServico()">← Voltar</button>
+      </div>
 
-      <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+      <div style="display:flex; align-items:center; gap:12px; margin-bottom:20px;">
+        <h3 style="margin:0;">${os ? `Ordem de Serviço ${os.numero}/${os.ano}` : 'Nova Ordem de Serviço'}</h3>
+        ${os ? badgeStatus(os.status) : ''}
+      </div>
+
+      <div style="background:white; border-radius:6px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06); margin-bottom:16px; display:grid; grid-template-columns:1fr 1fr; gap:16px;">
         <div><label>Empresa executante *</label><select id="os-empresaId" class="form-control" ${dis}>${opcoesEmpresas}</select></div>
         <div><label>Aos cuidados de</label><input type="text" id="os-aosCuidadosDe" class="form-control" value="${os?.aosCuidadosDe || ''}" ${dis}></div>
 
@@ -158,26 +174,30 @@ function renderFormularioOS(os, empresas) {
         <div><label>Previsão de Entrega</label><input type="date" id="os-previsaoEntrega" class="form-control" value="${os?.previsaoEntrega ? os.previsaoEntrega.split('T')[0] : ''}" ${dis}></div>
       </div>
 
-      <h5 style="margin:24px 0 10px;">Equipamento Recebido</h5>
-      <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
-        <div style="grid-column: span 2;"><label>Equipamento</label><input type="text" id="os-equipamentoRecebido" class="form-control" placeholder="Ex: Balsa de resgate inflável salva vidas" value="${os?.equipamentoRecebido || ''}" ${dis}></div>
-        <div><label>Nº de Série</label><input type="text" id="os-equipNumeroSerie" class="form-control" value="${os?.equipNumeroSerie || ''}" ${dis}></div>
-        <div><label>Marca</label><input type="text" id="os-equipMarca" class="form-control" value="${os?.equipMarca || ''}" ${dis}></div>
-        <div><label>Modelo</label><input type="text" id="os-equipModelo" class="form-control" value="${os?.equipModelo || ''}" ${dis}></div>
-        <div><label>Vencimento da Certificação</label><input type="text" id="os-vencimentoCertificacao" class="form-control" placeholder="Ex: 05/2027" value="${os?.vencimentoCertificacao || ''}" ${dis}></div>
+      <div style="background:white; border-radius:6px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06); margin-bottom:16px;">
+        <div style="font-weight:700; color:#158815; margin-bottom:10px;">Equipamento Recebido</div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+          <div style="grid-column: span 2;"><label>Equipamento</label><input type="text" id="os-equipamentoRecebido" class="form-control" placeholder="Ex: Balsa de resgate inflável salva vidas" value="${os?.equipamentoRecebido || ''}" ${dis}></div>
+          <div><label>Nº de Série</label><input type="text" id="os-equipNumeroSerie" class="form-control" value="${os?.equipNumeroSerie || ''}" ${dis}></div>
+          <div><label>Marca</label><input type="text" id="os-equipMarca" class="form-control" value="${os?.equipMarca || ''}" ${dis}></div>
+          <div><label>Modelo</label><input type="text" id="os-equipModelo" class="form-control" value="${os?.equipModelo || ''}" ${dis}></div>
+          <div><label>Vencimento da Certificação</label><input type="text" id="os-vencimentoCertificacao" class="form-control" placeholder="Ex: 05/2027" value="${os?.vencimentoCertificacao || ''}" ${dis}></div>
+        </div>
       </div>
 
-      <div style="margin-top:16px;">
-        <label>Problema ou defeito apresentado</label>
-        <textarea id="os-problemaApresentado" class="form-control" rows="2" ${dis}>${os?.problemaApresentado || ''}</textarea>
-      </div>
-      <div style="margin-top:16px;">
-        <label>Serviço que será prestado</label>
-        <textarea id="os-servicoApresentado" class="form-control" rows="2" ${dis}>${os?.servicoApresentado || ''}</textarea>
-      </div>
-      <div style="margin-top:16px;">
-        <label>Observações</label>
-        <textarea id="os-observacoes" class="form-control" rows="3" ${dis}>${os?.observacoes || ''}</textarea>
+      <div style="background:white; border-radius:6px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06); margin-bottom:16px;">
+        <div style="margin-bottom:16px;">
+          <label>Problema ou defeito apresentado</label>
+          <textarea id="os-problemaApresentado" class="form-control" rows="2" ${dis}>${os?.problemaApresentado || ''}</textarea>
+        </div>
+        <div style="margin-bottom:16px;">
+          <label>Serviço que será prestado</label>
+          <textarea id="os-servicoApresentado" class="form-control" rows="2" ${dis}>${os?.servicoApresentado || ''}</textarea>
+        </div>
+        <div>
+          <label>Observações</label>
+          <textarea id="os-observacoes" class="form-control" rows="3" ${dis}>${os?.observacoes || ''}</textarea>
+        </div>
       </div>
 
       ${somenteLeitura ? '' : `

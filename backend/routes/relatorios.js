@@ -278,20 +278,11 @@ function juntarCilindros(cilindros, campo, formatador = (v) => v ?? '') {
     .join(' / ')
 }
 
-router.get('/:id/pdf', autenticar, async (req, res) => {
-  const relatorio = await prisma.relatorio.findUnique({
-    where: { id: Number(req.params.id) },
-    include: {
-      embarcacao: { include: { armador: true } },
-      empresa: true,
-      criadoPor: true,
-      cilindros: true,
-      testeImo: true,
-    }
-  })
-  if (!relatorio) return res.status(404).json({ erro: 'Relatório não encontrado' })
-
-  const pdfDoc = await PDFDocument.create()
+// Desenha a página do Relatório (Lista de Verificação e Reparos) dentro de um
+// PDFDocument já existente — usada tanto pela rota de PDF do Relatório quanto
+// pela do Certificado, que junta as duas páginas num só arquivo (igual ao .docm
+// original, que tem Certificado + Relatório no mesmo documento).
+export async function desenharPaginaRelatorio(pdfDoc, relatorio) {
   const page = pdfDoc.addPage([595.28, 841.89])
   const alturaPagina = page.getHeight()
 
@@ -361,6 +352,27 @@ router.get('/:id/pdf', autenticar, async (req, res) => {
   texto(new Date(relatorio.data).toLocaleDateString('pt-BR', { timeZone: 'UTC' }), DATA_ATENDIMENTO_POS.x, DATA_ATENDIMENTO_POS.y)
   texto(relatorio.criadoPor?.nome, TECNICO_NOME_POS.x, TECNICO_NOME_POS.y)
 
+  return page
+}
+
+const INCLUDE_PDF_RELATORIO = {
+  embarcacao: { include: { armador: true } },
+  empresa: true,
+  criadoPor: true,
+  cilindros: true,
+  testeImo: true,
+}
+
+router.get('/:id/pdf', autenticar, async (req, res) => {
+  const relatorio = await prisma.relatorio.findUnique({
+    where: { id: Number(req.params.id) },
+    include: INCLUDE_PDF_RELATORIO
+  })
+  if (!relatorio) return res.status(404).json({ erro: 'Relatório não encontrado' })
+
+  const pdfDoc = await PDFDocument.create()
+  await desenharPaginaRelatorio(pdfDoc, relatorio)
+
   const pdfBytes = await pdfDoc.save()
   const nomeArquivo = `Relatorio ${relatorio.numero}.${relatorio.ano}.pdf`
 
@@ -369,4 +381,5 @@ router.get('/:id/pdf', autenticar, async (req, res) => {
   res.send(Buffer.from(pdfBytes))
 })
 
+export { INCLUDE_PDF_RELATORIO }
 export default router
