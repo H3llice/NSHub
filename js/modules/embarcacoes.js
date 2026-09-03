@@ -263,3 +263,6 @@ window.atualizarEmbarcacao = async function (id) {
     alert('Erro: ' + (err.erro || 'Falha ao atualizar'))
   }
 }
+
+// Exposta em window para funcionar em onclick inline (ex: botão "← Voltar")
+window.inicializarEmbarcacoes = inicializarEmbarcacoes

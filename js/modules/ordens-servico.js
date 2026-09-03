@@ -139,17 +139,20 @@ function renderFormularioOS(os, empresas) {
           <div id="sugestoes-embarcacao-os" style="position:absolute; background:white; border:1px solid #ccc; border-radius:4px; width:100%; z-index:999; display:none; top:100%;"></div>
           <input type="hidden" id="os-embarcacaoId" value="${os?.embarcacaoId || ''}">
         </div>
-        <div><label>Porto de Registro</label><input type="text" id="os-embarcacao-porto" class="form-control" value="${os?.embarcacao?.portoRegistro || ''}" disabled></div>
+        <div><label>Porto de Registro</label><input type="text" id="os-embarcacao-porto" class="form-control" value="${os?.embarcacao?.portoRegistro || ''}" ${dis}></div>
         <div></div>
 
         <div style="position:relative;">
-          <label>Cliente * <small style="color:#999;">(normalmente o armador — mas pode divergir, ex: agente local)</small></label>
+          <label>Cliente *</label>
           <input type="text" id="os-cliente-busca" class="form-control" placeholder="Digite nome ou CPF/CNPJ..."
             value="${os?.cliente?.nome || ''}" oninput="buscarClienteOS(this.value)" autocomplete="off" ${dis}>
           <div id="sugestoes-cliente-os" style="position:absolute; background:white; border:1px solid #ccc; border-radius:4px; width:100%; z-index:999; display:none; top:100%;"></div>
           <input type="hidden" id="os-clienteId" value="${os?.clienteId || ''}">
         </div>
-        <div></div>
+        <div>
+          <label>CPF/CNPJ do cliente <small style="color:#999;">(só p/ cadastrar cliente novo)</small></label>
+          <input type="text" id="os-cliente-cpfCnpj" class="form-control" placeholder="Somente números" value="${os?.cliente?.cpfCnpj || ''}" ${dis}>
+        </div>
 
         <div><label>Data de Início</label><input type="date" id="os-dataInicio" class="form-control" value="${os?.dataInicio ? os.dataInicio.split('T')[0] : ''}" ${dis}></div>
         <div><label>Previsão de Entrega</label><input type="date" id="os-previsaoEntrega" class="form-control" value="${os?.previsaoEntrega ? os.previsaoEntrega.split('T')[0] : ''}" ${dis}></div>
@@ -201,7 +204,7 @@ window.buscarEmbarcacaoOS = async function (q) {
   const results = await apiFetch(`${API}/embarcacoes/buscar?q=${encodeURIComponent(q)}`).then(r => r.json())
 
   if (results.length === 0) {
-    div.innerHTML = `<div style="padding:8px 12px; color:#999;">Nenhuma embarcação encontrada — cadastre em Cadastros → Embarcações primeiro</div>`
+    div.innerHTML = `<div style="padding:8px 12px; color:#999;">Nenhuma embarcação encontrada — será cadastrada automaticamente ao salvar a OS</div>`
     div.style.display = 'block'
     return
   }
@@ -227,6 +230,7 @@ window.selecionarEmbarcacaoOS = function (e) {
   if (e.armador) {
     document.getElementById('os-cliente-busca').value = e.armador.nome
     document.getElementById('os-clienteId').value = e.armador.id
+    document.getElementById('os-cliente-cpfCnpj').value = e.armador.cpfCnpj || ''
   }
 
   document.getElementById('sugestoes-embarcacao-os').style.display = 'none'
@@ -257,7 +261,7 @@ window.buscarClienteOS = async function (q) {
   const results = await apiFetch(`${API}/clientes/buscar?q=${encodeURIComponent(q)}`).then(r => r.json())
 
   if (results.length === 0) {
-    div.innerHTML = `<div style="padding:8px 12px; color:#999;">Nenhum cliente encontrado — cadastre em Cadastros → Clientes primeiro</div>`
+    div.innerHTML = `<div style="padding:8px 12px; color:#999;">Nenhum cliente encontrado — será cadastrado automaticamente ao salvar a OS (informe o CPF/CNPJ ao lado)</div>`
     div.style.display = 'block'
     return
   }
@@ -277,7 +281,74 @@ window.buscarClienteOS = async function (q) {
 window.selecionarClienteOS = function (c) {
   document.getElementById('os-cliente-busca').value = c.nome
   document.getElementById('os-clienteId').value = c.id
+  document.getElementById('os-cliente-cpfCnpj').value = c.cpfCnpj || ''
   document.getElementById('sugestoes-cliente-os').style.display = 'none'
+}
+
+// ─── Garante cliente/embarcação antes de salvar a OS ───────────────────────────
+// Mesmo padrão do fornecedor na OC: se o campo de busca não resultou numa seleção
+// (id vazio), cadastra na hora com o que foi digitado, em vez de bloquear o salvar.
+// Cliente primeiro — embarcação exige um armador (Cliente) já existente.
+async function garantirClienteEEmbarcacaoOS() {
+  let clienteId = document.getElementById('os-clienteId').value
+  const clienteNome = document.getElementById('os-cliente-busca').value.trim()
+
+  if (!clienteId) {
+    if (!clienteNome) {
+      alert('Informe o cliente')
+      return null
+    }
+
+    const cpfCnpj = document.getElementById('os-cliente-cpfCnpj').value.replace(/\D/g, '')
+    if (cpfCnpj.length !== 11 && cpfCnpj.length !== 14) {
+      alert(`Cliente "${clienteNome}" não encontrado — informe o CPF (11 dígitos) ou CNPJ (14 dígitos) dele no campo "CPF/CNPJ do cliente" para cadastrá-lo automaticamente ao salvar`)
+      return null
+    }
+    const tipoPessoa = cpfCnpj.length === 11 ? 'fisica' : 'juridica'
+
+    const res = await apiJson(`${API}/clientes`, {
+      method: 'POST',
+      body: JSON.stringify({ tipoPessoa, cpfCnpj, nome: clienteNome })
+    })
+    const data = await res.json()
+
+    if (res.ok) {
+      clienteId = data.id
+    } else if (data.cliente) {
+      // Já existe cliente com esse CPF/CNPJ — aproveita em vez de travar o usuário
+      clienteId = data.cliente.id
+    } else {
+      alert('Erro ao cadastrar cliente: ' + (data.erro || 'falha'))
+      return null
+    }
+    document.getElementById('os-clienteId').value = clienteId
+  }
+
+  let embarcacaoId = document.getElementById('os-embarcacaoId').value
+  const embarcacaoNome = document.getElementById('os-embarcacao-busca').value.trim()
+
+  if (!embarcacaoId) {
+    if (!embarcacaoNome) {
+      alert('Informe a embarcação')
+      return null
+    }
+
+    const portoRegistro = document.getElementById('os-embarcacao-porto').value.trim()
+    const res = await apiJson(`${API}/embarcacoes`, {
+      method: 'POST',
+      body: JSON.stringify({ nome: embarcacaoNome, armadorId: clienteId, portoRegistro })
+    })
+    const data = await res.json()
+
+    if (!res.ok) {
+      alert('Erro ao cadastrar embarcação: ' + (data.erro || 'falha'))
+      return null
+    }
+    embarcacaoId = data.id
+    document.getElementById('os-embarcacaoId').value = embarcacaoId
+  }
+
+  return { clienteId, embarcacaoId }
 }
 
 // ─── Leitura do formulário / salvar ─────────────────────────────────────────────
@@ -302,11 +373,15 @@ function lerFormularioOS() {
 }
 
 window.salvarOS = async function () {
-  const body = lerFormularioOS()
-  if (!body.empresaId || !body.embarcacaoId || !body.clienteId) {
-    alert('Empresa, Embarcação e Cliente são obrigatórios! Selecione a embarcação e o cliente nas listas de sugestões.')
+  if (!document.getElementById('os-empresaId').value) {
+    alert('Empresa executante é obrigatória!')
     return
   }
+
+  const ids = await garantirClienteEEmbarcacaoOS()
+  if (!ids) return
+
+  const body = { ...lerFormularioOS(), clienteId: ids.clienteId, embarcacaoId: ids.embarcacaoId }
 
   const res = await apiJson(`${API}/ordens-servico`, { method: 'POST', body: JSON.stringify(body) })
   if (res.ok) {
@@ -320,11 +395,15 @@ window.salvarOS = async function () {
 }
 
 window.atualizarOS = async function (id) {
-  const body = lerFormularioOS()
-  if (!body.empresaId || !body.embarcacaoId || !body.clienteId) {
-    alert('Empresa, Embarcação e Cliente são obrigatórios! Selecione a embarcação e o cliente nas listas de sugestões.')
+  if (!document.getElementById('os-empresaId').value) {
+    alert('Empresa executante é obrigatória!')
     return
   }
+
+  const ids = await garantirClienteEEmbarcacaoOS()
+  if (!ids) return
+
+  const body = { ...lerFormularioOS(), clienteId: ids.clienteId, embarcacaoId: ids.embarcacaoId }
 
   const res = await apiJson(`${API}/ordens-servico/${id}`, { method: 'PUT', body: JSON.stringify(body) })
   if (res.ok) {
@@ -353,3 +432,6 @@ window.concluirOS = async function (id) {
     alert('Erro: ' + (err.erro || 'Falha ao concluir'))
   }
 }
+
+// Exposta em window para funcionar em onclick inline (ex: botão "← Voltar")
+window.inicializarOrdensServico = inicializarOrdensServico
