@@ -54,6 +54,83 @@ router.get('/', autenticar, async (req, res) => {
   })
 })
 
+// ─── Dashboard de OCs (pendentes de aprovação + contas a pagar) ───────────────
+router.get('/dashboard', autenticar, async (req, res) => {
+  const [pendentesAprovacao, aPagar, pagas30dias] = await Promise.all([
+    prisma.ordemCompra.count({
+      where: { status: { in: ['aguardando_aprovacao', 'aguardando_autorizacao'] } }
+    }),
+    prisma.ordemCompra.findMany({
+      where: { status: 'aprovada', pago: false },
+      include: { fornecedor: true, empresa: true },
+      orderBy: { dataPedido: 'asc' }
+    }),
+    prisma.ordemCompra.findMany({
+      where: {
+        status: 'aprovada',
+        pago: true,
+        dataPagamento: { gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) }
+      }
+    })
+  ])
+
+  const totalAPagar = aPagar.reduce((acc, oc) => acc + (oc.valorTotal || 0), 0)
+  const totalPago30dias = pagas30dias.reduce((acc, oc) => acc + (oc.valorTotal || 0), 0)
+
+  res.json({
+    qtdPendentesAprovacao: pendentesAprovacao,
+    qtdContasAPagar: aPagar.length,
+    totalAPagar,
+    totalPago30dias,
+    contasAPagar: aPagar.slice(0, 10)
+  })
+})
+
+// ─── Contas a pagar (OCs aprovadas) ───────────────────────────────────────────
+router.get('/contas-a-pagar', autenticar, async (req, res) => {
+  const ocs = await prisma.ordemCompra.findMany({
+    where: { status: 'aprovada' },
+    include: { fornecedor: true, empresa: true },
+    orderBy: [{ pago: 'asc' }, { dataPedido: 'asc' }]
+  })
+  res.json(ocs)
+})
+
+// ─── Marcar OC como paga (só admin e financeiro) ──────────────────────────────
+router.post('/:id/marcar-pago', autenticar, exigirPerfil('admin', 'financeiro'), async (req, res) => {
+  const id = Number(req.params.id)
+  const { dataPagamento } = req.body
+
+  const oc = await prisma.ordemCompra.findUnique({ where: { id } })
+  if (!oc) return res.status(404).json({ erro: 'OC não encontrada' })
+  if (oc.status !== 'aprovada') {
+    return res.status(400).json({ erro: 'Só OCs aprovadas podem ser marcadas como pagas' })
+  }
+
+  const atualizada = await prisma.ordemCompra.update({
+    where: { id },
+    data: {
+      pago: true,
+      dataPagamento: dataPagamento ? new Date(dataPagamento).toISOString() : new Date().toISOString()
+    }
+  })
+  res.json(atualizada)
+})
+
+// ─── Reverter pagamento de OC (só admin e financeiro) ─────────────────────────
+router.post('/:id/reverter-pagamento', autenticar, exigirPerfil('admin', 'financeiro'), async (req, res) => {
+  const id = Number(req.params.id)
+
+  const oc = await prisma.ordemCompra.findUnique({ where: { id } })
+  if (!oc) return res.status(404).json({ erro: 'OC não encontrada' })
+
+  const atualizada = await prisma.ordemCompra.update({
+    where: { id },
+    data: { pago: false, dataPagamento: null }
+  })
+  res.json(atualizada)
+})
+
 // ─── Buscar uma OC pelo ID ────────────────────────────────────────────────────
 router.get('/:id', autenticar, async (req, res) => {
   const oc = await prisma.ordemCompra.findUnique({

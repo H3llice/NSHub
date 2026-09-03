@@ -134,6 +134,8 @@ model OrdemCompra {
   atualizadoEm    DateTime   @updatedAt
   canceladoEm     DateTime?
   valorTotal      Float?
+  pago            Boolean    @default(false)
+  dataPagamento   DateTime?
 
   geradaDeSolicitacaoId Int?               @unique
   geradaDeSolicitacao   SolicitacaoCompra? @relation("OcGerada", fields: [geradaDeSolicitacaoId], references: [id])

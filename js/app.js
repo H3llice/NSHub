@@ -1,4 +1,4 @@
-import { inicializarOCs } from './modules/ocs.js'
+import { inicializarOCs, renderizarDashboardOCs, inicializarContasAPagar } from './modules/ocs.js'
 import { inicializarEstoque, renderizarDashboardEstoque } from './modules/estoque.js'
 import { inicializarClientes, inicializarContratos, renderizarDashboardContratos } from './modules/contratos.js'
 import { inicializarVendas } from './modules/vendas.js'
@@ -96,6 +96,10 @@ window.abrirPagina = function (event, id) {
 
     if (id === 'contasReceber') {
         inicializarContasReceber()
+    }
+
+    if (id === 'contasPagar') {
+        inicializarContasAPagar()
     }
 
     if (id === 'fornecedores') {
@@ -214,6 +218,7 @@ window.addEventListener('load', () => {
     renderizarDashboardInicio();
     renderizarDashboardContratos();
     renderizarDashboardEstoque();
+    renderizarDashboardOCs();
 
     // ── Abre OC direto se vier do link do email ──────────────
     const hash = window.location.hash // ex: #oc-42

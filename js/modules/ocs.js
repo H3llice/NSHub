@@ -1286,3 +1286,242 @@ window.restaurarOC = async function (id) {
   const res = await apiFetch(`${API}/ocs/${id}/restaurar`, { method: 'POST' })
   if (res.ok) { inicializarOCs() } else { alert('Erro ao restaurar OC') }
 }
+
+// ══════════════════════════════════════════════════════════════════════════
+// DASHBOARD DE OCs — Tela Início
+// ══════════════════════════════════════════════════════════════════════════
+
+function formatarMoeda(v) {
+  return (v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+}
+
+export async function renderizarDashboardOCs() {
+  const container = document.getElementById('inicio')
+  if (!container) return
+
+  let painel = document.getElementById('painel-ocs-inicio')
+  if (!painel) {
+    painel = document.createElement('div')
+    painel.id = 'painel-ocs-inicio'
+    painel.style = 'margin-top:20px;'
+    container.appendChild(painel)
+  }
+
+  painel.innerHTML = `<div style="color:#999; padding:12px;">Carregando resumo de compras...</div>`
+
+  try {
+    const d = await apiFetch(`${API}/ocs/dashboard`).then(r => r.json())
+
+    painel.innerHTML = `
+      <h5 style="margin-bottom:12px;">Ordens de Compra</h5>
+      <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:16px; margin-bottom:20px;">
+        <div style="background:white; border-radius:6px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06);">
+          <div style="color:#999; font-size:12px;">OCs Pendentes de Aprovação</div>
+          <div style="font-size:20px; font-weight:700; color:#fd7e14;">${d.qtdPendentesAprovacao}</div>
+        </div>
+        <div style="background:white; border-radius:6px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06); cursor:pointer;" onclick="abrirPagina(event, 'contasPagar')">
+          <div style="color:#999; font-size:12px;">Contas a Pagar</div>
+          <div style="font-size:20px; font-weight:700; color:#dc3545;">${d.qtdContasAPagar} (${formatarMoeda(d.totalAPagar)})</div>
+        </div>
+        <div style="background:white; border-radius:6px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06);">
+          <div style="color:#999; font-size:12px;">Pago (últimos 30 dias)</div>
+          <div style="font-size:20px; font-weight:700; color:#0d6efd;">${formatarMoeda(d.totalPago30dias)}</div>
+        </div>
+      </div>
+
+      ${d.contasAPagar?.length > 0 ? `
+        <div style="background:white; border-radius:6px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06);">
+          <div style="font-weight:700; color:#dc3545; margin-bottom:10px;">Próximas Contas a Pagar</div>
+          <ul style="list-style:none; padding:0; margin:0;">
+            ${d.contasAPagar.map(oc => `
+              <li style="padding:6px 0; border-bottom:1px solid #eee; font-size:13px; display:flex; justify-content:space-between;">
+                <span>OC ${oc.numero}.${oc.ano} — ${oc.fornecedor?.nome || '-'}</span>
+                <span>${formatarMoeda(oc.valorTotal)}</span>
+              </li>
+            `).join('')}
+          </ul>
+        </div>
+      ` : ''}
+    `
+  } catch {
+    painel.innerHTML = ''
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// TELA — CONTAS A PAGAR (Financeiro → Contas a Pagar)
+// ══════════════════════════════════════════════════════════════════════════
+
+const podeMarcarPagoOC = perfil === 'admin' || perfil === 'financeiro'
+
+function badgeStatusPagtoOC(pago) {
+  return pago
+    ? `<span style="background:#198754; color:white; padding:2px 8px; border-radius:12px; font-size:12px;">Pago</span>`
+    : `<span style="background:#fd7e14; color:white; padding:2px 8px; border-radius:12px; font-size:12px;">Pendente</span>`
+}
+
+export function inicializarContasAPagar() {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'))
+  document.getElementById('contasPagar').classList.add('active')
+
+  const container = document.getElementById('contasPagar')
+  container.innerHTML = `
+    <div class="tab">Contas a Pagar</div>
+
+    <div id="resumo-contas-pagar" style="display:grid; grid-template-columns:repeat(3, 1fr); gap:16px; margin: 16px 0;">
+      <div style="background:white; border-radius:6px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06);">
+        <div style="color:#999; font-size:12px;">Total a Pagar</div>
+        <div id="resumo-total-a-pagar" style="font-size:22px; font-weight:700; color:#dc3545;">-</div>
+      </div>
+      <div style="background:white; border-radius:6px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06);">
+        <div style="color:#999; font-size:12px;">OCs Pendentes de Pagamento</div>
+        <div id="resumo-qtd-a-pagar" style="font-size:22px; font-weight:700; color:#fd7e14;">-</div>
+      </div>
+      <div style="background:white; border-radius:6px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06);">
+        <div style="color:#999; font-size:12px;">Pago (últimos 30 dias)</div>
+        <div id="resumo-total-pago" style="font-size:22px; font-weight:700; color:#0d6efd;">-</div>
+      </div>
+    </div>
+
+    <!-- Filtros -->
+    <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 16px; align-items:end;">
+      <div>
+        <label style="font-size:12px;">Buscar (fornecedor, OC)</label>
+        <input type="text" id="filtro-busca-conta-pagar" class="form-control form-control-sm" oninput="filtrarContasAPagar()">
+      </div>
+      <div>
+        <label style="font-size:12px;">Status</label>
+        <select id="filtro-status-conta-pagar" class="form-control form-control-sm" onchange="filtrarContasAPagar()">
+          <option value="">Todos</option>
+          <option value="pendente">Pendente</option>
+          <option value="pago">Pago</option>
+        </select>
+      </div>
+      <div>
+        <label style="font-size:12px;">Empresa</label>
+        <input type="text" id="filtro-empresa-conta-pagar" class="form-control form-control-sm" oninput="filtrarContasAPagar()">
+      </div>
+    </div>
+
+    <table class="table-certificados">
+      <thead>
+        <tr>
+          <th>OC</th>
+          <th>Fornecedor</th>
+          <th>Empresa</th>
+          <th>Data do Pedido</th>
+          <th>Valor</th>
+          <th>Status</th>
+          ${podeMarcarPagoOC ? '<th>Ações</th>' : ''}
+        </tr>
+      </thead>
+      <tbody id="tabela-contas-pagar">
+        <tr><td colspan="7" style="text-align:center; color:#999; padding:30px;">Carregando...</td></tr>
+      </tbody>
+    </table>
+  `
+
+  carregarContasAPagar()
+}
+
+let contasAPagarCache = []
+
+window.carregarContasAPagar = async function () {
+  try {
+    contasAPagarCache = await apiFetch(`${API}/ocs/contas-a-pagar`).then(r => r.json())
+
+    const pendentes = contasAPagarCache.filter(oc => !oc.pago)
+    const totalAPagar = pendentes.reduce((acc, oc) => acc + (oc.valorTotal || 0), 0)
+    document.getElementById('resumo-total-a-pagar').textContent = formatarMoeda(totalAPagar)
+    document.getElementById('resumo-qtd-a-pagar').textContent = pendentes.length
+
+    const ha30dias = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+    const totalPago = contasAPagarCache
+      .filter(oc => oc.pago && oc.dataPagamento && new Date(oc.dataPagamento) >= ha30dias)
+      .reduce((acc, oc) => acc + (oc.valorTotal || 0), 0)
+    document.getElementById('resumo-total-pago').textContent = formatarMoeda(totalPago)
+
+    filtrarContasAPagar()
+  } catch {
+    document.getElementById('tabela-contas-pagar').innerHTML = `
+      <tr><td colspan="7" style="text-align:center; color:red; padding:30px;">Erro ao conectar com o servidor</td></tr>
+    `
+  }
+}
+
+window.filtrarContasAPagar = function () {
+  const busca = (document.getElementById('filtro-busca-conta-pagar')?.value || '').trim().toLowerCase()
+  const status = document.getElementById('filtro-status-conta-pagar')?.value || ''
+  const empresaBusca = (document.getElementById('filtro-empresa-conta-pagar')?.value || '').trim().toLowerCase()
+
+  let filtradas = [...contasAPagarCache]
+
+  if (status === 'pendente') filtradas = filtradas.filter(oc => !oc.pago)
+  if (status === 'pago') filtradas = filtradas.filter(oc => oc.pago)
+
+  if (busca) {
+    filtradas = filtradas.filter(oc => {
+      const fornecedor = (oc.fornecedor?.nome || '').toLowerCase()
+      const numero = `${oc.numero}.${oc.ano}`.toLowerCase()
+      return fornecedor.includes(busca) || numero.includes(busca)
+    })
+  }
+
+  if (empresaBusca) {
+    filtradas = filtradas.filter(oc => (oc.empresa?.nome || '').toLowerCase().includes(empresaBusca))
+  }
+
+  renderizarTabelaContasAPagar(filtradas)
+}
+
+function renderizarTabelaContasAPagar(ocs) {
+  const tabela = document.getElementById('tabela-contas-pagar')
+  const colspan = podeMarcarPagoOC ? 7 : 6
+
+  if (ocs.length === 0) {
+    tabela.innerHTML = `<tr><td colspan="${colspan}" style="text-align:center; color:#999; padding:30px;">Nenhuma conta a pagar encontrada</td></tr>`
+    return
+  }
+
+  tabela.innerHTML = ocs.map(oc => {
+    const dataPedido = new Date(oc.dataPedido).toLocaleDateString('pt-BR')
+    const acoes = oc.pago
+      ? `<button class="btn btn-sm btn-secondary" onclick="reverterPagamentoOC(${oc.id})">Reverter</button>`
+      : `<button class="btn btn-sm btn-success" onclick="marcarOCPaga(${oc.id})">Marcar Pago</button>`
+
+    return `
+      <tr>
+        <td>${oc.numero}.${oc.ano}</td>
+        <td>${oc.fornecedor?.nome || '-'}</td>
+        <td>${oc.empresa?.nome || '-'}</td>
+        <td>${dataPedido}</td>
+        <td>${formatarMoeda(oc.valorTotal)}</td>
+        <td>${badgeStatusPagtoOC(oc.pago)}</td>
+        ${podeMarcarPagoOC ? `<td>${acoes}</td>` : ''}
+      </tr>
+    `
+  }).join('')
+}
+
+window.marcarOCPaga = async function (id) {
+  if (!confirm('Confirmar que esta OC foi paga?')) return
+  const res = await apiJson(`${API}/ocs/${id}/marcar-pago`, { method: 'POST', body: JSON.stringify({}) })
+  if (res.ok) {
+    carregarContasAPagar()
+  } else {
+    alert('Erro ao marcar OC como paga')
+  }
+}
+
+window.reverterPagamentoOC = async function (id) {
+  if (!confirm('Reverter o pagamento desta OC?')) return
+  const res = await apiJson(`${API}/ocs/${id}/reverter-pagamento`, { method: 'POST', body: JSON.stringify({}) })
+  if (res.ok) {
+    carregarContasAPagar()
+  } else {
+    alert('Erro ao reverter pagamento')
+  }
+}
+
+// Exposta em window para funcionar em onclick inline / abrirPagina
+window.inicializarContasAPagar = inicializarContasAPagar
