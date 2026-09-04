@@ -687,11 +687,14 @@ model TesteImo {
 }
 
 // ─── Certificado (etapa final do fluxo: OS → Relatório → Certificado) ─────────
-// Gerado manualmente a partir de um Relatório concluído (botão "Gerar Certificado").
-// Nasce "pendente" e só vira "emitido" quando um gerente/admin revisa e emite
-// (define data de emissão e validade). Por enquanto só cobre balsa — os outros
-// tipos do formulário avulso antigo (baleeira/turco/colete) ainda não têm
-// OS/Relatório próprios.
+// Pode ser gerado a partir de um Relatório concluído (botão "Gerar Certificado")
+// OU criado avulso, sem Relatório/OS — necessário durante a transição pro
+// sistema novo (OS/Relatório ainda preenchidos no papel) e pra importar
+// certificados antigos que nunca tiveram esse rastro digital. Nasce "pendente"
+// e só vira "emitido" quando um gerente/admin revisa e emite (define data de
+// emissão e validade). Por enquanto só cobre balsa — os outros tipos do
+// formulário avulso antigo (baleeira/turco/colete) ainda não têm OS/Relatório
+// próprios.
 // status: pendente | emitido
 model Certificado {
   id           Int        @id @default(autoincrement())
@@ -701,17 +704,27 @@ model Certificado {
   empresaId    Int
   embarcacao   Embarcacao @relation(fields: [embarcacaoId], references: [id])
   embarcacaoId Int
-  relatorio    Relatorio  @relation(fields: [relatorioId], references: [id])
-  relatorioId  Int        @unique
+  relatorio    Relatorio? @relation(fields: [relatorioId], references: [id])
+  relatorioId  Int?       @unique
 
-  // Cópias editáveis (não vêm mais só da Embarcacao/Cliente) — armador/porto/
-  // telefone/email podem mudar de uma emissão pra outra (ex: armador trocou de
-  // número), então o certificado guarda seu próprio valor em vez de sempre
-  // herdar do cadastro. Preenchidos a partir da Embarcacao ao gerar o certificado.
+  // Cópias editáveis (não vêm mais só da Embarcacao/Cliente/Relatorio) —
+  // armador/porto/telefone/email podem mudar de uma emissão pra outra (ex:
+  // armador trocou de número), e os dados do equipamento precisam existir aqui
+  // porque um certificado avulso não tem Relatório nenhum de onde puxar.
+  // Preenchidos a partir da Embarcacao/Relatorio ao gerar o certificado, mas
+  // sempre editáveis depois.
   armador       String?
   portoRegistro String?
   telefone      String?
   email         String?
+
+  equipTipo          String?
+  equipNumeroSerie   String?
+  equipAnoFabricacao String?
+  equipFabricante    String?
+  equipModelo        String?
+  equipClasse        String?
+  equipCapacidade    Int?
 
   dataEmissao DateTime?
   validade    String?

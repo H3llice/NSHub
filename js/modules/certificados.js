@@ -81,6 +81,72 @@ window.gerarCertificadoDeRelatorio = async function (relatorioId) {
   }
 }
 
+// Certificado avulso — sem Ordem de Serviço/Relatório vinculado. Necessário
+// durante a transição pro sistema novo (OS/Relatório ainda preenchidos no
+// papel) e pra importar certificados antigos que nunca tiveram OS/Relatório
+// (usuário pediu essa exceção explicitamente). Só pede Empresa + Embarcação;
+// o resto (equipamento, emissão, validade) é preenchido na tela de edição
+// completa logo em seguida.
+window.abrirNovoCertificadoAvulso = async function () {
+  document.getElementById('tipo-certificado-dropdown')?.classList.remove('show')
+  const empresas = await apiFetch(`${API}/empresas`).then(r => r.json())
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'))
+  document.getElementById('relatorios').classList.add('active')
+  document.getElementById('relatorios').innerHTML = renderNovoCertificadoAvulso(empresas)
+}
+
+function renderNovoCertificadoAvulso(empresas) {
+  const opcoesEmpresas = empresas.map(e => `<option value="${e.id}">${e.nome} (${e.sigla})</option>`).join('')
+
+  return `
+    <div style="margin-top:20px; max-width:600px;">
+      <button class="btn btn-secondary" onclick="abrirPagina(event, 'certificados')">← Voltar</button>
+
+      <h3 style="margin-top:20px; margin-bottom:4px;">Novo Certificado de Balsa (avulso)</h3>
+      <p style="color:#999; font-size:13px; margin-bottom:20px;">Sem Ordem de Serviço/Relatório vinculado — use durante a transição pro sistema novo, ou pra importar certificados antigos. Equipamento, emissão e validade são preenchidos na próxima tela.</p>
+
+      <div style="background:white; border-radius:6px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06);">
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+          <div><label>Empresa executante *</label><select id="cert-empresaId" class="form-control">${opcoesEmpresas}</select></div>
+          <div style="position:relative;">
+            <label>Embarcação (navio) *</label>
+            <input type="text" id="cert-navio-busca" class="form-control" placeholder="Digite o nome do navio..." oninput="buscarEmbarcacaoCertificado(this.value)" autocomplete="off">
+            <div id="cert-sugestoes-embarcacao" style="position:absolute; background:white; border:1px solid #ccc; border-radius:4px; width:100%; z-index:999; display:none; top:100%;"></div>
+            <input type="hidden" id="cert-embarcacaoId">
+          </div>
+        </div>
+        <div style="margin-top:16px;">
+          <button type="button" class="btn btn-success" onclick="criarCertificadoAvulso()">Criar</button>
+        </div>
+      </div>
+    </div>
+  `
+}
+
+window.criarCertificadoAvulso = async function () {
+  const empresaId = document.getElementById('cert-empresaId').value
+  const embarcacaoId = document.getElementById('cert-embarcacaoId').value
+
+  if (!embarcacaoId) {
+    alert('Selecione uma embarcação na lista de sugestões.')
+    return
+  }
+
+  const res = await apiJson(`${API}/certificados`, {
+    method: 'POST',
+    body: JSON.stringify({ empresaId, embarcacaoId })
+  })
+
+  if (res.ok) {
+    const certificado = await res.json()
+    const empresas = await apiFetch(`${API}/empresas`).then(r => r.json())
+    exibirCertificado(certificado, empresas)
+  } else {
+    const err = await res.json()
+    alert('Erro ao criar certificado: ' + (err.erro || 'falha'))
+  }
+}
+
 // Usada pela aba "Certificados" (Serviços → Certificados, ver js/app.js) pra
 // listar junto com os certificados avulsos antigos (baleeira/turco/colete).
 export async function listarCertificadosBalsa() {
@@ -157,7 +223,7 @@ function renderCertificado(c, empresas) {
         <h3 style="margin:0;">Certificado ${c.numero}/${c.ano}</h3>
         ${badgeStatus(c.status)}
       </div>
-      <p style="color:#999; font-size:13px; margin-bottom:20px;">Gerado a partir do Relatório ${r ? `${r.numero}/${r.ano}` : '-'}</p>
+      <p style="color:#999; font-size:13px; margin-bottom:20px;">${r ? `Gerado a partir do Relatório ${r.numero}/${r.ano}` : 'Certificado avulso — sem Ordem de Serviço/Relatório vinculado'}</p>
 
       <div style="background:white; border-radius:6px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06); margin-bottom:16px;">
         <div style="font-weight:700; color:#158815; margin-bottom:10px;">Identificação</div>
@@ -180,17 +246,17 @@ function renderCertificado(c, empresas) {
       <div style="background:white; border-radius:6px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06); margin-bottom:16px;">
         <div style="font-weight:700; color:#158815; margin-bottom:10px;">Equipamento</div>
         <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:16px;">
-          <div><label>Tipo</label><input type="text" id="cert-equipTipo" class="form-control" value="${r?.equipTipo || ''}" ${dis}></div>
-          <div><label>Nº Série</label><input type="text" id="cert-equipNumeroSerie" class="form-control" value="${r?.equipNumeroSerie || ''}" ${dis}></div>
-          <div><label>Ano Fabricação</label><input type="text" id="cert-equipAnoFabricacao" class="form-control" placeholder="Ex: 01/2010" value="${r?.equipAnoFabricacao || ''}" ${dis}></div>
-          <div><label>Marca/Fabricante</label><input type="text" id="cert-equipFabricante" class="form-control" value="${r?.equipFabricante || ''}" ${dis}></div>
-          <div><label>Modelo</label><input type="text" id="cert-equipModelo" class="form-control" value="${r?.equipModelo || ''}" ${dis}></div>
-          <div><label>Classe</label><input type="text" id="cert-equipClasse" class="form-control" placeholder="Ex: Classe II Pack B" value="${r?.equipClasse || ''}" ${dis}></div>
-          <div><label>Capacidade (pessoas)</label><input type="number" id="cert-equipCapacidade" class="form-control" value="${r?.equipCapacidade ?? ''}" ${dis}></div>
+          <div><label>Tipo</label><input type="text" id="cert-equipTipo" class="form-control" value="${c.equipTipo || r?.equipTipo || ''}" ${dis}></div>
+          <div><label>Nº Série</label><input type="text" id="cert-equipNumeroSerie" class="form-control" value="${c.equipNumeroSerie || r?.equipNumeroSerie || ''}" ${dis}></div>
+          <div><label>Ano Fabricação</label><input type="text" id="cert-equipAnoFabricacao" class="form-control" placeholder="Ex: 01/2010" value="${c.equipAnoFabricacao || r?.equipAnoFabricacao || ''}" ${dis}></div>
+          <div><label>Marca/Fabricante</label><input type="text" id="cert-equipFabricante" class="form-control" value="${c.equipFabricante || r?.equipFabricante || ''}" ${dis}></div>
+          <div><label>Modelo</label><input type="text" id="cert-equipModelo" class="form-control" value="${c.equipModelo || r?.equipModelo || ''}" ${dis}></div>
+          <div><label>Classe</label><input type="text" id="cert-equipClasse" class="form-control" placeholder="Ex: Classe II Pack B" value="${c.equipClasse || r?.equipClasse || ''}" ${dis}></div>
+          <div><label>Capacidade (pessoas)</label><input type="number" id="cert-equipCapacidade" class="form-control" value="${c.equipCapacidade ?? r?.equipCapacidade ?? ''}" ${dis}></div>
         </div>
       </div>
 
-      ${renderSecoesTecnicasRelatorio(r, false)}
+      ${r ? renderSecoesTecnicasRelatorio(r, false) : ''}
 
       <div style="background:white; border-radius:6px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06); margin-bottom:16px;">
         <div style="font-weight:700; color:#158815; margin-bottom:10px;">Emissão</div>
@@ -256,13 +322,19 @@ window.buscarEmbarcacaoCertificado = async function (q) {
   `).join('')
 }
 
+// defensiva pra também funcionar na tela mínima de criação avulsa (sem os
+// campos de armador/porto/telefone/email — só existem na tela de edição completa)
 window.selecionarEmbarcacaoCertificado = function (e) {
   document.getElementById('cert-navio-busca').value = e.nome
   document.getElementById('cert-embarcacaoId').value = e.id
-  document.getElementById('cert-armador').value = e.armador?.nome || ''
-  document.getElementById('cert-portoRegistro').value = e.portoRegistro || ''
-  document.getElementById('cert-telefone').value = e.armador?.telefone || ''
-  document.getElementById('cert-email').value = e.armador?.email || ''
+  const armadorEl = document.getElementById('cert-armador')
+  if (armadorEl) armadorEl.value = e.armador?.nome || ''
+  const portoEl = document.getElementById('cert-portoRegistro')
+  if (portoEl) portoEl.value = e.portoRegistro || ''
+  const telefoneEl = document.getElementById('cert-telefone')
+  if (telefoneEl) telefoneEl.value = e.armador?.telefone || ''
+  const emailEl = document.getElementById('cert-email')
+  if (emailEl) emailEl.value = e.armador?.email || ''
   document.getElementById('cert-sugestoes-embarcacao').style.display = 'none'
 }
 
@@ -283,10 +355,17 @@ function lerFormularioCertificado() {
     equipClasse: document.getElementById('cert-equipClasse').value,
     equipCapacidade: document.getElementById('cert-equipCapacidade').value,
   }
+  const empresaId = document.getElementById('cert-empresaId').value
+  const embarcacaoId = document.getElementById('cert-embarcacaoId').value
+
+  // As seções técnicas (kit/componentes/testes/cilindros/testeIMO) só existem
+  // na tela quando o certificado tem um Relatório vinculado — um avulso não
+  // tem onde persistir esses campos, então nem manda o bloco "relatorio".
+  const temSecoesTecnicas = !!document.getElementById('rel-observacoes')
 
   return {
-    empresaId: document.getElementById('cert-empresaId').value,
-    embarcacaoId: document.getElementById('cert-embarcacaoId').value,
+    empresaId,
+    embarcacaoId,
     armador: document.getElementById('cert-armador').value,
     portoRegistro: document.getElementById('cert-portoRegistro').value,
     telefone: document.getElementById('cert-telefone').value,
@@ -294,12 +373,10 @@ function lerFormularioCertificado() {
     dataEmissao: document.getElementById('cert-dataEmissao').value,
     validade: document.getElementById('cert-validade').value.trim(),
     observacoes: document.getElementById('cert-observacoes').value,
-    relatorio: {
-      empresaId: document.getElementById('cert-empresaId').value,
-      embarcacaoId: document.getElementById('cert-embarcacaoId').value,
-      ...equip,
-      ...lerCamposTecnicosRelatorio()
-    }
+    ...equip,
+    ...(temSecoesTecnicas && {
+      relatorio: { empresaId, embarcacaoId, ...equip, ...lerCamposTecnicosRelatorio() }
+    })
   }
 }
 

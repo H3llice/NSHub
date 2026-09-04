@@ -15,6 +15,23 @@ const INCLUDE_PADRAO = {
   assinaturas: { include: { usuario: true }, orderBy: { criadoEm: 'asc' } }
 }
 
+const CAMPOS_EQUIPAMENTO_CERTIFICADO = [
+  'equipTipo', 'equipNumeroSerie', 'equipAnoFabricacao', 'equipFabricante', 'equipModelo', 'equipClasse', 'equipCapacidade'
+]
+
+// Cópia própria do equipamento no Certificado — indispensável pro avulso (sem
+// Relatório), e mantida em paralelo também quando há Relatório vinculado (que
+// continua sendo atualizado à parte, via atualizarRelatorioCompleto).
+function extrairEquipamentoCertificado(body) {
+  const dados = {}
+  for (const campo of CAMPOS_EQUIPAMENTO_CERTIFICADO) {
+    if (body[campo] === undefined) continue
+    if (body[campo] === '' || body[campo] === null) { dados[campo] = null; continue }
+    dados[campo] = campo === 'equipCapacidade' ? parseInt(body[campo]) : body[campo]
+  }
+  return dados
+}
+
 // ─── Listar certificados ────────────────────────────────────────────────────────
 router.get('/', autenticar, async (req, res) => {
   const { busca, empresa, status, pagina = 1 } = req.query
@@ -49,47 +66,84 @@ router.get('/:id', autenticar, async (req, res) => {
   res.json(certificado)
 })
 
-// ─── Gerar certificado a partir de um Relatório concluído ─────────────────────
+// Próximo número disponível no ano — compartilhado pelo fluxo com Relatório e
+// pelo avulso, senão os dois emitiriam números repetidos.
+async function proximoNumeroCertificado(ano) {
+  const ultimo = await prisma.certificado.findFirst({ where: { ano }, orderBy: { numero: 'desc' } })
+  return ultimo ? ultimo.numero + 1 : 1
+}
+
+// ─── Criar certificado — a partir de um Relatório concluído, OU avulso (sem
+// Relatório/OS) ──────────────────────────────────────────────────────────────
+// O avulso existe pra cobrir a transição pro sistema novo (OS/Relatório ainda
+// preenchidos no papel) e a futura importação de certificados antigos, que
+// nunca tiveram esse rastro digital — usuário pediu essa exceção explicitamente.
 router.post('/', autenticar, async (req, res) => {
-  const { relatorioId } = req.body
-  if (!relatorioId) {
-    return res.status(400).json({ erro: 'Certificado precisa ser gerado a partir de um Relatório' })
-  }
-
-  const relatorio = await prisma.relatorio.findUnique({
-    where: { id: parseInt(relatorioId) },
-    include: { certificado: true, embarcacao: { include: { armador: true } } }
-  })
-  if (!relatorio) return res.status(400).json({ erro: 'Relatório não encontrado' })
-  if (relatorio.status !== 'concluido') {
-    return res.status(400).json({ erro: 'O Relatório precisa estar concluído para gerar o certificado' })
-  }
-  if (relatorio.certificado) {
-    return res.status(400).json({ erro: 'Esse Relatório já tem um certificado gerado' })
-  }
-
+  const { relatorioId, empresaId, embarcacaoId } = req.body
   const ano = new Date().getFullYear()
-  const ultimo = await prisma.certificado.findFirst({
-    where: { ano },
-    orderBy: { numero: 'desc' }
-  })
-  const proximoNumero = ultimo ? ultimo.numero + 1 : 1
 
-  // armador/portoRegistro/telefone/email nascem copiados da Embarcacao, mas viram
-  // cópias PRÓPRIAS do certificado a partir daqui — podem ser corrigidas por
-  // certificado sem mexer no cadastro compartilhado da Embarcacao/Cliente.
+  if (relatorioId) {
+    const relatorio = await prisma.relatorio.findUnique({
+      where: { id: parseInt(relatorioId) },
+      include: { certificado: true, embarcacao: { include: { armador: true } } }
+    })
+    if (!relatorio) return res.status(400).json({ erro: 'Relatório não encontrado' })
+    if (relatorio.status !== 'concluido') {
+      return res.status(400).json({ erro: 'O Relatório precisa estar concluído para gerar o certificado' })
+    }
+    if (relatorio.certificado) {
+      return res.status(400).json({ erro: 'Esse Relatório já tem um certificado gerado' })
+    }
+
+    // armador/portoRegistro/telefone/email/equip* nascem copiados da Embarcacao/
+    // Relatorio, mas viram cópias PRÓPRIAS do certificado a partir daqui — podem
+    // ser corrigidas por certificado sem mexer no cadastro/relatório de origem.
+    const certificado = await prisma.certificado.create({
+      data: {
+        numero: await proximoNumeroCertificado(ano),
+        ano,
+        empresaId: relatorio.empresaId,
+        embarcacaoId: relatorio.embarcacaoId,
+        relatorioId: relatorio.id,
+        criadoPorId: req.usuario.id,
+        armador: relatorio.embarcacao?.armador?.nome || null,
+        portoRegistro: relatorio.embarcacao?.portoRegistro || null,
+        telefone: relatorio.embarcacao?.armador?.telefone || null,
+        email: relatorio.embarcacao?.armador?.email || null,
+        equipTipo: relatorio.equipTipo,
+        equipNumeroSerie: relatorio.equipNumeroSerie,
+        equipAnoFabricacao: relatorio.equipAnoFabricacao,
+        equipFabricante: relatorio.equipFabricante,
+        equipModelo: relatorio.equipModelo,
+        equipClasse: relatorio.equipClasse,
+        equipCapacidade: relatorio.equipCapacidade,
+      },
+      include: INCLUDE_PADRAO
+    })
+    return res.json(certificado)
+  }
+
+  if (!empresaId || !embarcacaoId) {
+    return res.status(400).json({ erro: 'Empresa e Embarcação são obrigatórias' })
+  }
+
+  const embarcacao = await prisma.embarcacao.findUnique({
+    where: { id: parseInt(embarcacaoId) },
+    include: { armador: true }
+  })
+  if (!embarcacao) return res.status(400).json({ erro: 'Embarcação não encontrada' })
+
   const certificado = await prisma.certificado.create({
     data: {
-      numero: proximoNumero,
+      numero: await proximoNumeroCertificado(ano),
       ano,
-      empresaId: relatorio.empresaId,
-      embarcacaoId: relatorio.embarcacaoId,
-      relatorioId: relatorio.id,
+      empresaId: parseInt(empresaId),
+      embarcacaoId: embarcacao.id,
       criadoPorId: req.usuario.id,
-      armador: relatorio.embarcacao?.armador?.nome || null,
-      portoRegistro: relatorio.embarcacao?.portoRegistro || null,
-      telefone: relatorio.embarcacao?.armador?.telefone || null,
-      email: relatorio.embarcacao?.armador?.email || null,
+      armador: embarcacao.armador?.nome || null,
+      portoRegistro: embarcacao.portoRegistro || null,
+      telefone: embarcacao.armador?.telefone || null,
+      email: embarcacao.armador?.email || null,
     },
     include: INCLUDE_PADRAO
   })
@@ -106,7 +160,11 @@ router.put('/:id', autenticar, exigirPerfil('gerente', 'admin'), async (req, res
   const certificado = await prisma.certificado.findUnique({ where: { id } })
   if (!certificado) return res.status(404).json({ erro: 'Certificado não encontrado' })
 
-  if (relatorio) {
+  // Certificado com Relatório vinculado: editar aqui atualiza o Relatório de
+  // origem por baixo dos panos (única exceção às travas de doc. concluído).
+  // Certificado avulso não tem Relatório — os dados do equipamento moram só
+  // nos campos equip* do próprio Certificado (abaixo).
+  if (relatorio && certificado.relatorioId) {
     await atualizarRelatorioCompleto(certificado.relatorioId, relatorio)
   }
 
@@ -120,6 +178,7 @@ router.put('/:id', autenticar, exigirPerfil('gerente', 'admin'), async (req, res
       portoRegistro: portoRegistro || null,
       telefone: telefone || null,
       email: email || null,
+      ...extrairEquipamentoCertificado(req.body),
       ...(empresaId && { empresaId: parseInt(empresaId) }),
       ...(embarcacaoId && { embarcacaoId: parseInt(embarcacaoId) })
     },
@@ -143,7 +202,7 @@ router.post('/:id/emitir', autenticar, exigirPerfil('gerente', 'admin'), async (
     return res.status(400).json({ erro: 'Data de emissão e validade são obrigatórias para emitir o certificado' })
   }
 
-  if (relatorio) {
+  if (relatorio && certificado.relatorioId) {
     await atualizarRelatorioCompleto(certificado.relatorioId, relatorio)
   }
 
@@ -168,6 +227,7 @@ router.post('/:id/emitir', autenticar, exigirPerfil('gerente', 'admin'), async (
         portoRegistro: portoRegistro || null,
         telefone: telefone || null,
         email: email || null,
+        ...extrairEquipamentoCertificado(req.body),
         ...(empresaId && { empresaId: parseInt(empresaId) }),
         ...(embarcacaoId && { embarcacaoId: parseInt(embarcacaoId) })
       },
@@ -226,13 +286,16 @@ function valoresCertificado(c) {
     armador: c.armador || a?.nome || '',
     telefone: c.telefone || a?.telefone || '',
     email: c.email || a?.email || '',
-    numeroSerie: r?.equipNumeroSerie || '',
-    equipamento: r?.equipTipo || '',
-    capacidade: r?.equipCapacidade ? `${r.equipCapacidade} PAX` : '',
-    modelo: r?.equipModelo || '',
-    classe: r?.equipClasse || '',
-    fabricante: r?.equipFabricante || '',
-    anoFabricacao: r?.equipAnoFabricacao || '',
+    // equip* também são cópias próprias do certificado (obrigatório pro avulso,
+    // que não tem Relatório nenhum) — fallback pro Relatório só cobre
+    // certificados criados antes desses campos existirem no Certificado.
+    numeroSerie: c.equipNumeroSerie || r?.equipNumeroSerie || '',
+    equipamento: c.equipTipo || r?.equipTipo || '',
+    capacidade: (c.equipCapacidade ?? r?.equipCapacidade) ? `${c.equipCapacidade ?? r.equipCapacidade} PAX` : '',
+    modelo: c.equipModelo || r?.equipModelo || '',
+    classe: c.equipClasse || r?.equipClasse || '',
+    fabricante: c.equipFabricante || r?.equipFabricante || '',
+    anoFabricacao: c.equipAnoFabricacao || r?.equipAnoFabricacao || '',
     dataEmissao: c.dataEmissao ? new Date(c.dataEmissao).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : '',
     validade: c.validade || '',
   }
