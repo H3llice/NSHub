@@ -9,7 +9,7 @@ import { inicializarAlmoxarifado } from './modules/almoxarifado.js'
 import { inicializarEmbarcacoes } from './modules/embarcacoes.js'
 import { inicializarRelatorios } from './modules/relatorios.js'
 import { inicializarOrdensServico } from './modules/ordens-servico.js'
-import { listarCertificadosBalsa, urlPdfCertificado } from './modules/certificados.js'
+import { listarCertificadosBalsa, urlPdfCertificado, badgeStatusCertificado } from './modules/certificados.js'
 
 
 let favoritos = JSON.parse(localStorage.getItem('favoritos')) || [];
@@ -419,7 +419,7 @@ async function atualizarTabelaCertificados() {
     const reais = await listarCertificadosBalsa();
 
     if (certificados.length === 0 && reais.length === 0) {
-        tabela.innerHTML = '<tr><td colspan="5" style="text-align: center; color: #999; padding: 30px;">Nenhum certificado cadastrado ainda</td></tr>';
+        tabela.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #999; padding: 30px;">Nenhum certificado cadastrado ainda</td></tr>';
         return;
     }
 
@@ -430,6 +430,7 @@ async function atualizarTabelaCertificados() {
                 <td>${cert.numero}/${cert.ano}</td>
                 <td>${cert.navio || cert.embarcacao?.nome || '-'}</td>
                 <td>Balsa</td>
+                <td>${badgeStatusCertificado(cert.status)}</td>
                 <td>${dataEmissao}</td>
                 <td style="white-space:nowrap;">
                     <button class="btn btn-sm btn-info" onclick="abrirCertificado(${cert.id})">Editar</button>
@@ -446,6 +447,7 @@ async function atualizarTabelaCertificados() {
                 <td>${cert.numero}</td>
                 <td>${cert.navio}</td>
                 <td>${cert.tipo.charAt(0).toUpperCase() + cert.tipo.slice(1)}</td>
+                <td>-</td>
                 <td>${dataEmissao}</td>
                 <td>
                     <button class="btn btn-sm btn-info" style="margin-right: 5px;" onclick="editarCertificado(${cert.id})">Editar</button>

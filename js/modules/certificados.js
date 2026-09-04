@@ -60,6 +60,11 @@ const tokenAtual = localStorage.getItem('ns_token')
 const STATUS_LABEL = {
   pendente: { texto: 'Pendente', cor: '#fd7e14' },
   emitido: { texto: 'Emitido', cor: '#198754' },
+  cancelado: { texto: 'Cancelado', cor: '#dc3545' },
+}
+
+export function badgeStatusCertificado(status) {
+  return badgeStatus(status)
 }
 
 function badgeStatus(status) {
@@ -151,8 +156,9 @@ window.atualizarValidadePadrao = function () {
 function renderCertificado(c, empresas) {
   const novo = !c.id
   const emitido = c.status === 'emitido'
+  const cancelado = c.status === 'cancelado'
   const r = c.relatorio
-  const dis = !podeEmitirCertificado ? 'disabled' : ''
+  const dis = (!podeEmitirCertificado || cancelado) ? 'disabled' : ''
   const dataEmissaoValor = c.dataEmissao ? c.dataEmissao.split('T')[0] : hojeISO()
   const validadeValor = c.validade || validadePadrao(dataEmissaoValor)
   const opcoesEmpresas = empresas.map(e =>
@@ -195,7 +201,7 @@ function renderCertificado(c, empresas) {
       <div style="background:white; border-radius:6px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06); margin-bottom:16px;">
         <div style="font-weight:700; color:#158815; margin-bottom:10px;">Equipamento</div>
         <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:16px;">
-          <div><label>Tipo</label><input type="text" id="cert-equipTipo" class="form-control" value="${c.equipTipo || r?.equipTipo || ''}" ${dis}></div>
+          <div><label>Equipamento</label><input type="text" id="cert-equipTipo" class="form-control" value="${c.equipTipo || r?.equipTipo || 'BALSA INFLÁVEL'}" ${dis}></div>
           <div><label>Nº Série</label><input type="text" id="cert-equipNumeroSerie" class="form-control" value="${c.equipNumeroSerie || r?.equipNumeroSerie || ''}" ${dis}></div>
           <div><label>Ano Fabricação</label><input type="text" id="cert-equipAnoFabricacao" class="form-control" placeholder="Ex: 01/2010" value="${c.equipAnoFabricacao || r?.equipAnoFabricacao || ''}" ${dis}></div>
           <div><label>Marca/Fabricante</label><input type="text" id="cert-equipFabricante" class="form-control" value="${c.equipFabricante || r?.equipFabricante || ''}" ${dis}></div>
@@ -205,7 +211,7 @@ function renderCertificado(c, empresas) {
         </div>
       </div>
 
-      ${renderSecoesTecnicasRelatorio(r || c.dadosTecnicos || {}, false)}
+      ${renderSecoesTecnicasRelatorio(r || c.dadosTecnicos || {}, false, { incluirTesteImo: false })}
 
       <div style="background:white; border-radius:6px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06); margin-bottom:16px;">
         <div style="font-weight:700; color:#158815; margin-bottom:10px;">Emissão</div>
@@ -225,16 +231,25 @@ function renderCertificado(c, empresas) {
           <textarea id="cert-observacoes" class="form-control" rows="3" ${dis}>${c.observacoes || ''}</textarea>
         </div>
 
-        ${!podeEmitirCertificado ? `
+        ${cancelado ? `
+          <p style="margin-top:16px; color:#dc3545; font-size:13px; font-weight:600;">Certificado cancelado.</p>
+          ${podeEmitirCertificado ? `<button type="button" class="btn btn-danger" onclick="excluirCertificado(${c.id})">Excluir Certificado</button>` : ''}
+        ` : !podeEmitirCertificado ? `
           <p style="margin-top:16px; color:#999; font-size:13px;">${emitido ? 'Certificado emitido.' : 'Aguardando um gerente ou administrador revisar e emitir este certificado.'}</p>
         ` : novo ? `
           <div style="margin-top:16px;">
             <button type="button" class="btn btn-success" onclick="criarCertificadoAvulso()">Criar Certificado</button>
           </div>
         ` : `
-          <div style="margin-top:16px; display:flex; gap:12px;">
-            <button type="button" class="btn btn-secondary" onclick="atualizarCertificado(${c.id})">Salvar</button>
-            ${!emitido ? `<button type="button" class="btn btn-success" onclick="emitirCertificado(${c.id})">Emitir Certificado</button>` : ''}
+          <div style="margin-top:16px; display:flex; justify-content:space-between;">
+            <div style="display:flex; gap:12px;">
+              <button type="button" class="btn btn-secondary" onclick="atualizarCertificado(${c.id})">Salvar</button>
+              ${!emitido ? `<button type="button" class="btn btn-success" onclick="emitirCertificado(${c.id})">Emitir Certificado</button>` : ''}
+            </div>
+            <div style="display:flex; gap:12px;">
+              <button type="button" class="btn btn-warning" onclick="cancelarCertificado(${c.id})">Cancelar Certificado</button>
+              <button type="button" class="btn btn-danger" onclick="excluirCertificado(${c.id})">Excluir Certificado</button>
+            </div>
           </div>
         `}
       </div>
@@ -339,5 +354,37 @@ window.emitirCertificado = async function (id) {
   } else {
     const err = await res.json()
     alert('Erro ao emitir certificado: ' + (err.erro || 'falha'))
+  }
+}
+
+// Cancelar: fica no banco com status "cancelado", NÃO libera o número.
+window.cancelarCertificado = async function (id) {
+  if (!confirm('Cancelar este certificado? Ele continua no sistema (marcado como Cancelado), mas não pode mais ser editado ou emitido — e o número não é reaproveitado.')) return
+
+  const res = await apiJson(`${API}/certificados/${id}/cancelar`, { method: 'POST' })
+
+  if (res.ok) {
+    alert('Certificado cancelado.')
+    window.abrirCertificado(id)
+  } else {
+    const err = await res.json()
+    alert('Erro ao cancelar certificado: ' + (err.erro || 'falha'))
+  }
+}
+
+// Excluir: some do banco de vez — libera o número pro próximo certificado
+// (usada com nome diferente do "deletarCertificado" legado do formulário
+// avulso antigo em js/app.js, pra não colidir esse global).
+window.excluirCertificado = async function (id) {
+  if (!confirm('Excluir este certificado permanentemente? Essa ação não pode ser desfeita, e o número volta a ficar disponível pro próximo certificado.')) return
+
+  const res = await apiJson(`${API}/certificados/${id}`, { method: 'DELETE' })
+
+  if (res.ok) {
+    alert('Certificado excluído.')
+    window.abrirPagina({ preventDefault() {} }, 'certificados')
+  } else {
+    const err = await res.json()
+    alert('Erro ao excluir certificado: ' + (err.erro || 'falha'))
   }
 }

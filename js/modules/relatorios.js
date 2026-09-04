@@ -239,9 +239,20 @@ function secao(titulo, conteudoHtml) {
 // Certificado) — extraídas pra serem reaproveitadas também na tela de edição
 // do Certificado (js/modules/certificados.js), que edita o Relatório de
 // origem por baixo dos panos.
-export function renderSecoesTecnicasRelatorio(r, somenteLeitura) {
+export function renderSecoesTecnicasRelatorio(r, somenteLeitura, opcoes = {}) {
+  const { incluirTesteImo = true } = opcoes
   const dis = somenteLeitura ? 'disabled' : ''
   const imo = r?.testeImo || {}
+
+  // Mesmo agrupamento em 3 colunas (6/6/4) do PDF (COMPONENTES_COLUNAS no
+  // backend) — a lista já nasce nessa ordem, só a exibição em grid de 4
+  // colunas "por linha" que espalhava âncora/remos em linhas diferentes.
+  const COMPONENTES_COLUNAS_UI = [COMPONENTES.slice(0, 6), COMPONENTES.slice(6, 12), COMPONENTES.slice(12, 16)]
+
+  // O papel só tem UM campo de valor de teste (ex: 130mmHg), ao lado da
+  // temperatura — não um por teste. O PDF já lê só o primeiro valor
+  // preenchido entre os 5; aqui replicamos isso pra edição.
+  const valorTesteFlutuador = TESTES_FLUTUADOR.map(([key]) => r?.[`${key}Valor`]).find(v => v !== null && v !== undefined && v !== '')
 
   return `
       ${secao('Lista de Verificação e Reparos', `
@@ -262,43 +273,49 @@ export function renderSecoesTecnicasRelatorio(r, somenteLeitura) {
       `)}
 
       ${secao('Checklist de Componentes', `
-        <div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:8px;">
-          ${COMPONENTES.map(([key, label]) => `
-            <label style="display:flex; align-items:center; gap:6px; font-size:13px;">
-              <input type="checkbox" id="rel-check-${key}" ${r?.[key] ? 'checked' : ''} ${dis}>
-              ${label}
-            </label>
+        <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:16px;">
+          ${COMPONENTES_COLUNAS_UI.map(coluna => `
+            <div style="display:flex; flex-direction:column; gap:8px;">
+              ${coluna.map(([key, label]) => `
+                <label style="display:flex; align-items:center; gap:6px; font-size:13px;">
+                  <input type="checkbox" id="rel-check-${key}" ${r?.[key] ? 'checked' : ''} ${dis}>
+                  ${label}
+                </label>
+              `).join('')}
+            </div>
           `).join('')}
         </div>
       `)}
 
       ${secao('Teste de Flutuadores', `
         <table class="table-certificados">
-          <thead><tr><th>Teste</th><th>Realizado</th><th>Valor</th></tr></thead>
+          <thead><tr><th>Teste</th><th>Realizado</th></tr></thead>
           <tbody>
             ${TESTES_FLUTUADOR.map(([key, label]) => `
               <tr>
                 <td>${label}</td>
                 <td style="width:80px; text-align:center;"><input type="checkbox" id="rel-teste-${key}-realizado" ${r?.[`${key}Realizado`] ? 'checked' : ''} ${dis}></td>
-                <td style="width:120px;"><input type="number" step="0.01" class="form-control form-control-sm" id="rel-teste-${key}-valor" value="${r?.[`${key}Valor`] ?? ''}" ${dis}></td>
               </tr>
             `).join('')}
           </tbody>
         </table>
-        <div style="max-width:200px; margin-top:8px;"><label>Temperatura</label><input type="text" id="rel-temperatura" class="form-control" value="${r?.temperatura || ''}" ${dis}></div>
+        <div style="display:flex; gap:16px; margin-top:8px;">
+          <div style="max-width:200px;"><label>Valor</label><input type="number" step="0.01" class="form-control" id="rel-teste-valor" value="${valorTesteFlutuador ?? ''}" ${dis}></div>
+          <div style="max-width:200px;"><label>Temperatura</label><input type="text" id="rel-temperatura" class="form-control" value="${r?.temperatura || ''}" ${dis}></div>
+        </div>
       `)}
 
       ${secao('Cilindros', `
         <div style="overflow-x:auto;">
-          <table class="table-certificados" style="min-width:1400px;">
-            <thead><tr><th>Nº</th><th>Nº Válvula</th><th>Teste</th><th>Carga (kg)</th><th>Carga CO2 (kg)</th><th>Carga N2 (kg)</th><th>Fabricante</th><th>Ano Fab.</th><th>Val. Hidrostática</th><th>Cabo Int. (m)</th><th>Cabo Ext. (m)</th><th>Altura Máx. (m)</th><th>Classe</th>${somenteLeitura ? '' : '<th></th>'}</tr></thead>
+          <table class="table-certificados" style="min-width:900px;">
+            <thead><tr><th>Nº</th><th>Nº Válvula</th><th>Teste</th><th>Carga (kg)</th><th>Carga CO2 (kg)</th><th>Carga N2 (kg)</th><th>Fabricante</th><th>Ano Fab.</th>${somenteLeitura ? '' : '<th></th>'}</tr></thead>
             <tbody id="lista-cilindros"></tbody>
           </table>
         </div>
         ${somenteLeitura ? '' : '<button class="btn btn-secondary btn-sm" style="margin-top:8px;" onclick="adicionarCilindro()">+ Cilindro</button>'}
       `)}
 
-      ${secao('Testes IMO — Resolução A.761(18)', `
+      ${!incluirTesteImo ? '' : secao('Testes IMO — Resolução A.761(18)', `
         <div style="border:1px solid #ddd; border-radius:6px; padding:12px; margin-bottom:12px;">
           <strong>WP — Teste de Pressão de Trabalho</strong>
           <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-top:8px;">
@@ -438,14 +455,13 @@ function renderFormularioRelatorio(r, empresas) {
 
       ${secao('Equipamento (balsa atendida)', `
         <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:16px;">
-          <div><label>Tipo</label><input type="text" id="rel-equipTipo" class="form-control" value="${r?.equipTipo || 'BALSA INFLÁVEL'}" ${dis}></div>
+          <div><label>Equipamento</label><input type="text" id="rel-equipTipo" class="form-control" value="${r?.equipTipo || 'BALSA INFLÁVEL'}" ${dis}></div>
           <div><label>Nº Série</label><input type="text" id="rel-equipNumeroSerie" class="form-control" value="${r?.equipNumeroSerie || ''}" ${dis}></div>
           <div><label>Ano Fabricação</label><input type="text" id="rel-equipAnoFabricacao" class="form-control" placeholder="Ex: 01/2010" value="${r?.equipAnoFabricacao || ''}" ${dis}></div>
           <div><label>Marca/Fabricante</label><input type="text" id="rel-equipFabricante" class="form-control" value="${r?.equipFabricante || ''}" ${dis}></div>
           <div><label>Modelo</label><input type="text" id="rel-equipModelo" class="form-control" value="${r?.equipModelo || ''}" ${dis}></div>
           <div><label>Classe</label><input type="text" id="rel-equipClasse" class="form-control" placeholder="Ex: Classe II Pack B" value="${r?.equipClasse || ''}" ${dis}></div>
           <div><label>Capacidade (pessoas)</label><input type="number" id="rel-equipCapacidade" class="form-control" value="${r?.equipCapacidade ?? ''}" ${dis}></div>
-          <div></div>
           <div><label>Nº Certificado de Revisão anterior</label><input type="text" id="rel-certRevisaoNumero" class="form-control" value="${r?.certRevisaoNumero || ''}" ${dis}></div>
           <div><label>Data de Expedição</label><input type="text" id="rel-certRevisaoDataExpedicao" class="form-control" value="${r?.certRevisaoDataExpedicao || ''}" ${dis}></div>
         </div>
@@ -543,11 +559,6 @@ export function renderizarCilindros() {
       <td><input type="number" step="0.01" class="form-control form-control-sm" id="cil-cargaN2-${i}" value="${c.cargaN2 ?? ''}" ${dis}></td>
       <td><input type="text" class="form-control form-control-sm" id="cil-fabricante-${i}" value="${c.fabricante || ''}" ${dis}></td>
       <td><input type="text" class="form-control form-control-sm" id="cil-anoFabricacao-${i}" value="${c.anoFabricacao || ''}" ${dis}></td>
-      <td><input type="text" class="form-control form-control-sm" id="cil-validadeHidrostatica-${i}" value="${c.validadeHidrostatica || ''}" ${dis}></td>
-      <td><input type="number" step="0.01" class="form-control form-control-sm" id="cil-caboInternoMetros-${i}" value="${c.caboInternoMetros ?? ''}" ${dis}></td>
-      <td><input type="number" step="0.01" class="form-control form-control-sm" id="cil-caboExternoMetros-${i}" value="${c.caboExternoMetros ?? ''}" ${dis}></td>
-      <td><input type="number" step="0.01" class="form-control form-control-sm" id="cil-alturaMaximaEstocagemMetros-${i}" value="${c.alturaMaximaEstocagemMetros ?? ''}" ${dis}></td>
-      <td><input type="text" class="form-control form-control-sm" id="cil-classe-${i}" value="${c.classe || ''}" ${dis}></td>
       ${cilindrosSomenteLeitura ? '' : `<td><button class="btn btn-sm btn-danger" onclick="removerCilindro(${i})">✕</button></td>`}
     </tr>
   `).join('')
@@ -564,9 +575,8 @@ window.removerCilindro = function (i) {
 }
 
 function lerCilindrosDoForm() {
-  const campos = ['numero', 'valvulaNumero', 'teste', 'carga', 'cargaCO2', 'cargaN2', 'fabricante', 'anoFabricacao',
-    'validadeHidrostatica', 'caboInternoMetros', 'caboExternoMetros', 'alturaMaximaEstocagemMetros', 'classe']
-  const numericos = ['carga', 'cargaCO2', 'cargaN2', 'caboInternoMetros', 'caboExternoMetros', 'alturaMaximaEstocagemMetros']
+  const campos = ['numero', 'valvulaNumero', 'teste', 'carga', 'cargaCO2', 'cargaN2', 'fabricante', 'anoFabricacao']
+  const numericos = ['carga', 'cargaCO2', 'cargaN2']
 
   return cilindrosEstado.map((_, i) => {
     const c = {}
@@ -609,12 +619,20 @@ export function lerCamposTecnicosRelatorio() {
     body[key] = document.getElementById(`rel-check-${key}`).checked
   })
 
+  // Um único campo de valor no papel (ex: 130mmHg), ao lado da temperatura —
+  // aplicado nos 5 campos xxxValor do banco (o PDF só lê o primeiro
+  // preenchido de qualquer forma, ver TEST_VALOR_POS no backend).
+  const valorTesteFlutuador = document.getElementById('rel-teste-valor')?.value
   TESTES_FLUTUADOR.forEach(([key]) => {
     body[`${key}Realizado`] = document.getElementById(`rel-teste-${key}-realizado`).checked
-    body[`${key}Valor`] = document.getElementById(`rel-teste-${key}-valor`).value
+    body[`${key}Valor`] = valorTesteFlutuador
   })
 
   body.cilindros = lerCilindrosDoForm()
+
+  // Testes IMO não existem na tela do Certificado (renderSecoesTecnicasRelatorio
+  // com incluirTesteImo:false) — sem os elementos no DOM, nem tenta ler.
+  if (!document.getElementById('imo-wpRealizado')) return body
 
   const camposImoBooleanos = ['wpRealizado', 'wpAnual', 'giRealizado', 'giTuboSuperiorOk', 'giTuboInferiorOk',
     'napRealizado', 'napRachaduras', 'napAberturaCostura', 'fsRealizado', 'fsResultadoOk', 'olRealizado']

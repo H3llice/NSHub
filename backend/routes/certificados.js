@@ -165,6 +165,9 @@ router.put('/:id', autenticar, exigirPerfil('gerente', 'admin'), async (req, res
 
   const certificado = await prisma.certificado.findUnique({ where: { id } })
   if (!certificado) return res.status(404).json({ erro: 'Certificado não encontrado' })
+  if (certificado.status === 'cancelado') {
+    return res.status(400).json({ erro: 'Certificado cancelado não pode ser editado' })
+  }
 
   // Certificado com Relatório vinculado: editar aqui atualiza o Relatório de
   // origem por baixo dos panos (única exceção às travas de doc. concluído).
@@ -203,7 +206,7 @@ router.post('/:id/emitir', autenticar, exigirPerfil('gerente', 'admin'), async (
   const certificado = await prisma.certificado.findUnique({ where: { id } })
   if (!certificado) return res.status(404).json({ erro: 'Certificado não encontrado' })
   if (certificado.status !== 'pendente') {
-    return res.status(400).json({ erro: 'Certificado já foi emitido' })
+    return res.status(400).json({ erro: certificado.status === 'cancelado' ? 'Certificado cancelado não pode ser emitido' : 'Certificado já foi emitido' })
   }
   if (!dataEmissao || !validade) {
     return res.status(400).json({ erro: 'Data de emissão e validade são obrigatórias para emitir o certificado' })
@@ -244,6 +247,42 @@ router.post('/:id/emitir', autenticar, exigirPerfil('gerente', 'admin'), async (
   ])
 
   res.json(atualizado)
+})
+
+// ─── Cancelar certificado (só gerente/admin) ───────────────────────────────────
+// Diferente de excluir: fica no banco com status "cancelado" e o número NÃO
+// é reaproveitado (proximoNumeroCertificado conta cancelados normalmente,
+// já que eles continuam na tabela) — mantém rastro/numeração oficial intacta.
+router.post('/:id/cancelar', autenticar, exigirPerfil('gerente', 'admin'), async (req, res) => {
+  const id = Number(req.params.id)
+  const certificado = await prisma.certificado.findUnique({ where: { id } })
+  if (!certificado) return res.status(404).json({ erro: 'Certificado não encontrado' })
+  if (certificado.status === 'cancelado') {
+    return res.status(400).json({ erro: 'Certificado já está cancelado' })
+  }
+
+  const atualizado = await prisma.certificado.update({
+    where: { id },
+    data: { status: 'cancelado' },
+    include: INCLUDE_PADRAO
+  })
+
+  res.json(atualizado)
+})
+
+// ─── Excluir certificado (só gerente/admin) ────────────────────────────────────
+// Diferente de cancelar: apaga de vez do banco — como proximoNumeroCertificado
+// só olha o maior número já existente, excluir o mais recente libera esse
+// número pro próximo certificado gerado.
+router.delete('/:id', autenticar, exigirPerfil('gerente', 'admin'), async (req, res) => {
+  const id = Number(req.params.id)
+  const certificado = await prisma.certificado.findUnique({ where: { id } })
+  if (!certificado) return res.status(404).json({ erro: 'Certificado não encontrado' })
+
+  await prisma.assinatura.deleteMany({ where: { certificadoId: id } })
+  await prisma.certificado.delete({ where: { id } })
+
+  res.json({ ok: true })
 })
 
 // ─── Geração do PDF do Certificado de Balsa ────────────────────────────────────

@@ -695,7 +695,8 @@ model TesteImo {
 // emissão e validade). Por enquanto só cobre balsa — os outros tipos do
 // formulário avulso antigo (baleeira/turco/colete) ainda não têm OS/Relatório
 // próprios.
-// status: pendente | emitido
+// status: pendente | emitido | cancelado (cancelado fica no banco e não libera
+// o número; excluir de vez — sem status próprio — libera o número pro próximo)
 model Certificado {
   id           Int        @id @default(autoincrement())
   numero       Int

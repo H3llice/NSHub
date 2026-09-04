@@ -273,7 +273,7 @@ const KIT_LINHA_Y0 = 31.1
 const KIT_LINHA_PASSO = 4.46
 const KIT_COL_QTD_X = 7.3
 const KIT_COL_SUBSTITUIDO_X = 129.5
-const KIT_COL_VALIDADE_X = 149.0
+const KIT_COL_VALIDADE_X = 158.0
 
 // 16 componentes em 3 colunas (6, 6, 4), mesma ordem do COMPONENTES do frontend
 const COMPONENTES_COLUNAS = [
