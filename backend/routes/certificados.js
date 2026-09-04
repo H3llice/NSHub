@@ -12,7 +12,8 @@ const INCLUDE_PADRAO = {
   embarcacao: { include: { armador: true } },
   empresa: true,
   relatorio: { include: { ordemServico: true, cilindros: true, testeImo: true } },
-  assinaturas: { include: { usuario: true }, orderBy: { criadoEm: 'asc' } }
+  assinaturas: { include: { usuario: true }, orderBy: { criadoEm: 'asc' } },
+  criadoPor: true
 }
 
 const CAMPOS_EQUIPAMENTO_CERTIFICADO = [
@@ -312,8 +313,10 @@ const CAMPOS_CERTIFICADO = [
   { campo: 'classe', x: 111.7, y: 167.0, size: 10, bold: true },
   { campo: 'fabricante', x: 41.1, y: 177.5, size: 10, bold: true },
   { campo: 'anoFabricacao', x: 132.7, y: 178.6, size: 10, bold: true },
+  // validade (data de vencimento) não é impressa no certificado — usuário
+  // pediu pra deixar só a data de emissão na página 1 (o campo continua
+  // existindo/editável na tela e no banco, só não sai no PDF).
   { campo: 'dataEmissao', x: 120.1, y: 193.7, size: 10, bold: true },
-  { campo: 'validade', x: 147.0, y: 193.7, size: 10, bold: true },
 ]
 
 const ASSINATURA_POS = { x: 66.0, y: 198.4, larguraMm: 56.8, alturaMm: 17.7 }
@@ -344,7 +347,6 @@ function valoresCertificado(c) {
     fabricante: c.equipFabricante || r?.equipFabricante || '',
     anoFabricacao: c.equipAnoFabricacao || r?.equipAnoFabricacao || '',
     dataEmissao: c.dataEmissao ? new Date(c.dataEmissao).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : '',
-    validade: c.validade || '',
   }
 }
 

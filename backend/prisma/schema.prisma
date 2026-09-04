@@ -592,7 +592,13 @@ model Relatorio {
 
   revisaoAnualOk Boolean?
   observacoes    String?
-  status         String   @default("preenchendo")
+  // Técnico responsável pelo relatório impresso no rodapé da 2ª página
+  // (abaixo de "Data de Atendimento") — nasce preenchido com o nome de quem
+  // criou o relatório (criadoPor), mas é editável (pode ter sido outra pessoa
+  // em campo). Diferente do TesteImo.tecnicoNome, que é só quem fez os
+  // testes IMO especificamente.
+  tecnicoNome String?
+  status      String   @default("preenchendo")
 
   criadoEm     DateTime @default(now())
   atualizadoEm DateTime @updatedAt

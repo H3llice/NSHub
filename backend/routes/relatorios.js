@@ -27,7 +27,7 @@ const CAMPOS_RELATORIO = [
   'apito', 'protecaoTermica', 'esponja', 'refletorRadar', 'abridorLatas', 'foleManual',
   'napRealizado', 'napValor', 'wpRealizado', 'wpValor', 'giRealizado', 'giValor',
   'fsRealizado', 'fsValor', 'olRealizado', 'olValor', 'temperatura',
-  'revisaoAnualOk', 'observacoes'
+  'revisaoAnualOk', 'observacoes', 'tecnicoNome'
 ]
 
 const CAMPOS_CILINDRO = [
@@ -271,9 +271,13 @@ const KIT_ITENS_ORDEM = [
 ]
 const KIT_LINHA_Y0 = 31.1
 const KIT_LINHA_PASSO = 4.46
-const KIT_COL_QTD_X = 7.3
-const KIT_COL_SUBSTITUIDO_X = 129.5
-const KIT_COL_VALIDADE_X = 158.0
+// Centro horizontal de cada coluna (não a borda) — usadas com centro:true.
+const KIT_COL_QTD_X = 17.0
+const KIT_COL_QTD_LARGURA = 20.0
+const KIT_COL_SUBSTITUIDO_X = 140.0
+const KIT_COL_SUBSTITUIDO_LARGURA = 18.0
+const KIT_COL_VALIDADE_X = 163.0
+const KIT_COL_VALIDADE_LARGURA = 20.0
 
 // 16 componentes em 3 colunas (6, 6, 4), mesma ordem do COMPONENTES do frontend
 const COMPONENTES_COLUNAS = [
@@ -298,7 +302,13 @@ const CILINDRO_COL_DIREITA_X = 142.9
 const CILINDRO_LINHAS_Y = [154.1, 159.1, 164.4, 169.3]
 
 const DATA_ATENDIMENTO_POS = { x: 139.7, y: 243.7 }
-const TECNICO_NOME_POS = { x: 51.4, y: 259.4 }
+// Nome de quem criou o registro (criadoPor), centralizado embaixo do logo —
+// caixa do meio do rodapé (Navio/Vessel | logo | Data de Atendimento).
+const RESPONSAVEL_POS = { xCentro: 84.0, y: 259.4 }
+// Nome do técnico responsável (Relatorio.tecnicoNome — editável, nasce
+// preenchido com criadoPor mas pode ser outra pessoa), logo abaixo da Data
+// de Atendimento, na mesma caixa da direita.
+const TECNICO_POS = { x: 113.5, y: 250.5 }
 
 function formatarKg(v) {
   return v === null || v === undefined ? '' : v.toFixed(3).replace('.', ',')
@@ -333,11 +343,26 @@ export async function desenharPaginaRelatorio(pdfDoc, relatorio) {
   const fonteNegrito = await pdfDoc.embedFont(StandardFonts.HelveticaBold)
   const preto = rgb(0.1, 0.1, 0.1)
 
-  function texto(valor, xMm, yMm, size = 9) {
+  // centro:true trata xMm como o CENTRO horizontal da coluna/caixa, não a
+  // borda esquerda — usado nas colunas Quantidade/Substituído/Validade e no
+  // nome do responsável embaixo do logo. larguraColunaMm (opcional) trava o
+  // texto dentro da largura da coluna em vez de deixar centralizar pra fora
+  // dela quando o valor é comprido (ex: "indeterminado" na Validade).
+  function texto(valor, xMm, yMm, size = 9, centro = false, larguraColunaMm = null) {
     if (valor === null || valor === undefined || valor === '') return
     const yTopoPt = alturaPagina - (MARGEM_TOPO_MM + yMm) * MM
+    const larguraTextoPt = fonteNegrito.widthOfTextAtSize(String(valor), size)
+    let xPt = (MARGEM_ESQUERDA_MM + xMm) * MM
+    if (centro) {
+      xPt -= larguraTextoPt / 2
+      if (larguraColunaMm) {
+        const minXPt = (MARGEM_ESQUERDA_MM + xMm - larguraColunaMm / 2) * MM
+        const maxXPt = (MARGEM_ESQUERDA_MM + xMm + larguraColunaMm / 2) * MM - larguraTextoPt
+        xPt = Math.max(minXPt, Math.min(xPt, maxXPt))
+      }
+    }
     page.drawText(String(valor), {
-      x: (MARGEM_ESQUERDA_MM + xMm) * MM,
+      x: xPt,
       y: yTopoPt - size,
       size,
       font: fonteNegrito,
@@ -348,9 +373,9 @@ export async function desenharPaginaRelatorio(pdfDoc, relatorio) {
   // ─── Kit de sobrevivência ─────────────────────────────────────────────────
   KIT_ITENS_ORDEM.forEach((chave, i) => {
     const y = KIT_LINHA_Y0 + i * KIT_LINHA_PASSO
-    texto(relatorio[`${chave}Qtd`], KIT_COL_QTD_X, y)
-    texto(relatorio[`${chave}Substituido`] ? 'S' : 'N', KIT_COL_SUBSTITUIDO_X, y)
-    texto(relatorio[`${chave}Validade`], KIT_COL_VALIDADE_X, y)
+    texto(relatorio[`${chave}Qtd`], KIT_COL_QTD_X, y, 9, true, KIT_COL_QTD_LARGURA)
+    texto(relatorio[`${chave}Substituido`] ? 'S' : 'N', KIT_COL_SUBSTITUIDO_X, y, 9, true, KIT_COL_SUBSTITUIDO_LARGURA)
+    texto(relatorio[`${chave}Validade`], KIT_COL_VALIDADE_X, y, 9, true, KIT_COL_VALIDADE_LARGURA)
   })
 
   // ─── Checklist de componentes ───────────────────────────────────────────────
@@ -391,7 +416,8 @@ export async function desenharPaginaRelatorio(pdfDoc, relatorio) {
   if (relatorio.data) {
     texto(new Date(relatorio.data).toLocaleDateString('pt-BR', { timeZone: 'UTC' }), DATA_ATENDIMENTO_POS.x, DATA_ATENDIMENTO_POS.y)
   }
-  texto(relatorio.criadoPor?.nome, TECNICO_NOME_POS.x, TECNICO_NOME_POS.y)
+  texto(relatorio.criadoPor?.nome, RESPONSAVEL_POS.xCentro, RESPONSAVEL_POS.y, 9, true)
+  texto(relatorio.tecnicoNome, TECNICO_POS.x, TECNICO_POS.y)
 
   return page
 }

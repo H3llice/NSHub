@@ -51,6 +51,7 @@ export function hojeISO() {
 }
 
 const tokenAtual = localStorage.getItem('ns_token')
+const usuarioAtual = JSON.parse(localStorage.getItem('ns_usuario') || 'null')
 
 const STATUS_LABEL = {
   preenchendo: { texto: 'Preenchendo', cor: '#6c757d' },
@@ -240,7 +241,7 @@ function secao(titulo, conteudoHtml) {
 // do Certificado (js/modules/certificados.js), que edita o Relatório de
 // origem por baixo dos panos.
 export function renderSecoesTecnicasRelatorio(r, somenteLeitura, opcoes = {}) {
-  const { incluirTesteImo = true } = opcoes
+  const { incluirTesteImo = true, nomeTecnicoDefault = '' } = opcoes
   const dis = somenteLeitura ? 'disabled' : ''
   const imo = r?.testeImo || {}
 
@@ -405,6 +406,10 @@ export function renderSecoesTecnicasRelatorio(r, somenteLeitura, opcoes = {}) {
               <option value="false" ${r?.revisaoAnualOk === false ? 'selected' : ''}>Não</option>
             </select>
           </div>
+          <div>
+            <label>Técnico responsável <small style="color:#999;">(impresso no rodapé da 2ª página)</small></label>
+            <input type="text" id="rel-tecnicoNome" class="form-control" value="${r?.tecnicoNome || nomeTecnicoDefault}" ${dis}>
+          </div>
         </div>
         <div style="margin-top:16px;">
           <label>Observações</label>
@@ -467,7 +472,7 @@ function renderFormularioRelatorio(r, empresas) {
         </div>
       `)}
 
-      ${renderSecoesTecnicasRelatorio(r, somenteLeitura)}
+      ${renderSecoesTecnicasRelatorio(r, somenteLeitura, { nomeTecnicoDefault: r?.criadoPor?.nome || usuarioAtual?.nome || '' })}
 
       ${somenteLeitura ? '' : `
         <div style="margin-bottom:16px; display:flex; gap:12px;">
@@ -600,6 +605,7 @@ export function lerCamposTecnicosRelatorio() {
   const body = {
     temperatura: document.getElementById('rel-temperatura').value,
     observacoes: document.getElementById('rel-observacoes').value,
+    tecnicoNome: document.getElementById('rel-tecnicoNome').value,
   }
 
   const revisao = document.getElementById('rel-revisaoAnualOk').value
