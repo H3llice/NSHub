@@ -210,11 +210,11 @@
         <div id="certificados" class="page">
             <div id="certificado-lista-container" class="certificado-lista">
                 <div class="tab">Certificados</div>
-                <p style="color:#999; font-size:13px;">Certificado de Balsa é gerado a partir de um Relatório concluído — abra Serviços → Ordens de serviço. As opções abaixo são só para os outros tipos.</p>
                 <div class="btn-type-selector" style="margin-bottom: 20px;">
                     <button class="btn btn-success" onclick="toggleTipoCertificadoMenu(event)">＋ Novo
                         certificado</button>
                     <div id="tipo-certificado-dropdown" class="tipo-certificado-dropdown">
+                        <a href="#" onclick="abrirPagina(event, 'os')" title="Certificado de Balsa nasce de uma Ordem de Serviço concluída">Certificado de Balsa</a>
                         <a href="#" onclick="carregarFormulario(event, 'baleeira')">Baleeira</a>
                         <a href="#" onclick="carregarFormulario(event, 'turco')">Turco</a>
                         <a href="#" onclick="carregarFormulario(event, 'colete')">Colete</a>

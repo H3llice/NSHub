@@ -9,7 +9,7 @@ import { inicializarAlmoxarifado } from './modules/almoxarifado.js'
 import { inicializarEmbarcacoes } from './modules/embarcacoes.js'
 import { inicializarRelatorios } from './modules/relatorios.js'
 import { inicializarOrdensServico } from './modules/ordens-servico.js'
-import { listarCertificadosBalsa } from './modules/certificados.js'
+import { listarCertificadosBalsa, urlPdfCertificado } from './modules/certificados.js'
 
 
 let favoritos = JSON.parse(localStorage.getItem('favoritos')) || [];
@@ -431,8 +431,9 @@ async function atualizarTabelaCertificados() {
                 <td>${cert.embarcacao?.nome || '-'}</td>
                 <td>Balsa</td>
                 <td>${dataEmissao}</td>
-                <td>
-                    <button class="btn btn-sm btn-info" onclick="abrirCertificado(${cert.id})">Ver</button>
+                <td style="white-space:nowrap;">
+                    <button class="btn btn-sm btn-info" onclick="abrirCertificado(${cert.id})">Editar</button>
+                    <a class="btn btn-sm btn-secondary" href="${urlPdfCertificado(cert.id)}" target="_blank">PDF</a>
                 </td>
             </tr>
         `;

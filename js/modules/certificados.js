@@ -92,6 +92,10 @@ export async function listarCertificadosBalsa() {
   }
 }
 
+export function urlPdfCertificado(id) {
+  return `${API}/certificados/${id}/pdf?token=${encodeURIComponent(tokenAtual)}`
+}
+
 window.abrirCertificado = async function (id) {
   const [certificado, empresas] = await Promise.all([
     apiFetch(`${API}/certificados/${id}`).then(r => r.json()),
