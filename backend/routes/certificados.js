@@ -4,36 +4,15 @@ import fs from 'fs'
 import path from 'path'
 import { prisma } from '../server.js'
 import { autenticar, exigirPerfil } from '../middleware/auth.js'
-import { desenharPaginaRelatorio, INCLUDE_PDF_RELATORIO } from './relatorios.js'
+import { desenharPaginaRelatorio, INCLUDE_PDF_RELATORIO, atualizarRelatorioCompleto } from './relatorios.js'
 
 const router = Router()
 
 const INCLUDE_PADRAO = {
   embarcacao: { include: { armador: true } },
   empresa: true,
-  relatorio: { include: { ordemServico: true } },
+  relatorio: { include: { ordemServico: true, cilindros: true, testeImo: true } },
   assinaturas: { include: { usuario: true }, orderBy: { criadoEm: 'asc' } }
-}
-
-// Navio/armador/porto e os dados do equipamento que aparecem no certificado não
-// pertencem ao Certificado — embarcacaoId/empresaId são cópias no próprio
-// Certificado (setadas ao gerar, a partir do Relatório), mas equipTipo/
-// equipNumeroSerie/etc. só existem no Relatório. Editar essas informações pela
-// tela do Certificado atualiza o Relatório de origem por baixo dos panos, mesmo
-// que ele já esteja concluído — só o Certificado ganha essa exceção às travas
-// de documento concluído (usuário pediu explicitamente).
-const CAMPOS_EQUIPAMENTO_RELATORIO = [
-  'equipTipo', 'equipNumeroSerie', 'equipAnoFabricacao', 'equipFabricante', 'equipModelo', 'equipClasse', 'equipCapacidade'
-]
-
-function extrairEquipamento(body) {
-  const dados = {}
-  for (const campo of CAMPOS_EQUIPAMENTO_RELATORIO) {
-    if (body[campo] === undefined) continue
-    if (body[campo] === '' || body[campo] === null) { dados[campo] = null; continue }
-    dados[campo] = campo === 'equipCapacidade' ? parseInt(body[campo]) : body[campo]
-  }
-  return dados
 }
 
 // ─── Listar certificados ────────────────────────────────────────────────────────
@@ -79,7 +58,7 @@ router.post('/', autenticar, async (req, res) => {
 
   const relatorio = await prisma.relatorio.findUnique({
     where: { id: parseInt(relatorioId) },
-    include: { certificado: true }
+    include: { certificado: true, embarcacao: { include: { armador: true } } }
   })
   if (!relatorio) return res.status(400).json({ erro: 'Relatório não encontrado' })
   if (relatorio.status !== 'concluido') {
@@ -96,6 +75,9 @@ router.post('/', autenticar, async (req, res) => {
   })
   const proximoNumero = ultimo ? ultimo.numero + 1 : 1
 
+  // armador/portoRegistro/telefone/email nascem copiados da Embarcacao, mas viram
+  // cópias PRÓPRIAS do certificado a partir daqui — podem ser corrigidas por
+  // certificado sem mexer no cadastro compartilhado da Embarcacao/Cliente.
   const certificado = await prisma.certificado.create({
     data: {
       numero: proximoNumero,
@@ -103,7 +85,11 @@ router.post('/', autenticar, async (req, res) => {
       empresaId: relatorio.empresaId,
       embarcacaoId: relatorio.embarcacaoId,
       relatorioId: relatorio.id,
-      criadoPorId: req.usuario.id
+      criadoPorId: req.usuario.id,
+      armador: relatorio.embarcacao?.armador?.nome || null,
+      portoRegistro: relatorio.embarcacao?.portoRegistro || null,
+      telefone: relatorio.embarcacao?.armador?.telefone || null,
+      email: relatorio.embarcacao?.armador?.email || null,
     },
     include: INCLUDE_PADRAO
   })
@@ -115,13 +101,13 @@ router.post('/', autenticar, async (req, res) => {
 // Relatório/Solicitação, que travam após concluídos) ────────────────────────────
 router.put('/:id', autenticar, exigirPerfil('gerente', 'admin'), async (req, res) => {
   const id = Number(req.params.id)
-  const { dataEmissao, validade, observacoes, empresaId, embarcacaoId, relatorio } = req.body
+  const { dataEmissao, validade, observacoes, empresaId, embarcacaoId, armador, portoRegistro, telefone, email, relatorio } = req.body
 
   const certificado = await prisma.certificado.findUnique({ where: { id } })
   if (!certificado) return res.status(404).json({ erro: 'Certificado não encontrado' })
 
   if (relatorio) {
-    await prisma.relatorio.update({ where: { id: certificado.relatorioId }, data: extrairEquipamento(relatorio) })
+    await atualizarRelatorioCompleto(certificado.relatorioId, relatorio)
   }
 
   const atualizado = await prisma.certificado.update({
@@ -130,6 +116,10 @@ router.put('/:id', autenticar, exigirPerfil('gerente', 'admin'), async (req, res
       dataEmissao: dataEmissao ? new Date(dataEmissao).toISOString() : null,
       validade: validade || null,
       observacoes: observacoes || null,
+      armador: armador || null,
+      portoRegistro: portoRegistro || null,
+      telefone: telefone || null,
+      email: email || null,
       ...(empresaId && { empresaId: parseInt(empresaId) }),
       ...(embarcacaoId && { embarcacaoId: parseInt(embarcacaoId) })
     },
@@ -142,7 +132,7 @@ router.put('/:id', autenticar, exigirPerfil('gerente', 'admin'), async (req, res
 // ─── Emitir certificado (só gerente/admin) ─────────────────────────────────────
 router.post('/:id/emitir', autenticar, exigirPerfil('gerente', 'admin'), async (req, res) => {
   const id = Number(req.params.id)
-  const { dataEmissao, validade, observacoes, empresaId, embarcacaoId, relatorio, assinaturaImg } = req.body
+  const { dataEmissao, validade, observacoes, empresaId, embarcacaoId, armador, portoRegistro, telefone, email, relatorio, assinaturaImg } = req.body
 
   const certificado = await prisma.certificado.findUnique({ where: { id } })
   if (!certificado) return res.status(404).json({ erro: 'Certificado não encontrado' })
@@ -154,7 +144,7 @@ router.post('/:id/emitir', autenticar, exigirPerfil('gerente', 'admin'), async (
   }
 
   if (relatorio) {
-    await prisma.relatorio.update({ where: { id: certificado.relatorioId }, data: extrairEquipamento(relatorio) })
+    await atualizarRelatorioCompleto(certificado.relatorioId, relatorio)
   }
 
   const [, atualizado] = await prisma.$transaction([
@@ -174,6 +164,10 @@ router.post('/:id/emitir', autenticar, exigirPerfil('gerente', 'admin'), async (
         dataEmissao: new Date(dataEmissao).toISOString(),
         validade,
         observacoes: observacoes || null,
+        armador: armador || null,
+        portoRegistro: portoRegistro || null,
+        telefone: telefone || null,
+        email: email || null,
         ...(empresaId && { empresaId: parseInt(empresaId) }),
         ...(embarcacaoId && { embarcacaoId: parseInt(embarcacaoId) })
       },
@@ -224,10 +218,14 @@ function valoresCertificado(c) {
   return {
     numero: String(c.numero),
     navio: e?.nome || '',
-    portoRegistro: e?.portoRegistro || '',
-    armador: a?.nome || '',
-    telefone: a?.telefone || '',
-    email: a?.email || '',
+    // armador/portoRegistro/telefone/email são cópias PRÓPRIAS do certificado
+    // (editáveis por certificado, sem mexer no cadastro da Embarcacao/Cliente)
+    // — o fallback pro dado da Embarcacao só cobre certificados criados antes
+    // desses campos existirem.
+    portoRegistro: c.portoRegistro || e?.portoRegistro || '',
+    armador: c.armador || a?.nome || '',
+    telefone: c.telefone || a?.telefone || '',
+    email: c.email || a?.email || '',
     numeroSerie: r?.equipNumeroSerie || '',
     equipamento: r?.equipTipo || '',
     capacidade: r?.equipCapacidade ? `${r.equipCapacidade} PAX` : '',

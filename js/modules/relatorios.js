@@ -43,6 +43,13 @@ async function apiJson(url, options = {}) {
 // RELATÓRIOS DE SERVIÇO DE BALSAS (Serviços → Relatórios)
 // ══════════════════════════════════════════════════════════════════════════
 
+// Data de hoje no fuso do navegador — new Date().toISOString() usa UTC, então
+// perto da meia-noite (fuso do Brasil, UTC-3) já viraria o dia seguinte.
+export function hojeISO() {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
 const tokenAtual = localStorage.getItem('ns_token')
 
 const STATUS_LABEL = {
@@ -219,68 +226,24 @@ window.editarRelatorio = async function (id) {
   renderizarCilindros()
 }
 
-function renderFormularioRelatorio(r, empresas) {
-  const somenteLeitura = r?.status === 'concluido'
-  const dis = somenteLeitura ? 'disabled' : ''
-  const opcoesEmpresas = empresas.map(e =>
-    `<option value="${e.id}" ${r?.empresaId === e.id ? 'selected' : ''}>${e.nome} (${e.sigla})</option>`
-  ).join('')
-  const imo = r?.testeImo || {}
-
-  const secao = (titulo, conteudoHtml) => `
+function secao(titulo, conteudoHtml) {
+  return `
     <div style="background:white; border-radius:6px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06); margin-bottom:16px;">
       <div style="font-weight:700; color:#158815; margin-bottom:10px;">${titulo}</div>
       ${conteudoHtml}
     </div>
   `
+}
+
+// Seções técnicas do relatório (o que vira a "segunda página" do PDF do
+// Certificado) — extraídas pra serem reaproveitadas também na tela de edição
+// do Certificado (js/modules/certificados.js), que edita o Relatório de
+// origem por baixo dos panos.
+export function renderSecoesTecnicasRelatorio(r, somenteLeitura) {
+  const dis = somenteLeitura ? 'disabled' : ''
+  const imo = r?.testeImo || {}
 
   return `
-    <div style="margin-top:20px; max-width:1000px;">
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
-        <button class="btn btn-secondary" onclick="inicializarRelatorios()">← Voltar</button>
-        <div style="display:flex; gap:8px;">
-          ${r?.id ? `<a class="btn btn-secondary" href="${API}/relatorios/${r.id}/pdf?token=${encodeURIComponent(tokenAtual)}" target="_blank">PDF</a>` : ''}
-        </div>
-      </div>
-
-      <div style="display:flex; align-items:center; gap:12px; margin-bottom:20px;">
-        <h3 style="margin:0;">${r?.id ? `Relatório ${r.numero}/${r.ano}` : 'Novo Relatório de Serviço'}</h3>
-        ${r?.id ? badgeStatus(r.status) : ''}
-      </div>
-
-      <input type="hidden" id="rel-ordemServicoId" value="${r?.ordemServicoId || ''}">
-
-      ${secao('Identificação', `
-        <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
-          <div><label>Empresa executante *</label><select id="rel-empresaId" class="form-control" ${dis}>${opcoesEmpresas}</select></div>
-          <div><label>Data *</label><input type="date" id="rel-data" class="form-control" value="${r?.data ? r.data.split('T')[0] : new Date().toISOString().split('T')[0]}" ${dis}></div>
-          <div style="position:relative; grid-column: span 2;">
-            <label>Embarcação (navio) * <small style="color:#999;">(busca por nome — autopreenche armador e porto)</small></label>
-            <input type="text" id="rel-embarcacao-busca" class="form-control" placeholder="Digite o nome do navio..."
-              value="${r?.embarcacao?.nome || ''}" oninput="buscarEmbarcacaoRelatorio(this.value)" autocomplete="off" ${dis}>
-            <div id="sugestoes-embarcacao" style="position:absolute; background:white; border:1px solid #ccc; border-radius:4px; width:100%; z-index:999; display:none; top:100%;"></div>
-            <input type="hidden" id="rel-embarcacaoId" value="${r?.embarcacaoId || ''}">
-          </div>
-          <div><label>Armador</label><input type="text" id="rel-embarcacao-armador" class="form-control" value="${r?.embarcacao?.armador?.nome || ''}" disabled></div>
-          <div><label>Porto de Registro</label><input type="text" id="rel-embarcacao-porto" class="form-control" value="${r?.embarcacao?.portoRegistro || ''}" disabled></div>
-        </div>
-      `)}
-
-      ${secao('Equipamento (balsa atendida)', `
-        <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:16px;">
-          <div><label>Tipo</label><input type="text" id="rel-equipTipo" class="form-control" value="${r?.equipTipo || 'BALSA INFLÁVEL'}" ${dis}></div>
-          <div><label>Nº Série</label><input type="text" id="rel-equipNumeroSerie" class="form-control" value="${r?.equipNumeroSerie || ''}" ${dis}></div>
-          <div><label>Ano Fabricação</label><input type="text" id="rel-equipAnoFabricacao" class="form-control" placeholder="Ex: 01/2010" value="${r?.equipAnoFabricacao || ''}" ${dis}></div>
-          <div><label>Marca/Fabricante</label><input type="text" id="rel-equipFabricante" class="form-control" value="${r?.equipFabricante || ''}" ${dis}></div>
-          <div><label>Modelo</label><input type="text" id="rel-equipModelo" class="form-control" value="${r?.equipModelo || ''}" ${dis}></div>
-          <div><label>Classe</label><input type="text" id="rel-equipClasse" class="form-control" placeholder="Ex: Classe II Pack B" value="${r?.equipClasse || ''}" ${dis}></div>
-          <div><label>Capacidade (pessoas)</label><input type="number" id="rel-equipCapacidade" class="form-control" value="${r?.equipCapacidade ?? ''}" ${dis}></div>
-          <div></div>
-          <div><label>Nº Certificado de Revisão anterior</label><input type="text" id="rel-certRevisaoNumero" class="form-control" value="${r?.certRevisaoNumero || ''}" ${dis}></div>
-          <div><label>Data de Expedição</label><input type="text" id="rel-certRevisaoDataExpedicao" class="form-control" value="${r?.certRevisaoDataExpedicao || ''}" ${dis}></div>
-        </div>
-      `)}
-
       ${secao('Lista de Verificação e Reparos', `
         <table class="table-certificados">
           <thead><tr><th>Item</th><th>Qtd</th><th>Extra</th><th>Substituído</th><th>Validade</th></tr></thead>
@@ -431,6 +394,64 @@ function renderFormularioRelatorio(r, empresas) {
           <textarea id="rel-observacoes" class="form-control" rows="3" ${dis}>${r?.observacoes || ''}</textarea>
         </div>
       `)}
+  `
+}
+
+function renderFormularioRelatorio(r, empresas) {
+  const somenteLeitura = r?.status === 'concluido'
+  const dis = somenteLeitura ? 'disabled' : ''
+  const opcoesEmpresas = empresas.map(e =>
+    `<option value="${e.id}" ${r?.empresaId === e.id ? 'selected' : ''}>${e.nome} (${e.sigla})</option>`
+  ).join('')
+
+  return `
+    <div style="margin-top:20px; max-width:1000px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+        <button class="btn btn-secondary" onclick="inicializarRelatorios()">← Voltar</button>
+        <div style="display:flex; gap:8px;">
+          ${r?.id ? `<a class="btn btn-secondary" href="${API}/relatorios/${r.id}/pdf?token=${encodeURIComponent(tokenAtual)}" target="_blank">PDF</a>` : ''}
+        </div>
+      </div>
+
+      <div style="display:flex; align-items:center; gap:12px; margin-bottom:20px;">
+        <h3 style="margin:0;">${r?.id ? `Relatório ${r.numero}/${r.ano}` : 'Novo Relatório de Serviço'}</h3>
+        ${r?.id ? badgeStatus(r.status) : ''}
+      </div>
+
+      <input type="hidden" id="rel-ordemServicoId" value="${r?.ordemServicoId || ''}">
+
+      ${secao('Identificação', `
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+          <div><label>Empresa executante *</label><select id="rel-empresaId" class="form-control" ${dis}>${opcoesEmpresas}</select></div>
+          <div><label>Data *</label><input type="date" id="rel-data" class="form-control" value="${r?.data ? r.data.split('T')[0] : hojeISO()}" ${dis}></div>
+          <div style="position:relative; grid-column: span 2;">
+            <label>Embarcação (navio) * <small style="color:#999;">(busca por nome — autopreenche armador e porto)</small></label>
+            <input type="text" id="rel-embarcacao-busca" class="form-control" placeholder="Digite o nome do navio..."
+              value="${r?.embarcacao?.nome || ''}" oninput="buscarEmbarcacaoRelatorio(this.value)" autocomplete="off" ${dis}>
+            <div id="sugestoes-embarcacao" style="position:absolute; background:white; border:1px solid #ccc; border-radius:4px; width:100%; z-index:999; display:none; top:100%;"></div>
+            <input type="hidden" id="rel-embarcacaoId" value="${r?.embarcacaoId || ''}">
+          </div>
+          <div><label>Armador</label><input type="text" id="rel-embarcacao-armador" class="form-control" value="${r?.embarcacao?.armador?.nome || ''}" disabled></div>
+          <div><label>Porto de Registro</label><input type="text" id="rel-embarcacao-porto" class="form-control" value="${r?.embarcacao?.portoRegistro || ''}" disabled></div>
+        </div>
+      `)}
+
+      ${secao('Equipamento (balsa atendida)', `
+        <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:16px;">
+          <div><label>Tipo</label><input type="text" id="rel-equipTipo" class="form-control" value="${r?.equipTipo || 'BALSA INFLÁVEL'}" ${dis}></div>
+          <div><label>Nº Série</label><input type="text" id="rel-equipNumeroSerie" class="form-control" value="${r?.equipNumeroSerie || ''}" ${dis}></div>
+          <div><label>Ano Fabricação</label><input type="text" id="rel-equipAnoFabricacao" class="form-control" placeholder="Ex: 01/2010" value="${r?.equipAnoFabricacao || ''}" ${dis}></div>
+          <div><label>Marca/Fabricante</label><input type="text" id="rel-equipFabricante" class="form-control" value="${r?.equipFabricante || ''}" ${dis}></div>
+          <div><label>Modelo</label><input type="text" id="rel-equipModelo" class="form-control" value="${r?.equipModelo || ''}" ${dis}></div>
+          <div><label>Classe</label><input type="text" id="rel-equipClasse" class="form-control" placeholder="Ex: Classe II Pack B" value="${r?.equipClasse || ''}" ${dis}></div>
+          <div><label>Capacidade (pessoas)</label><input type="number" id="rel-equipCapacidade" class="form-control" value="${r?.equipCapacidade ?? ''}" ${dis}></div>
+          <div></div>
+          <div><label>Nº Certificado de Revisão anterior</label><input type="text" id="rel-certRevisaoNumero" class="form-control" value="${r?.certRevisaoNumero || ''}" ${dis}></div>
+          <div><label>Data de Expedição</label><input type="text" id="rel-certRevisaoDataExpedicao" class="form-control" value="${r?.certRevisaoDataExpedicao || ''}" ${dis}></div>
+        </div>
+      `)}
+
+      ${renderSecoesTecnicasRelatorio(r, somenteLeitura)}
 
       ${somenteLeitura ? '' : `
         <div style="margin-bottom:16px; display:flex; gap:12px;">
@@ -499,7 +520,15 @@ document.addEventListener('click', (e) => {
 
 // ─── Cilindros (tabela dinâmica) ────────────────────────────────────────────────
 
-function renderizarCilindros() {
+// Reaproveitada pela tela do Certificado pra preparar o estado da tabela de
+// cilindros antes de renderizar a seção técnica embutida (ver
+// renderSecoesTecnicasRelatorio em js/modules/certificados.js).
+export function prepararCilindros(lista, somenteLeitura = false) {
+  cilindrosEstado = lista && lista.length ? lista : [{}]
+  cilindrosSomenteLeitura = somenteLeitura
+}
+
+export function renderizarCilindros() {
   const tbody = document.getElementById('lista-cilindros')
   if (!tbody) return
   const dis = cilindrosSomenteLeitura ? 'disabled' : ''
@@ -553,21 +582,12 @@ function lerCilindrosDoForm() {
 
 // ─── Leitura do formulário ──────────────────────────────────────────────────────
 
-function lerFormularioRelatorio() {
+// Lê as seções técnicas (kit, componentes, testes de flutuador, cilindros,
+// testes IMO, revisão anual + observações do relatório) — reaproveitado tanto
+// pelo formulário do Relatório quanto pela tela do Certificado, que edita
+// essas mesmas seções ("segunda página" do PDF) por baixo dos panos.
+export function lerCamposTecnicosRelatorio() {
   const body = {
-    ordemServicoId: document.getElementById('rel-ordemServicoId').value,
-    empresaId: document.getElementById('rel-empresaId').value,
-    embarcacaoId: document.getElementById('rel-embarcacaoId').value,
-    data: document.getElementById('rel-data').value,
-    equipTipo: document.getElementById('rel-equipTipo').value,
-    equipNumeroSerie: document.getElementById('rel-equipNumeroSerie').value,
-    equipAnoFabricacao: document.getElementById('rel-equipAnoFabricacao').value,
-    equipFabricante: document.getElementById('rel-equipFabricante').value,
-    equipModelo: document.getElementById('rel-equipModelo').value,
-    equipClasse: document.getElementById('rel-equipClasse').value,
-    equipCapacidade: document.getElementById('rel-equipCapacidade').value,
-    certRevisaoNumero: document.getElementById('rel-certRevisaoNumero').value,
-    certRevisaoDataExpedicao: document.getElementById('rel-certRevisaoDataExpedicao').value,
     temperatura: document.getElementById('rel-temperatura').value,
     observacoes: document.getElementById('rel-observacoes').value,
   }
@@ -614,6 +634,26 @@ function lerFormularioRelatorio() {
   body.testeImo = testeImo
 
   return body
+}
+
+function lerFormularioRelatorio() {
+  const body = {
+    ordemServicoId: document.getElementById('rel-ordemServicoId').value,
+    empresaId: document.getElementById('rel-empresaId').value,
+    embarcacaoId: document.getElementById('rel-embarcacaoId').value,
+    data: document.getElementById('rel-data').value,
+    equipTipo: document.getElementById('rel-equipTipo').value,
+    equipNumeroSerie: document.getElementById('rel-equipNumeroSerie').value,
+    equipAnoFabricacao: document.getElementById('rel-equipAnoFabricacao').value,
+    equipFabricante: document.getElementById('rel-equipFabricante').value,
+    equipModelo: document.getElementById('rel-equipModelo').value,
+    equipClasse: document.getElementById('rel-equipClasse').value,
+    equipCapacidade: document.getElementById('rel-equipCapacidade').value,
+    certRevisaoNumero: document.getElementById('rel-certRevisaoNumero').value,
+    certRevisaoDataExpedicao: document.getElementById('rel-certRevisaoDataExpedicao').value,
+  }
+
+  return Object.assign(body, lerCamposTecnicosRelatorio())
 }
 
 window.salvarRelatorio = async function () {

@@ -704,6 +704,15 @@ model Certificado {
   relatorio    Relatorio  @relation(fields: [relatorioId], references: [id])
   relatorioId  Int        @unique
 
+  // Cópias editáveis (não vêm mais só da Embarcacao/Cliente) — armador/porto/
+  // telefone/email podem mudar de uma emissão pra outra (ex: armador trocou de
+  // número), então o certificado guarda seu próprio valor em vez de sempre
+  // herdar do cadastro. Preenchidos a partir da Embarcacao ao gerar o certificado.
+  armador       String?
+  portoRegistro String?
+  telefone      String?
+  email         String?
+
   dataEmissao DateTime?
   validade    String?
   // validade é texto livre (digitável), mesmo padrão dos outros campos de validade do Relatorio

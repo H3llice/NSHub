@@ -1,3 +1,5 @@
+import { renderSecoesTecnicasRelatorio, prepararCilindros, renderizarCilindros, lerCamposTecnicosRelatorio, hojeISO } from './relatorios.js'
+
 const API = 'https://override-steerable-professed.ngrok-free.dev'
 
 // ─── Auth helper (mesmo padrão dos outros módulos) ────────────────────────────
@@ -72,9 +74,7 @@ window.gerarCertificadoDeRelatorio = async function (relatorioId) {
   if (res.ok) {
     const certificado = await res.json()
     const empresas = await apiFetch(`${API}/empresas`).then(r => r.json())
-    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'))
-    document.getElementById('relatorios').classList.add('active')
-    document.getElementById('relatorios').innerHTML = renderCertificado(certificado, empresas)
+    exibirCertificado(certificado, empresas)
   } else {
     const err = await res.json()
     alert('Erro ao gerar certificado: ' + (err.erro || 'falha'))
@@ -98,9 +98,15 @@ window.abrirCertificado = async function (id) {
     apiFetch(`${API}/empresas`).then(r => r.json())
   ])
 
+  exibirCertificado(certificado, empresas)
+}
+
+function exibirCertificado(c, empresas) {
+  prepararCilindros(c.relatorio?.cilindros, false)
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'))
   document.getElementById('relatorios').classList.add('active')
-  document.getElementById('relatorios').innerHTML = renderCertificado(certificado, empresas)
+  document.getElementById('relatorios').innerHTML = renderCertificado(c, empresas)
+  renderizarCilindros()
 }
 
 // Certificado emitido é referência oficial (assinatura já registrada), mas ao
@@ -128,14 +134,14 @@ function renderCertificado(c, empresas) {
   const emitido = c.status === 'emitido'
   const r = c.relatorio
   const dis = !podeEmitirCertificado ? 'disabled' : ''
-  const dataEmissaoValor = c.dataEmissao ? c.dataEmissao.split('T')[0] : new Date().toISOString().split('T')[0]
+  const dataEmissaoValor = c.dataEmissao ? c.dataEmissao.split('T')[0] : hojeISO()
   const validadeValor = c.validade || validadePadrao(dataEmissaoValor)
   const opcoesEmpresas = empresas.map(e =>
     `<option value="${e.id}" ${c.empresaId === e.id ? 'selected' : ''}>${e.nome} (${e.sigla})</option>`
   ).join('')
 
   return `
-    <div style="margin-top:20px; max-width:900px;">
+    <div style="margin-top:20px; max-width:1000px;">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
         <button class="btn btn-secondary" onclick="inicializarRelatorios()">← Voltar</button>
         <div style="display:flex; gap:8px;">
@@ -154,14 +160,16 @@ function renderCertificado(c, empresas) {
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
           <div><label>Empresa executante *</label><select id="cert-empresaId" class="form-control" ${dis}>${opcoesEmpresas}</select></div>
           <div style="position:relative;">
-            <label>Embarcação (navio) * <small style="color:#999;">(busca por nome — autopreenche armador e porto)</small></label>
-            <input type="text" id="rel-embarcacao-busca" class="form-control" placeholder="Digite o nome do navio..."
-              value="${c.embarcacao?.nome || ''}" oninput="buscarEmbarcacaoRelatorio(this.value)" autocomplete="off" ${dis}>
-            <div id="sugestoes-embarcacao" style="position:absolute; background:white; border:1px solid #ccc; border-radius:4px; width:100%; z-index:999; display:none; top:100%;"></div>
-            <input type="hidden" id="rel-embarcacaoId" value="${c.embarcacaoId || ''}">
+            <label>Embarcação (navio) *</label>
+            <input type="text" id="cert-navio-busca" class="form-control" placeholder="Digite o nome do navio..."
+              value="${c.embarcacao?.nome || ''}" oninput="buscarEmbarcacaoCertificado(this.value)" autocomplete="off" ${dis}>
+            <div id="cert-sugestoes-embarcacao" style="position:absolute; background:white; border:1px solid #ccc; border-radius:4px; width:100%; z-index:999; display:none; top:100%;"></div>
+            <input type="hidden" id="cert-embarcacaoId" value="${c.embarcacaoId || ''}">
           </div>
-          <div><label>Armador</label><input type="text" id="rel-embarcacao-armador" class="form-control" value="${c.embarcacao?.armador?.nome || ''}" disabled></div>
-          <div><label>Porto de Registro</label><input type="text" id="rel-embarcacao-porto" class="form-control" value="${c.embarcacao?.portoRegistro || ''}" disabled></div>
+          <div><label>Armador</label><input type="text" id="cert-armador" class="form-control" value="${c.armador || ''}" ${dis}></div>
+          <div><label>Porto de Registro</label><input type="text" id="cert-portoRegistro" class="form-control" value="${c.portoRegistro || ''}" ${dis}></div>
+          <div><label>Telefone</label><input type="text" id="cert-telefone" class="form-control" value="${c.telefone || ''}" ${dis}></div>
+          <div><label>Email</label><input type="text" id="cert-email" class="form-control" value="${c.email || ''}" ${dis}></div>
         </div>
       </div>
 
@@ -177,6 +185,8 @@ function renderCertificado(c, empresas) {
           <div><label>Capacidade (pessoas)</label><input type="number" id="cert-equipCapacidade" class="form-control" value="${r?.equipCapacidade ?? ''}" ${dis}></div>
         </div>
       </div>
+
+      ${renderSecoesTecnicasRelatorio(r, false)}
 
       <div style="background:white; border-radius:6px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06); margin-bottom:16px;">
         <div style="font-weight:700; color:#158815; margin-bottom:10px;">Emissão</div>
@@ -209,21 +219,82 @@ function renderCertificado(c, empresas) {
   `
 }
 
+// ─── Autocomplete de Embarcação (dedicado ao Certificado — armador/porto/
+// telefone/email aqui são campos PRÓPRIOS do certificado, editáveis livremente,
+// só recebem um valor sugerido da Embarcacao ao trocar de navio) ───────────────
+
+window.buscarEmbarcacaoCertificado = async function (q) {
+  const div = document.getElementById('cert-sugestoes-embarcacao')
+  document.getElementById('cert-embarcacaoId').value = ''
+
+  if (q.length < 2) {
+    div.style.display = 'none'
+    return
+  }
+
+  const results = await apiFetch(`${API}/embarcacoes/buscar?q=${encodeURIComponent(q)}`).then(r => r.json())
+
+  if (results.length === 0) {
+    div.innerHTML = `<div style="padding:8px 12px; color:#999;">Nenhuma embarcação encontrada — cadastre em Cadastros → Embarcações primeiro</div>`
+    div.style.display = 'block'
+    return
+  }
+
+  div.style.display = 'block'
+  div.innerHTML = results.map(e => `
+    <div onclick='selecionarEmbarcacaoCertificado(${JSON.stringify(e).replace(/'/g, '&apos;')})'
+      style="padding: 8px 12px; cursor:pointer; border-bottom: 1px solid #eee;"
+      onmouseover="this.style.background='#f5f5f5'"
+      onmouseout="this.style.background='white'">
+      <strong>${e.nome}</strong>
+      <span style="color:#999; font-size:12px; margin-left:8px;">${e.armador?.nome || ''}</span>
+    </div>
+  `).join('')
+}
+
+window.selecionarEmbarcacaoCertificado = function (e) {
+  document.getElementById('cert-navio-busca').value = e.nome
+  document.getElementById('cert-embarcacaoId').value = e.id
+  document.getElementById('cert-armador').value = e.armador?.nome || ''
+  document.getElementById('cert-portoRegistro').value = e.portoRegistro || ''
+  document.getElementById('cert-telefone').value = e.armador?.telefone || ''
+  document.getElementById('cert-email').value = e.armador?.email || ''
+  document.getElementById('cert-sugestoes-embarcacao').style.display = 'none'
+}
+
+document.addEventListener('click', (e) => {
+  const div = document.getElementById('cert-sugestoes-embarcacao')
+  if (div && !div.contains(e.target) && e.target.id !== 'cert-navio-busca') {
+    div.style.display = 'none'
+  }
+})
+
 function lerFormularioCertificado() {
+  const equip = {
+    equipTipo: document.getElementById('cert-equipTipo').value,
+    equipNumeroSerie: document.getElementById('cert-equipNumeroSerie').value,
+    equipAnoFabricacao: document.getElementById('cert-equipAnoFabricacao').value,
+    equipFabricante: document.getElementById('cert-equipFabricante').value,
+    equipModelo: document.getElementById('cert-equipModelo').value,
+    equipClasse: document.getElementById('cert-equipClasse').value,
+    equipCapacidade: document.getElementById('cert-equipCapacidade').value,
+  }
+
   return {
     empresaId: document.getElementById('cert-empresaId').value,
-    embarcacaoId: document.getElementById('rel-embarcacaoId').value,
+    embarcacaoId: document.getElementById('cert-embarcacaoId').value,
+    armador: document.getElementById('cert-armador').value,
+    portoRegistro: document.getElementById('cert-portoRegistro').value,
+    telefone: document.getElementById('cert-telefone').value,
+    email: document.getElementById('cert-email').value,
     dataEmissao: document.getElementById('cert-dataEmissao').value,
     validade: document.getElementById('cert-validade').value.trim(),
     observacoes: document.getElementById('cert-observacoes').value,
     relatorio: {
-      equipTipo: document.getElementById('cert-equipTipo').value,
-      equipNumeroSerie: document.getElementById('cert-equipNumeroSerie').value,
-      equipAnoFabricacao: document.getElementById('cert-equipAnoFabricacao').value,
-      equipFabricante: document.getElementById('cert-equipFabricante').value,
-      equipModelo: document.getElementById('cert-equipModelo').value,
-      equipClasse: document.getElementById('cert-equipClasse').value,
-      equipCapacidade: document.getElementById('cert-equipCapacidade').value,
+      empresaId: document.getElementById('cert-empresaId').value,
+      embarcacaoId: document.getElementById('cert-embarcacaoId').value,
+      ...equip,
+      ...lerCamposTecnicosRelatorio()
     }
   }
 }

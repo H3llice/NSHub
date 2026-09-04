@@ -47,10 +47,36 @@ const CAMPOS_TESTE_IMO = [
   'tecnicoNome', 'controladoPorNome'
 ]
 
+// Campos Int?/Float? no schema — o form manda tudo como string (.value de
+// input), então sem essa conversão o Prisma rejeita com "Expected Int/Float,
+// provided String" assim que algum desses campos vem preenchido.
+const CAMPOS_INTEIROS = [
+  'equipCapacidade',
+  'foguetesQtd', 'fachosQtd', 'fumigenoQtd', 'pilhasQtd', 'racoesSolidasQtd', 'racoesLiquidasQtd',
+  'medicamentosQtd', 'pescaQtd', 'reparosQtd', 'enjooQtd', 'bateriaResgateQtd',
+  'olPessoasNr'
+]
+
+const CAMPOS_DECIMAIS = [
+  'racoesSolidasPesoGramas', 'racoesLiquidasVolumeMl',
+  'napValor', 'wpValor', 'giValor', 'fsValor', 'olValor',
+  'carga', 'cargaCO2', 'cargaN2', 'caboInternoMetros', 'caboExternoMetros', 'alturaMaximaEstocagemMetros',
+  'wpSupInicioPressao', 'wpSupTerminoPressao', 'wpSupDiff', 'wpSupDiffPct',
+  'wpInfInicioPressao', 'wpInfTerminoPressao', 'wpInfDiff', 'wpInfDiffPct',
+  'giPressaoMaxSuperior', 'giPressaoMaxInferior',
+  'napSupInicio', 'napSupTermino', 'napSupDiff', 'napSupDiffPct',
+  'napInfInicio', 'napInfTermino', 'napInfDiff', 'napInfDiffPct',
+  'olPesoPessoas', 'olPesoBalsa', 'olPesoTotal'
+]
+
 function extrair(body, campos) {
   const dados = {}
   for (const campo of campos) {
-    if (body[campo] !== undefined) dados[campo] = body[campo] === '' ? null : body[campo]
+    if (body[campo] === undefined) continue
+    if (body[campo] === '' || body[campo] === null) { dados[campo] = null; continue }
+    if (CAMPOS_INTEIROS.includes(campo)) { dados[campo] = typeof body[campo] === 'number' ? body[campo] : parseInt(body[campo]); continue }
+    if (CAMPOS_DECIMAIS.includes(campo)) { dados[campo] = typeof body[campo] === 'number' ? body[campo] : parseFloat(body[campo]); continue }
+    dados[campo] = body[campo]
   }
   if (dados.data) dados.data = new Date(dados.data).toISOString()
   // Campos de validade (foguetesValidade etc.) são texto livre digitável — não convertidos pra Date.
@@ -144,18 +170,14 @@ router.post('/', autenticar, async (req, res) => {
   res.json(relatorio)
 })
 
-// ─── Editar relatório ───────────────────────────────────────────────────────────
-router.put('/:id', autenticar, async (req, res) => {
-  const id = Number(req.params.id)
-  const atual = await prisma.relatorio.findUnique({ where: { id } })
-  if (!atual) return res.status(404).json({ erro: 'Relatório não encontrado' })
-
-  if (atual.status !== 'preenchendo') {
-    return res.status(400).json({ erro: 'Relatório não pode ser editado neste status' })
-  }
-
-  const { cilindros, testeImo } = req.body
-  const dados = extrair(req.body, CAMPOS_RELATORIO)
+// Aplica os campos editáveis do Relatório (identificação, equipamento, seções
+// técnicas, cilindros, teste IMO) — reaproveitado pela rota de edição normal
+// (abaixo, só com Relatório em 'preenchendo') e pela tela do Certificado
+// (backend/routes/certificados.js), que edita o Relatório de origem mesmo
+// já concluído — única exceção às travas de documento concluído do sistema.
+export async function atualizarRelatorioCompleto(id, body) {
+  const { cilindros, testeImo } = body
+  const dados = extrair(body, CAMPOS_RELATORIO)
   if (dados.empresaId) dados.empresaId = parseInt(dados.empresaId)
   if (dados.embarcacaoId) dados.embarcacaoId = parseInt(dados.embarcacaoId)
 
@@ -181,6 +203,19 @@ router.put('/:id', autenticar, async (req, res) => {
       })
     }
   })
+}
+
+// ─── Editar relatório ───────────────────────────────────────────────────────────
+router.put('/:id', autenticar, async (req, res) => {
+  const id = Number(req.params.id)
+  const atual = await prisma.relatorio.findUnique({ where: { id } })
+  if (!atual) return res.status(404).json({ erro: 'Relatório não encontrado' })
+
+  if (atual.status !== 'preenchendo') {
+    return res.status(400).json({ erro: 'Relatório não pode ser editado neste status' })
+  }
+
+  await atualizarRelatorioCompleto(id, req.body)
 
   const completo = await prisma.relatorio.findUnique({
     where: { id },
