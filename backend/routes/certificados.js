@@ -79,7 +79,7 @@ async function proximoNumeroCertificado(ano) {
 // preenchidos no papel) e a futura importação de certificados antigos, que
 // nunca tiveram esse rastro digital — usuário pediu essa exceção explicitamente.
 router.post('/', autenticar, async (req, res) => {
-  const { relatorioId, empresaId, embarcacaoId } = req.body
+  const { relatorioId, empresaId, navio, armador, portoRegistro, telefone, email, dataEmissao, validade, observacoes } = req.body
   const ano = new Date().getFullYear()
 
   if (relatorioId) {
@@ -95,9 +95,10 @@ router.post('/', autenticar, async (req, res) => {
       return res.status(400).json({ erro: 'Esse Relatório já tem um certificado gerado' })
     }
 
-    // armador/portoRegistro/telefone/email/equip* nascem copiados da Embarcacao/
-    // Relatorio, mas viram cópias PRÓPRIAS do certificado a partir daqui — podem
-    // ser corrigidas por certificado sem mexer no cadastro/relatório de origem.
+    // navio/armador/portoRegistro/telefone/email/equip* nascem copiados da
+    // Embarcacao/Relatorio, mas viram cópias PRÓPRIAS do certificado a partir
+    // daqui — podem ser corrigidas por certificado sem mexer no cadastro/
+    // relatório de origem.
     const certificado = await prisma.certificado.create({
       data: {
         numero: await proximoNumeroCertificado(ano),
@@ -106,6 +107,7 @@ router.post('/', autenticar, async (req, res) => {
         embarcacaoId: relatorio.embarcacaoId,
         relatorioId: relatorio.id,
         criadoPorId: req.usuario.id,
+        navio: relatorio.embarcacao?.nome || null,
         armador: relatorio.embarcacao?.armador?.nome || null,
         portoRegistro: relatorio.embarcacao?.portoRegistro || null,
         telefone: relatorio.embarcacao?.armador?.telefone || null,
@@ -123,27 +125,30 @@ router.post('/', autenticar, async (req, res) => {
     return res.json(certificado)
   }
 
-  if (!empresaId || !embarcacaoId) {
-    return res.status(400).json({ erro: 'Empresa e Embarcação são obrigatórias' })
+  // Avulso — sem Relatório/OS nem Embarcacao cadastrada. Navio/armador/etc.
+  // são texto livre, criados e emitidos num só passo (ver js/modules/
+  // certificados.js: a tela de criação é o mesmo formulário completo da
+  // edição). O cadastro formal de Embarcacao/Cliente, se algum dia for feito,
+  // é independente disso — nunca é pré-requisito.
+  if (!empresaId || !navio) {
+    return res.status(400).json({ erro: 'Empresa e Navio são obrigatórios' })
   }
-
-  const embarcacao = await prisma.embarcacao.findUnique({
-    where: { id: parseInt(embarcacaoId) },
-    include: { armador: true }
-  })
-  if (!embarcacao) return res.status(400).json({ erro: 'Embarcação não encontrada' })
 
   const certificado = await prisma.certificado.create({
     data: {
       numero: await proximoNumeroCertificado(ano),
       ano,
       empresaId: parseInt(empresaId),
-      embarcacaoId: embarcacao.id,
       criadoPorId: req.usuario.id,
-      armador: embarcacao.armador?.nome || null,
-      portoRegistro: embarcacao.portoRegistro || null,
-      telefone: embarcacao.armador?.telefone || null,
-      email: embarcacao.armador?.email || null,
+      navio,
+      armador: armador || null,
+      portoRegistro: portoRegistro || null,
+      telefone: telefone || null,
+      email: email || null,
+      dataEmissao: dataEmissao ? new Date(dataEmissao).toISOString() : null,
+      validade: validade || null,
+      observacoes: observacoes || null,
+      ...extrairEquipamentoCertificado(req.body)
     },
     include: INCLUDE_PADRAO
   })
@@ -155,7 +160,7 @@ router.post('/', autenticar, async (req, res) => {
 // Relatório/Solicitação, que travam após concluídos) ────────────────────────────
 router.put('/:id', autenticar, exigirPerfil('gerente', 'admin'), async (req, res) => {
   const id = Number(req.params.id)
-  const { dataEmissao, validade, observacoes, empresaId, embarcacaoId, armador, portoRegistro, telefone, email, relatorio } = req.body
+  const { dataEmissao, validade, observacoes, empresaId, navio, armador, portoRegistro, telefone, email, relatorio } = req.body
 
   const certificado = await prisma.certificado.findUnique({ where: { id } })
   if (!certificado) return res.status(404).json({ erro: 'Certificado não encontrado' })
@@ -174,13 +179,13 @@ router.put('/:id', autenticar, exigirPerfil('gerente', 'admin'), async (req, res
       dataEmissao: dataEmissao ? new Date(dataEmissao).toISOString() : null,
       validade: validade || null,
       observacoes: observacoes || null,
+      navio: navio || null,
       armador: armador || null,
       portoRegistro: portoRegistro || null,
       telefone: telefone || null,
       email: email || null,
       ...extrairEquipamentoCertificado(req.body),
-      ...(empresaId && { empresaId: parseInt(empresaId) }),
-      ...(embarcacaoId && { embarcacaoId: parseInt(embarcacaoId) })
+      ...(empresaId && { empresaId: parseInt(empresaId) })
     },
     include: INCLUDE_PADRAO
   })
@@ -191,7 +196,7 @@ router.put('/:id', autenticar, exigirPerfil('gerente', 'admin'), async (req, res
 // ─── Emitir certificado (só gerente/admin) ─────────────────────────────────────
 router.post('/:id/emitir', autenticar, exigirPerfil('gerente', 'admin'), async (req, res) => {
   const id = Number(req.params.id)
-  const { dataEmissao, validade, observacoes, empresaId, embarcacaoId, armador, portoRegistro, telefone, email, relatorio, assinaturaImg } = req.body
+  const { dataEmissao, validade, observacoes, empresaId, navio, armador, portoRegistro, telefone, email, relatorio, assinaturaImg } = req.body
 
   const certificado = await prisma.certificado.findUnique({ where: { id } })
   if (!certificado) return res.status(404).json({ erro: 'Certificado não encontrado' })
@@ -223,13 +228,13 @@ router.post('/:id/emitir', autenticar, exigirPerfil('gerente', 'admin'), async (
         dataEmissao: new Date(dataEmissao).toISOString(),
         validade,
         observacoes: observacoes || null,
+        navio: navio || null,
         armador: armador || null,
         portoRegistro: portoRegistro || null,
         telefone: telefone || null,
         email: email || null,
         ...extrairEquipamentoCertificado(req.body),
-        ...(empresaId && { empresaId: parseInt(empresaId) }),
-        ...(embarcacaoId && { embarcacaoId: parseInt(embarcacaoId) })
+        ...(empresaId && { empresaId: parseInt(empresaId) })
       },
       include: INCLUDE_PADRAO
     })
@@ -277,11 +282,11 @@ function valoresCertificado(c) {
   const a = e?.armador
   return {
     numero: String(c.numero),
-    navio: e?.nome || '',
-    // armador/portoRegistro/telefone/email são cópias PRÓPRIAS do certificado
+    // navio/armador/portoRegistro/telefone/email são cópias PRÓPRIAS do certificado
     // (editáveis por certificado, sem mexer no cadastro da Embarcacao/Cliente)
     // — o fallback pro dado da Embarcacao só cobre certificados criados antes
     // desses campos existirem.
+    navio: c.navio || e?.nome || '',
     portoRegistro: c.portoRegistro || e?.portoRegistro || '',
     armador: c.armador || a?.nome || '',
     telefone: c.telefone || a?.telefone || '',

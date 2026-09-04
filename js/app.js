@@ -428,7 +428,7 @@ async function atualizarTabelaCertificados() {
         return `
             <tr>
                 <td>${cert.numero}/${cert.ano}</td>
-                <td>${cert.embarcacao?.nome || '-'}</td>
+                <td>${cert.navio || cert.embarcacao?.nome || '-'}</td>
                 <td>Balsa</td>
                 <td>${dataEmissao}</td>
                 <td style="white-space:nowrap;">

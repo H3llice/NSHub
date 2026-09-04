@@ -47,8 +47,12 @@ const podeEmitirCertificado = perfil === 'admin' || perfil === 'gerente'
 const tokenAtual = localStorage.getItem('ns_token')
 
 // ══════════════════════════════════════════════════════════════════════════
-// CERTIFICADO DE BALSA — etapa final do fluxo OS → Relatório → Certificado
-// Por enquanto só cobre balsa (único tipo com Relatório implementado); os
+// CERTIFICADO DE BALSA — etapa final do fluxo OS → Relatório → Certificado,
+// OU criado direto (avulso), sem exigir OS/Relatório/Embarcação cadastrada
+// antes — necessário pra transição pro sistema novo (OS/Relatório ainda no
+// papel) e pra importar certificados antigos depois. Navio/armador/porto/
+// telefone/email são sempre texto livre no Certificado, nunca dependem de
+// cadastro prévio de Embarcacao/Cliente. Por enquanto só cobre balsa; os
 // demais tipos (baleeira/turco/colete) continuam no formulário avulso antigo,
 // acessível em Serviços → Certificados.
 // ══════════════════════════════════════════════════════════════════════════
@@ -81,70 +85,14 @@ window.gerarCertificadoDeRelatorio = async function (relatorioId) {
   }
 }
 
-// Certificado avulso — sem Ordem de Serviço/Relatório vinculado. Necessário
-// durante a transição pro sistema novo (OS/Relatório ainda preenchidos no
-// papel) e pra importar certificados antigos que nunca tiveram OS/Relatório
-// (usuário pediu essa exceção explicitamente). Só pede Empresa + Embarcação;
-// o resto (equipamento, emissão, validade) é preenchido na tela de edição
-// completa logo em seguida.
+// "+ Novo certificado" -> "Certificado de Balsa": leva direto pro mesmo
+// formulário completo da edição, só que vazio — sem etapa intermediária, sem
+// exigir Embarcação/Cliente já cadastrados. O botão "Criar" no lugar de
+// "Salvar"/"Emitir" é a única diferença.
 window.abrirNovoCertificadoAvulso = async function () {
   document.getElementById('tipo-certificado-dropdown')?.classList.remove('show')
   const empresas = await apiFetch(`${API}/empresas`).then(r => r.json())
-  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'))
-  document.getElementById('relatorios').classList.add('active')
-  document.getElementById('relatorios').innerHTML = renderNovoCertificadoAvulso(empresas)
-}
-
-function renderNovoCertificadoAvulso(empresas) {
-  const opcoesEmpresas = empresas.map(e => `<option value="${e.id}">${e.nome} (${e.sigla})</option>`).join('')
-
-  return `
-    <div style="margin-top:20px; max-width:600px;">
-      <button class="btn btn-secondary" onclick="abrirPagina(event, 'certificados')">← Voltar</button>
-
-      <h3 style="margin-top:20px; margin-bottom:4px;">Novo Certificado de Balsa (avulso)</h3>
-      <p style="color:#999; font-size:13px; margin-bottom:20px;">Sem Ordem de Serviço/Relatório vinculado — use durante a transição pro sistema novo, ou pra importar certificados antigos. Equipamento, emissão e validade são preenchidos na próxima tela.</p>
-
-      <div style="background:white; border-radius:6px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06);">
-        <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
-          <div><label>Empresa executante *</label><select id="cert-empresaId" class="form-control">${opcoesEmpresas}</select></div>
-          <div style="position:relative;">
-            <label>Embarcação (navio) *</label>
-            <input type="text" id="cert-navio-busca" class="form-control" placeholder="Digite o nome do navio..." oninput="buscarEmbarcacaoCertificado(this.value)" autocomplete="off">
-            <div id="cert-sugestoes-embarcacao" style="position:absolute; background:white; border:1px solid #ccc; border-radius:4px; width:100%; z-index:999; display:none; top:100%;"></div>
-            <input type="hidden" id="cert-embarcacaoId">
-          </div>
-        </div>
-        <div style="margin-top:16px;">
-          <button type="button" class="btn btn-success" onclick="criarCertificadoAvulso()">Criar</button>
-        </div>
-      </div>
-    </div>
-  `
-}
-
-window.criarCertificadoAvulso = async function () {
-  const empresaId = document.getElementById('cert-empresaId').value
-  const embarcacaoId = document.getElementById('cert-embarcacaoId').value
-
-  if (!embarcacaoId) {
-    alert('Selecione uma embarcação na lista de sugestões.')
-    return
-  }
-
-  const res = await apiJson(`${API}/certificados`, {
-    method: 'POST',
-    body: JSON.stringify({ empresaId, embarcacaoId })
-  })
-
-  if (res.ok) {
-    const certificado = await res.json()
-    const empresas = await apiFetch(`${API}/empresas`).then(r => r.json())
-    exibirCertificado(certificado, empresas)
-  } else {
-    const err = await res.json()
-    alert('Erro ao criar certificado: ' + (err.erro || 'falha'))
-  }
+  exibirCertificado({}, empresas)
 }
 
 // Usada pela aba "Certificados" (Serviços → Certificados, ver js/app.js) pra
@@ -195,12 +143,13 @@ window.atualizarValidadePadrao = function () {
   document.getElementById('cert-validade').value = validadePadrao(dataEmissao)
 }
 
-// A maioria dos campos aqui (embarcação, empresa, dados do equipamento) não são
-// "do certificado" de verdade — são denormalizados do Relatório e da Embarcação
-// (ver campos em CAMPOS_CERTIFICADO no backend). Editar essa tela na prática
-// edita o Relatório de origem por baixo dos panos (única exceção às travas de
-// documento concluído — usuário pediu explicitamente essa exceção pro Certificado).
+// Navio/armador/porto/telefone/email e os dados do equipamento são sempre
+// texto livre, guardados direto no Certificado — nunca exigem uma Embarcacao/
+// Cliente cadastrados antes. Quando o certificado tem um Relatório vinculado
+// (fluxo OS -> Relatório), editar aqui também atualiza o Relatório de origem
+// por baixo dos panos (única exceção às travas de documento concluído).
 function renderCertificado(c, empresas) {
+  const novo = !c.id
   const emitido = c.status === 'emitido'
   const r = c.relatorio
   const dis = !podeEmitirCertificado ? 'disabled' : ''
@@ -210,32 +159,32 @@ function renderCertificado(c, empresas) {
     `<option value="${e.id}" ${c.empresaId === e.id ? 'selected' : ''}>${e.nome} (${e.sigla})</option>`
   ).join('')
 
+  const origem = novo
+    ? 'Novo certificado avulso — sem Ordem de Serviço/Relatório vinculado. Preencha os dados e clique em Criar.'
+    : r ? `Gerado a partir do Relatório ${r.numero}/${r.ano}` : 'Certificado avulso — sem Ordem de Serviço/Relatório vinculado'
+
   return `
     <div style="margin-top:20px; max-width:1000px;">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
         <button class="btn btn-secondary" onclick="abrirPagina(event, 'certificados')">← Voltar</button>
-        <div style="display:flex; gap:8px;">
-          <a class="btn btn-secondary" href="${API}/certificados/${c.id}/pdf?token=${encodeURIComponent(tokenAtual)}" target="_blank">PDF</a>
-        </div>
+        ${!novo ? `
+          <div style="display:flex; gap:8px;">
+            <a class="btn btn-secondary" href="${urlPdfCertificado(c.id)}" target="_blank">PDF</a>
+          </div>
+        ` : ''}
       </div>
 
       <div style="display:flex; align-items:center; gap:12px; margin-bottom:4px;">
-        <h3 style="margin:0;">Certificado ${c.numero}/${c.ano}</h3>
-        ${badgeStatus(c.status)}
+        <h3 style="margin:0;">${novo ? 'Novo Certificado de Balsa (avulso)' : `Certificado ${c.numero}/${c.ano}`}</h3>
+        ${!novo ? badgeStatus(c.status) : ''}
       </div>
-      <p style="color:#999; font-size:13px; margin-bottom:20px;">${r ? `Gerado a partir do Relatório ${r.numero}/${r.ano}` : 'Certificado avulso — sem Ordem de Serviço/Relatório vinculado'}</p>
+      <p style="color:#999; font-size:13px; margin-bottom:20px;">${origem}</p>
 
       <div style="background:white; border-radius:6px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06); margin-bottom:16px;">
         <div style="font-weight:700; color:#158815; margin-bottom:10px;">Identificação</div>
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
           <div><label>Empresa executante *</label><select id="cert-empresaId" class="form-control" ${dis}>${opcoesEmpresas}</select></div>
-          <div style="position:relative;">
-            <label>Embarcação (navio) *</label>
-            <input type="text" id="cert-navio-busca" class="form-control" placeholder="Digite o nome do navio..."
-              value="${c.embarcacao?.nome || ''}" oninput="buscarEmbarcacaoCertificado(this.value)" autocomplete="off" ${dis}>
-            <div id="cert-sugestoes-embarcacao" style="position:absolute; background:white; border:1px solid #ccc; border-radius:4px; width:100%; z-index:999; display:none; top:100%;"></div>
-            <input type="hidden" id="cert-embarcacaoId" value="${c.embarcacaoId || ''}">
-          </div>
+          <div><label>Navio *</label><input type="text" id="cert-navio" class="form-control" value="${c.navio || c.embarcacao?.nome || ''}" ${dis}></div>
           <div><label>Armador</label><input type="text" id="cert-armador" class="form-control" value="${c.armador || ''}" ${dis}></div>
           <div><label>Porto de Registro</label><input type="text" id="cert-portoRegistro" class="form-control" value="${c.portoRegistro || ''}" ${dis}></div>
           <div><label>Telefone</label><input type="text" id="cert-telefone" class="form-control" value="${c.telefone || ''}" ${dis}></div>
@@ -278,6 +227,10 @@ function renderCertificado(c, empresas) {
 
         ${!podeEmitirCertificado ? `
           <p style="margin-top:16px; color:#999; font-size:13px;">${emitido ? 'Certificado emitido.' : 'Aguardando um gerente ou administrador revisar e emitir este certificado.'}</p>
+        ` : novo ? `
+          <div style="margin-top:16px;">
+            <button type="button" class="btn btn-success" onclick="criarCertificadoAvulso()">Criar Certificado</button>
+          </div>
         ` : `
           <div style="margin-top:16px; display:flex; gap:12px;">
             <button type="button" class="btn btn-secondary" onclick="atualizarCertificado(${c.id})">Salvar</button>
@@ -288,62 +241,6 @@ function renderCertificado(c, empresas) {
     </div>
   `
 }
-
-// ─── Autocomplete de Embarcação (dedicado ao Certificado — armador/porto/
-// telefone/email aqui são campos PRÓPRIOS do certificado, editáveis livremente,
-// só recebem um valor sugerido da Embarcacao ao trocar de navio) ───────────────
-
-window.buscarEmbarcacaoCertificado = async function (q) {
-  const div = document.getElementById('cert-sugestoes-embarcacao')
-  document.getElementById('cert-embarcacaoId').value = ''
-
-  if (q.length < 2) {
-    div.style.display = 'none'
-    return
-  }
-
-  const results = await apiFetch(`${API}/embarcacoes/buscar?q=${encodeURIComponent(q)}`).then(r => r.json())
-
-  if (results.length === 0) {
-    div.innerHTML = `<div style="padding:8px 12px; color:#999;">Nenhuma embarcação encontrada — cadastre em Cadastros → Embarcações primeiro</div>`
-    div.style.display = 'block'
-    return
-  }
-
-  div.style.display = 'block'
-  div.innerHTML = results.map(e => `
-    <div onclick='selecionarEmbarcacaoCertificado(${JSON.stringify(e).replace(/'/g, '&apos;')})'
-      style="padding: 8px 12px; cursor:pointer; border-bottom: 1px solid #eee;"
-      onmouseover="this.style.background='#f5f5f5'"
-      onmouseout="this.style.background='white'">
-      <strong>${e.nome}</strong>
-      <span style="color:#999; font-size:12px; margin-left:8px;">${e.armador?.nome || ''}</span>
-    </div>
-  `).join('')
-}
-
-// defensiva pra também funcionar na tela mínima de criação avulsa (sem os
-// campos de armador/porto/telefone/email — só existem na tela de edição completa)
-window.selecionarEmbarcacaoCertificado = function (e) {
-  document.getElementById('cert-navio-busca').value = e.nome
-  document.getElementById('cert-embarcacaoId').value = e.id
-  const armadorEl = document.getElementById('cert-armador')
-  if (armadorEl) armadorEl.value = e.armador?.nome || ''
-  const portoEl = document.getElementById('cert-portoRegistro')
-  if (portoEl) portoEl.value = e.portoRegistro || ''
-  const telefoneEl = document.getElementById('cert-telefone')
-  if (telefoneEl) telefoneEl.value = e.armador?.telefone || ''
-  const emailEl = document.getElementById('cert-email')
-  if (emailEl) emailEl.value = e.armador?.email || ''
-  document.getElementById('cert-sugestoes-embarcacao').style.display = 'none'
-}
-
-document.addEventListener('click', (e) => {
-  const div = document.getElementById('cert-sugestoes-embarcacao')
-  if (div && !div.contains(e.target) && e.target.id !== 'cert-navio-busca') {
-    div.style.display = 'none'
-  }
-})
 
 function lerFormularioCertificado() {
   const equip = {
@@ -356,7 +253,7 @@ function lerFormularioCertificado() {
     equipCapacidade: document.getElementById('cert-equipCapacidade').value,
   }
   const empresaId = document.getElementById('cert-empresaId').value
-  const embarcacaoId = document.getElementById('cert-embarcacaoId').value
+  const navio = document.getElementById('cert-navio').value.trim()
 
   // As seções técnicas (kit/componentes/testes/cilindros/testeIMO) só existem
   // na tela quando o certificado tem um Relatório vinculado — um avulso não
@@ -365,7 +262,7 @@ function lerFormularioCertificado() {
 
   return {
     empresaId,
-    embarcacaoId,
+    navio,
     armador: document.getElementById('cert-armador').value,
     portoRegistro: document.getElementById('cert-portoRegistro').value,
     telefone: document.getElementById('cert-telefone').value,
@@ -375,16 +272,39 @@ function lerFormularioCertificado() {
     observacoes: document.getElementById('cert-observacoes').value,
     ...equip,
     ...(temSecoesTecnicas && {
-      relatorio: { empresaId, embarcacaoId, ...equip, ...lerCamposTecnicosRelatorio() }
+      relatorio: { empresaId, ...equip, ...lerCamposTecnicosRelatorio() }
     })
+  }
+}
+
+window.criarCertificadoAvulso = async function () {
+  const body = lerFormularioCertificado()
+
+  if (!body.empresaId || !body.navio) {
+    alert('Empresa e Navio são obrigatórios.')
+    return
+  }
+
+  const res = await apiJson(`${API}/certificados`, {
+    method: 'POST',
+    body: JSON.stringify(body)
+  })
+
+  if (res.ok) {
+    const certificado = await res.json()
+    alert('Certificado criado com sucesso!')
+    window.abrirCertificado(certificado.id)
+  } else {
+    const err = await res.json()
+    alert('Erro ao criar certificado: ' + (err.erro || 'falha'))
   }
 }
 
 window.atualizarCertificado = async function (id) {
   const body = lerFormularioCertificado()
 
-  if (!body.embarcacaoId || !body.empresaId) {
-    alert('Empresa e Embarcação são obrigatórias! Selecione a embarcação na lista de sugestões.')
+  if (!body.empresaId || !body.navio) {
+    alert('Empresa e Navio são obrigatórios.')
     return
   }
 
@@ -405,8 +325,8 @@ window.atualizarCertificado = async function (id) {
 window.emitirCertificado = async function (id) {
   const body = lerFormularioCertificado()
 
-  if (!body.embarcacaoId || !body.empresaId) {
-    alert('Empresa e Embarcação são obrigatórias! Selecione a embarcação na lista de sugestões.')
+  if (!body.empresaId || !body.navio) {
+    alert('Empresa e Navio são obrigatórios.')
     return
   }
   if (!body.dataEmissao || !body.validade) {

@@ -700,19 +700,20 @@ model Certificado {
   id           Int        @id @default(autoincrement())
   numero       Int
   ano          Int
-  empresa      Empresa    @relation(fields: [empresaId], references: [id])
+  empresa      Empresa     @relation(fields: [empresaId], references: [id])
   empresaId    Int
-  embarcacao   Embarcacao @relation(fields: [embarcacaoId], references: [id])
-  embarcacaoId Int
-  relatorio    Relatorio? @relation(fields: [relatorioId], references: [id])
-  relatorioId  Int?       @unique
+  embarcacao   Embarcacao? @relation(fields: [embarcacaoId], references: [id])
+  embarcacaoId Int?
+  relatorio    Relatorio?  @relation(fields: [relatorioId], references: [id])
+  relatorioId  Int?        @unique
 
-  // Cópias editáveis (não vêm mais só da Embarcacao/Cliente/Relatorio) —
-  // armador/porto/telefone/email podem mudar de uma emissão pra outra (ex:
-  // armador trocou de número), e os dados do equipamento precisam existir aqui
-  // porque um certificado avulso não tem Relatório nenhum de onde puxar.
-  // Preenchidos a partir da Embarcacao/Relatorio ao gerar o certificado, mas
-  // sempre editáveis depois.
+  // Texto livre — NÃO exige cadastro prévio de Embarcacao/Cliente. O
+  // certificado avulso é a porta de entrada durante a transição pro sistema
+  // novo e pra importar certificados antigos: o cadastro formal da
+  // embarcação/armador pode ser feito depois, sem bloquear a emissão agora.
+  // embarcacaoId (acima) só existe quando o certificado vem de um Relatório
+  // de verdade — o conteúdo impresso sempre lê daqui, nunca da Embarcacao.
+  navio         String?
   armador       String?
   portoRegistro String?
   telefone      String?
