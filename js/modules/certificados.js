@@ -143,7 +143,7 @@ function renderCertificado(c, empresas) {
   return `
     <div style="margin-top:20px; max-width:1000px;">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
-        <button class="btn btn-secondary" onclick="inicializarRelatorios()">← Voltar</button>
+        <button class="btn btn-secondary" onclick="abrirPagina(event, 'certificados')">← Voltar</button>
         <div style="display:flex; gap:8px;">
           <a class="btn btn-secondary" href="${API}/certificados/${c.id}/pdf?token=${encodeURIComponent(tokenAtual)}" target="_blank">PDF</a>
         </div>
