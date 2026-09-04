@@ -727,6 +727,14 @@ model Certificado {
   equipClasse        String?
   equipCapacidade    Int?
 
+  // "Segunda página" do certificado (Lista de Verificação e Reparos — kit de
+  // sobrevivência, checklist, testes de flutuador, cilindros, testes IMO) pro
+  // certificado AVULSO, que não tem Relatório nenhum onde guardar isso. Mesmo
+  // formato que lerCamposTecnicosRelatorio() devolve no frontend — um JSON em
+  // vez de duplicar ~50 colunas do Relatorio aqui. Certificado com Relatório
+  // vinculado ignora este campo (usa os dados do Relatorio de verdade).
+  dadosTecnicos Json?
+
   dataEmissao DateTime?
   validade    String?
   // validade é texto livre (digitável), mesmo padrão dos outros campos de validade do Relatorio

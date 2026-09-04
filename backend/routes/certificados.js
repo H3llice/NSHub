@@ -79,7 +79,7 @@ async function proximoNumeroCertificado(ano) {
 // preenchidos no papel) e a futura importação de certificados antigos, que
 // nunca tiveram esse rastro digital — usuário pediu essa exceção explicitamente.
 router.post('/', autenticar, async (req, res) => {
-  const { relatorioId, empresaId, navio, armador, portoRegistro, telefone, email, dataEmissao, validade, observacoes } = req.body
+  const { relatorioId, empresaId, navio, armador, portoRegistro, telefone, email, dataEmissao, validade, observacoes, relatorio: dadosTecnicos } = req.body
   const ano = new Date().getFullYear()
 
   if (relatorioId) {
@@ -148,6 +148,7 @@ router.post('/', autenticar, async (req, res) => {
       dataEmissao: dataEmissao ? new Date(dataEmissao).toISOString() : null,
       validade: validade || null,
       observacoes: observacoes || null,
+      dadosTecnicos: dadosTecnicos || undefined,
       ...extrairEquipamentoCertificado(req.body)
     },
     include: INCLUDE_PADRAO
@@ -185,6 +186,7 @@ router.put('/:id', autenticar, exigirPerfil('gerente', 'admin'), async (req, res
       telefone: telefone || null,
       email: email || null,
       ...extrairEquipamentoCertificado(req.body),
+      ...(relatorio && !certificado.relatorioId && { dadosTecnicos: relatorio }),
       ...(empresaId && { empresaId: parseInt(empresaId) })
     },
     include: INCLUDE_PADRAO
@@ -234,6 +236,7 @@ router.post('/:id/emitir', autenticar, exigirPerfil('gerente', 'admin'), async (
         telefone: telefone || null,
         email: email || null,
         ...extrairEquipamentoCertificado(req.body),
+        ...(relatorio && !certificado.relatorioId && { dadosTecnicos: relatorio }),
         ...(empresaId && { empresaId: parseInt(empresaId) })
       },
       include: INCLUDE_PADRAO
@@ -313,6 +316,7 @@ router.get('/:id/pdf', autenticar, async (req, res) => {
       embarcacao: { include: { armador: true } },
       empresa: true,
       relatorio: { include: INCLUDE_PDF_RELATORIO },
+      criadoPor: true,
     }
   })
   if (!certificado) return res.status(404).json({ erro: 'Certificado não encontrado' })
@@ -372,10 +376,15 @@ router.get('/:id/pdf', autenticar, async (req, res) => {
     }
   }
 
-  // Segunda página — Relatório (Lista de Verificação e Reparos), igual ao .docm
-  // original, que tem Certificado + Relatório no mesmo documento de 2 páginas.
-  if (certificado.relatorio) {
-    await desenharPaginaRelatorio(pdfDoc, certificado.relatorio)
+  // Segunda página — Lista de Verificação e Reparos, igual ao .docm original,
+  // que tem Certificado + Relatório no mesmo documento de 2 páginas. Vem do
+  // Relatório de verdade quando há um vinculado, senão do dadosTecnicos salvo
+  // direto no Certificado avulso (data/técnico emprestados do próprio
+  // certificado, que não tem "data de atendimento"/técnico responsável próprios).
+  const dadosPagina2 = certificado.relatorio
+    || (certificado.dadosTecnicos ? { ...certificado.dadosTecnicos, data: certificado.dataEmissao, criadoPor: certificado.criadoPor } : null)
+  if (dadosPagina2) {
+    await desenharPaginaRelatorio(pdfDoc, dadosPagina2)
   }
 
   const pdfBytes = await pdfDoc.save()

@@ -120,7 +120,7 @@ window.abrirCertificado = async function (id) {
 }
 
 function exibirCertificado(c, empresas) {
-  prepararCilindros(c.relatorio?.cilindros, false)
+  prepararCilindros(c.relatorio?.cilindros || c.dadosTecnicos?.cilindros, false)
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'))
   document.getElementById('relatorios').classList.add('active')
   document.getElementById('relatorios').innerHTML = renderCertificado(c, empresas)
@@ -205,7 +205,7 @@ function renderCertificado(c, empresas) {
         </div>
       </div>
 
-      ${r ? renderSecoesTecnicasRelatorio(r, false) : ''}
+      ${renderSecoesTecnicasRelatorio(r || c.dadosTecnicos || {}, false)}
 
       <div style="background:white; border-radius:6px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06); margin-bottom:16px;">
         <div style="font-weight:700; color:#158815; margin-bottom:10px;">Emissão</div>
@@ -255,11 +255,6 @@ function lerFormularioCertificado() {
   const empresaId = document.getElementById('cert-empresaId').value
   const navio = document.getElementById('cert-navio').value.trim()
 
-  // As seções técnicas (kit/componentes/testes/cilindros/testeIMO) só existem
-  // na tela quando o certificado tem um Relatório vinculado — um avulso não
-  // tem onde persistir esses campos, então nem manda o bloco "relatorio".
-  const temSecoesTecnicas = !!document.getElementById('rel-observacoes')
-
   return {
     empresaId,
     navio,
@@ -271,9 +266,7 @@ function lerFormularioCertificado() {
     validade: document.getElementById('cert-validade').value.trim(),
     observacoes: document.getElementById('cert-observacoes').value,
     ...equip,
-    ...(temSecoesTecnicas && {
-      relatorio: { empresaId, ...equip, ...lerCamposTecnicosRelatorio() }
-    })
+    relatorio: { empresaId, ...equip, ...lerCamposTecnicosRelatorio() }
   }
 }
 

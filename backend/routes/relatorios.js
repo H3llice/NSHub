@@ -384,7 +384,13 @@ export async function desenharPaginaRelatorio(pdfDoc, relatorio) {
   texto(juntarCilindros(cilindros, 'anoFabricacao'), CILINDRO_COL_DIREITA_X, CILINDRO_LINHAS_Y[3])
 
   // ─── Rodapé ──────────────────────────────────────────────────────────────────
-  texto(new Date(relatorio.data).toLocaleDateString('pt-BR', { timeZone: 'UTC' }), DATA_ATENDIMENTO_POS.x, DATA_ATENDIMENTO_POS.y)
+  // relatorio pode ser um Relatorio de verdade OU o JSON dadosTecnicos de um
+  // Certificado avulso (ver backend/routes/certificados.js) — nesse segundo
+  // caso data/criadoPor vêm emprestados do próprio Certificado, por isso o
+  // guard: um avulso sem data de emissão ainda não tem o que mostrar aqui.
+  if (relatorio.data) {
+    texto(new Date(relatorio.data).toLocaleDateString('pt-BR', { timeZone: 'UTC' }), DATA_ATENDIMENTO_POS.x, DATA_ATENDIMENTO_POS.y)
+  }
   texto(relatorio.criadoPor?.nome, TECNICO_NOME_POS.x, TECNICO_NOME_POS.y)
 
   return page
