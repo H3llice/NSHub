@@ -126,26 +126,15 @@ export function inicializarRelatorios() {
           <th>Data</th>
           <th>Status</th>
           <th>Ações</th>
-          <th>Certificado</th>
         </tr>
       </thead>
       <tbody id="tabela-relatorios">
-        <tr><td colspan="7" style="text-align:center; color:#999; padding:30px;">Carregando...</td></tr>
+        <tr><td colspan="6" style="text-align:center; color:#999; padding:30px;">Carregando...</td></tr>
       </tbody>
     </table>
   `
 
   carregarRelatorios()
-}
-
-// Botão de certificado na lista de relatórios: só existe a partir de um relatório
-// concluído — antes disso não há o que gerar.
-function botaoCertificado(r) {
-  if (r.status !== 'concluido') return '<span style="color:#999; font-size:12px;">—</span>'
-  if (!r.certificado) {
-    return `<button class="btn btn-sm btn-warning" onclick="gerarCertificadoDeRelatorio(${r.id})">Gerar Certificado</button>`
-  }
-  return `<button class="btn btn-sm btn-secondary" onclick="abrirCertificado(${r.certificado.id})">Ver Certificado</button> ${badgeStatusCertificado(r.certificado.status)}`
 }
 
 async function carregarRelatorios() {
@@ -154,7 +143,7 @@ async function carregarRelatorios() {
     const tabela = document.getElementById('tabela-relatorios')
 
     if (resp.relatorios.length === 0) {
-      tabela.innerHTML = `<tr><td colspan="7" style="text-align:center; color:#999; padding:30px;">Nenhum relatório cadastrado ainda</td></tr>`
+      tabela.innerHTML = `<tr><td colspan="6" style="text-align:center; color:#999; padding:30px;">Nenhum relatório cadastrado ainda</td></tr>`
       return
     }
 
@@ -163,15 +152,17 @@ async function carregarRelatorios() {
         <td>${r.numero}/${r.ano}</td>
         <td>${r.embarcacao?.nome || '-'}</td>
         <td>${r.embarcacao?.armador?.nome || '-'}</td>
-        <td>${new Date(r.data).toLocaleDateString('pt-BR')}</td>
+        <td>${new Date(r.data).toLocaleDateString('pt-BR', { timeZone: 'UTC' })}</td>
         <td>${badgeStatus(r.status)}</td>
-        <td><button class="btn btn-sm btn-info" onclick="editarRelatorio(${r.id})">${r.status === 'concluido' ? 'Ver' : 'Editar'}</button></td>
-        <td>${botaoCertificado(r)}</td>
+        <td style="white-space:nowrap;">
+          <button class="btn btn-sm btn-info" onclick="editarRelatorio(${r.id})">${r.status === 'concluido' ? 'Ver' : 'Editar'}</button>
+          <a class="btn btn-sm btn-secondary" href="${API}/relatorios/${r.id}/pdf?token=${encodeURIComponent(tokenAtual)}" target="_blank">PDF</a>
+        </td>
       </tr>
     `).join('')
   } catch {
     document.getElementById('tabela-relatorios').innerHTML = `
-      <tr><td colspan="7" style="text-align:center; color:red; padding:30px;">Erro ao conectar com o servidor</td></tr>
+      <tr><td colspan="6" style="text-align:center; color:red; padding:30px;">Erro ao conectar com o servidor</td></tr>
     `
   }
 }
@@ -335,10 +326,12 @@ function renderFormularioRelatorio(r, empresas) {
       `)}
 
       ${secao('Cilindros', `
-        <table class="table-certificados">
-          <thead><tr><th>Nº</th><th>Nº Válvula</th><th>Teste</th><th>Carga (kg)</th><th>Carga CO2 (kg)</th><th>Carga N2 (kg)</th><th>Fabricante</th><th>Ano Fab.</th><th>Val. Hidrostática</th><th>Cabo Int. (m)</th><th>Cabo Ext. (m)</th><th>Altura Máx. (m)</th><th>Classe</th>${somenteLeitura ? '' : '<th></th>'}</tr></thead>
-          <tbody id="lista-cilindros"></tbody>
-        </table>
+        <div style="overflow-x:auto;">
+          <table class="table-certificados" style="min-width:1400px;">
+            <thead><tr><th>Nº</th><th>Nº Válvula</th><th>Teste</th><th>Carga (kg)</th><th>Carga CO2 (kg)</th><th>Carga N2 (kg)</th><th>Fabricante</th><th>Ano Fab.</th><th>Val. Hidrostática</th><th>Cabo Int. (m)</th><th>Cabo Ext. (m)</th><th>Altura Máx. (m)</th><th>Classe</th>${somenteLeitura ? '' : '<th></th>'}</tr></thead>
+            <tbody id="lista-cilindros"></tbody>
+          </table>
+        </div>
         ${somenteLeitura ? '' : '<button class="btn btn-secondary btn-sm" style="margin-top:8px;" onclick="adicionarCilindro()">+ Cilindro</button>'}
       `)}
 

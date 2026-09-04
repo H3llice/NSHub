@@ -15,6 +15,27 @@ const INCLUDE_PADRAO = {
   assinaturas: { include: { usuario: true }, orderBy: { criadoEm: 'asc' } }
 }
 
+// Navio/armador/porto e os dados do equipamento que aparecem no certificado não
+// pertencem ao Certificado — embarcacaoId/empresaId são cópias no próprio
+// Certificado (setadas ao gerar, a partir do Relatório), mas equipTipo/
+// equipNumeroSerie/etc. só existem no Relatório. Editar essas informações pela
+// tela do Certificado atualiza o Relatório de origem por baixo dos panos, mesmo
+// que ele já esteja concluído — só o Certificado ganha essa exceção às travas
+// de documento concluído (usuário pediu explicitamente).
+const CAMPOS_EQUIPAMENTO_RELATORIO = [
+  'equipTipo', 'equipNumeroSerie', 'equipAnoFabricacao', 'equipFabricante', 'equipModelo', 'equipClasse', 'equipCapacidade'
+]
+
+function extrairEquipamento(body) {
+  const dados = {}
+  for (const campo of CAMPOS_EQUIPAMENTO_RELATORIO) {
+    if (body[campo] === undefined) continue
+    if (body[campo] === '' || body[campo] === null) { dados[campo] = null; continue }
+    dados[campo] = campo === 'equipCapacidade' ? parseInt(body[campo]) : body[campo]
+  }
+  return dados
+}
+
 // ─── Listar certificados ────────────────────────────────────────────────────────
 router.get('/', autenticar, async (req, res) => {
   const { busca, empresa, status, pagina = 1 } = req.query
@@ -90,10 +111,38 @@ router.post('/', autenticar, async (req, res) => {
   res.json(certificado)
 })
 
+// ─── Editar certificado (sempre editável, mesmo já emitido — diferente de OC/
+// Relatório/Solicitação, que travam após concluídos) ────────────────────────────
+router.put('/:id', autenticar, exigirPerfil('gerente', 'admin'), async (req, res) => {
+  const id = Number(req.params.id)
+  const { dataEmissao, validade, observacoes, empresaId, embarcacaoId, relatorio } = req.body
+
+  const certificado = await prisma.certificado.findUnique({ where: { id } })
+  if (!certificado) return res.status(404).json({ erro: 'Certificado não encontrado' })
+
+  if (relatorio) {
+    await prisma.relatorio.update({ where: { id: certificado.relatorioId }, data: extrairEquipamento(relatorio) })
+  }
+
+  const atualizado = await prisma.certificado.update({
+    where: { id },
+    data: {
+      dataEmissao: dataEmissao ? new Date(dataEmissao).toISOString() : null,
+      validade: validade || null,
+      observacoes: observacoes || null,
+      ...(empresaId && { empresaId: parseInt(empresaId) }),
+      ...(embarcacaoId && { embarcacaoId: parseInt(embarcacaoId) })
+    },
+    include: INCLUDE_PADRAO
+  })
+
+  res.json(atualizado)
+})
+
 // ─── Emitir certificado (só gerente/admin) ─────────────────────────────────────
 router.post('/:id/emitir', autenticar, exigirPerfil('gerente', 'admin'), async (req, res) => {
   const id = Number(req.params.id)
-  const { dataEmissao, validade, observacoes, assinaturaImg } = req.body
+  const { dataEmissao, validade, observacoes, empresaId, embarcacaoId, relatorio, assinaturaImg } = req.body
 
   const certificado = await prisma.certificado.findUnique({ where: { id } })
   if (!certificado) return res.status(404).json({ erro: 'Certificado não encontrado' })
@@ -102,6 +151,10 @@ router.post('/:id/emitir', autenticar, exigirPerfil('gerente', 'admin'), async (
   }
   if (!dataEmissao || !validade) {
     return res.status(400).json({ erro: 'Data de emissão e validade são obrigatórias para emitir o certificado' })
+  }
+
+  if (relatorio) {
+    await prisma.relatorio.update({ where: { id: certificado.relatorioId }, data: extrairEquipamento(relatorio) })
   }
 
   const [, atualizado] = await prisma.$transaction([
@@ -120,7 +173,9 @@ router.post('/:id/emitir', autenticar, exigirPerfil('gerente', 'admin'), async (
         status: 'emitido',
         dataEmissao: new Date(dataEmissao).toISOString(),
         validade,
-        observacoes: observacoes || null
+        observacoes: observacoes || null,
+        ...(empresaId && { empresaId: parseInt(empresaId) }),
+        ...(embarcacaoId && { embarcacaoId: parseInt(embarcacaoId) })
       },
       include: INCLUDE_PADRAO
     })
@@ -157,6 +212,7 @@ const CAMPOS_CERTIFICADO = [
   { campo: 'fabricante', x: 41.1, y: 177.5, size: 10, bold: true },
   { campo: 'anoFabricacao', x: 132.7, y: 178.6, size: 10, bold: true },
   { campo: 'dataEmissao', x: 120.1, y: 193.7, size: 10, bold: true },
+  { campo: 'validade', x: 147.0, y: 193.7, size: 10, bold: true },
 ]
 
 const ASSINATURA_POS = { x: 66.0, y: 198.4, larguraMm: 56.8, alturaMm: 17.7 }
@@ -179,7 +235,8 @@ function valoresCertificado(c) {
     classe: r?.equipClasse || '',
     fabricante: r?.equipFabricante || '',
     anoFabricacao: r?.equipAnoFabricacao || '',
-    dataEmissao: c.dataEmissao ? new Date(c.dataEmissao).toLocaleDateString('pt-BR') : '',
+    dataEmissao: c.dataEmissao ? new Date(c.dataEmissao).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : '',
+    validade: c.validade || '',
   }
 }
 

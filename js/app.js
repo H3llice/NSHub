@@ -9,7 +9,7 @@ import { inicializarAlmoxarifado } from './modules/almoxarifado.js'
 import { inicializarEmbarcacoes } from './modules/embarcacoes.js'
 import { inicializarRelatorios } from './modules/relatorios.js'
 import { inicializarOrdensServico } from './modules/ordens-servico.js'
-import './modules/certificados.js'
+import { listarCertificadosBalsa } from './modules/certificados.js'
 
 
 let favoritos = JSON.parse(localStorage.getItem('favoritos')) || [];
@@ -70,6 +70,7 @@ window.abrirPagina = function (event, id) {
 
     if (id === 'certificados') {
         voltarParaListaCertificados(event);
+        atualizarTabelaCertificados();
     }
 
     if (id === 'ocs') {
@@ -409,15 +410,35 @@ window.salvarCertificado = function (event, tipo) {
     alert('Certificado salvo com sucesso!');
 }
 
-function atualizarTabelaCertificados() {
+// Certificados de balsa gerados pelo fluxo real (OS → Relatório → Certificado,
+// ver js/modules/certificados.js) vêm do backend; os outros tipos (baleeira/
+// turco/colete) ainda são o formulário avulso antigo salvo em localStorage —
+// as duas listas são mescladas aqui pra aparecerem juntas na mesma aba.
+async function atualizarTabelaCertificados() {
     const tabela = document.getElementById('tabela-certificados');
+    const reais = await listarCertificadosBalsa();
 
-    if (certificados.length === 0) {
+    if (certificados.length === 0 && reais.length === 0) {
         tabela.innerHTML = '<tr><td colspan="5" style="text-align: center; color: #999; padding: 30px;">Nenhum certificado cadastrado ainda</td></tr>';
         return;
     }
 
-    tabela.innerHTML = certificados.map(cert => {
+    const linhasReais = reais.map(cert => {
+        const dataEmissao = cert.dataEmissao ? new Date(cert.dataEmissao).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : '-'
+        return `
+            <tr>
+                <td>${cert.numero}/${cert.ano}</td>
+                <td>${cert.embarcacao?.nome || '-'}</td>
+                <td>Balsa</td>
+                <td>${dataEmissao}</td>
+                <td>
+                    <button class="btn btn-sm btn-info" onclick="abrirCertificado(${cert.id})">Ver</button>
+                </td>
+            </tr>
+        `;
+    }).join('');
+
+    const linhasLegado = certificados.map(cert => {
         const dataEmissao = new Date(cert.dataEmissao).toLocaleDateString('pt-BR');
         return `
             <tr>
@@ -432,6 +453,8 @@ function atualizarTabelaCertificados() {
             </tr>
         `;
     }).join('');
+
+    tabela.innerHTML = linhasReais + linhasLegado;
 }
 
 window.editarCertificado = function (id) {

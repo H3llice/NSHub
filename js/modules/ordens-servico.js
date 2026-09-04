@@ -96,7 +96,7 @@ async function carregarOrdensServico() {
         <td>${os.numero}/${os.ano}</td>
         <td>${os.embarcacao?.nome || '-'}</td>
         <td>${os.cliente?.nome || '-'}</td>
-        <td>${new Date(os.dataEmissao).toLocaleDateString('pt-BR')}</td>
+        <td>${new Date(os.dataEmissao).toLocaleDateString('pt-BR', { timeZone: 'UTC' })}</td>
         <td>${badgeStatus(os.status)}</td>
         <td>
           <button class="btn btn-sm btn-info" onclick="editarOS(${os.id})">${os.status === 'aberta' ? 'Editar' : 'Ver'}</button>
