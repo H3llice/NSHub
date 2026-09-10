@@ -65,16 +65,18 @@ router.get('/', autenticar, async (req, res) => {
   const where = {}
   if (status) where.status = status
   if (empresa) where.empresaId = parseInt(empresa)
-  if (busca && !isNaN(busca)) where.numero = parseInt(busca)
   if (ano && !isNaN(ano)) where.ano = parseInt(ano)
 
-  // navio/armador/tecnico não dá pra filtrar direto no banco (precisa ignorar
-  // acento) — busca tudo que bate no resto e filtra/pagina em JS. Sem esses 3
-  // campos, segue 100% no banco (mais rápido, com paginação de verdade).
-  if (navio || armador || tecnico) {
+  // navio/armador/tecnico/busca não dá pra filtrar direto no banco — número
+  // é "começa com" (Prisma/Postgres não tem startsWith em coluna Int) e os
+  // outros 3 precisam ignorar acento — busca tudo que bate no resto (status/
+  // empresa/ano) e filtra/pagina em JS. Sem nenhum desses, segue 100% no
+  // banco (mais rápido, com paginação de verdade).
+  if (busca || navio || armador || tecnico) {
     const todos = await prisma.certificado.findMany({ where, include: INCLUDE_LISTAGEM, orderBy: { numero: 'desc' } })
 
     const filtrados = todos.filter(c => {
+      if (busca && !String(c.numero).startsWith(busca.trim())) return false
       if (navio && !contemNormalizado(c.navio || c.embarcacao?.nome, navio)) return false
       if (armador && !contemNormalizado(c.armador || c.embarcacao?.armador?.nome, armador)) return false
       if (tecnico) {
