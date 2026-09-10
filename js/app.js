@@ -437,7 +437,7 @@ async function atualizarTabelaCertificados() {
         const tecnico = cert.relatorio?.criadoPor?.nome || cert.criadoPor?.nome || '-'
         return `
             <tr>
-                <td>${cert.numero}/${cert.ano}</td>
+                <td>${cert.numero}</td>
                 <td>${cert.navio || cert.embarcacao?.nome || '-'}</td>
                 <td>${armador}</td>
                 <td>${tecnico}</td>
