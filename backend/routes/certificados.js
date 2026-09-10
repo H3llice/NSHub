@@ -33,6 +33,23 @@ function extrairEquipamentoCertificado(body) {
   return dados
 }
 
+// Sem acento e sem caixa — "jose" tem que achar "José". O `contains` do Postgres
+// (via Prisma) já ignora maiúsc./minúsc. com mode:'insensitive', mas não acento,
+// então navio/armador/tecnico (abaixo) comparam em JS depois de buscar.
+function normalizarTexto(s) {
+  return (s || '').normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase()
+}
+function contemNormalizado(campo, busca) {
+  return normalizarTexto(campo).includes(normalizarTexto(busca))
+}
+
+const INCLUDE_LISTAGEM = {
+  embarcacao: { include: { armador: true } },
+  empresa: true,
+  relatorio: { include: { criadoPor: true } },
+  criadoPor: true
+}
+
 // ─── Listar certificados ────────────────────────────────────────────────────────
 // navio/armador filtram tanto o texto livre do próprio Certificado quanto o
 // cadastro de Embarcacao (cobre os dois jeitos de o dado ter chegado lá — ver
@@ -43,48 +60,46 @@ function extrairEquipamentoCertificado(body) {
 router.get('/', autenticar, async (req, res) => {
   const { busca, empresa, status, navio, armador, tecnico, pagina = 1 } = req.query
   const porPagina = 50
+  const paginaNum = parseInt(pagina)
 
-  const and = []
-  if (status) and.push({ status })
-  if (empresa) and.push({ empresaId: parseInt(empresa) })
-  if (busca && !isNaN(busca)) and.push({ numero: parseInt(busca) })
-  if (navio) {
-    and.push({ OR: [
-      { navio: { contains: navio, mode: 'insensitive' } },
-      { embarcacao: { nome: { contains: navio, mode: 'insensitive' } } }
-    ] })
+  const where = {}
+  if (status) where.status = status
+  if (empresa) where.empresaId = parseInt(empresa)
+  if (busca && !isNaN(busca)) where.numero = parseInt(busca)
+
+  // navio/armador/tecnico não dá pra filtrar direto no banco (precisa ignorar
+  // acento) — busca tudo que bate no resto e filtra/pagina em JS. Sem esses 3
+  // campos, segue 100% no banco (mais rápido, com paginação de verdade).
+  if (navio || armador || tecnico) {
+    const todos = await prisma.certificado.findMany({ where, include: INCLUDE_LISTAGEM, orderBy: { numero: 'desc' } })
+
+    const filtrados = todos.filter(c => {
+      if (navio && !contemNormalizado(c.navio || c.embarcacao?.nome, navio)) return false
+      if (armador && !contemNormalizado(c.armador || c.embarcacao?.armador?.nome, armador)) return false
+      if (tecnico) {
+        const nomeTecnico = c.relatorio ? c.relatorio.criadoPor?.nome : c.criadoPor?.nome
+        if (!contemNormalizado(nomeTecnico, tecnico)) return false
+      }
+      return true
+    })
+
+    const total = filtrados.length
+    const certificados = filtrados.slice((paginaNum - 1) * porPagina, paginaNum * porPagina)
+    return res.json({ certificados, total, pagina: paginaNum, totalPaginas: Math.ceil(total / porPagina) })
   }
-  if (armador) {
-    and.push({ OR: [
-      { armador: { contains: armador, mode: 'insensitive' } },
-      { embarcacao: { armador: { nome: { contains: armador, mode: 'insensitive' } } } }
-    ] })
-  }
-  if (tecnico) {
-    and.push({ OR: [
-      { relatorio: { criadoPor: { nome: { contains: tecnico, mode: 'insensitive' } } } },
-      { relatorioId: null, criadoPor: { nome: { contains: tecnico, mode: 'insensitive' } } }
-    ] })
-  }
-  const where = and.length ? { AND: and } : {}
 
   const [certificados, total] = await Promise.all([
     prisma.certificado.findMany({
       where,
-      include: {
-        embarcacao: { include: { armador: true } },
-        empresa: true,
-        relatorio: { include: { criadoPor: true } },
-        criadoPor: true
-      },
+      include: INCLUDE_LISTAGEM,
       orderBy: { numero: 'desc' },
       take: porPagina,
-      skip: (parseInt(pagina) - 1) * porPagina
+      skip: (paginaNum - 1) * porPagina
     }),
     prisma.certificado.count({ where })
   ])
 
-  res.json({ certificados, total, pagina: parseInt(pagina), totalPaginas: Math.ceil(total / porPagina) })
+  res.json({ certificados, total, pagina: paginaNum, totalPaginas: Math.ceil(total / porPagina) })
 })
 
 // ─── Buscar um certificado pelo ID ──────────────────────────────────────────────
