@@ -29,9 +29,9 @@
         <div class="menu">
             <a href="#" onclick="abrirPagina(event,'inicio')">🏠 Início</a>
             <a href="#" onclick="abrirPagina(event,'favoritos')">⭐ Favoritos</a>
-            <a href="#" onclick="toggleMenu(event,'produtos')" data-perm="admin">📦 Produtos</a>
+            <a href="#" onclick="toggleMenu(event,'produtos')" data-perm="admin,financeiro">📦 Produtos</a>
 
-            <div id="produtos" class="submenu" data-perm="admin">
+            <div id="produtos" class="submenu" data-perm="admin,financeiro">
                 <div class="menu-item">
                     <a href="#" onclick="abrirPagina(event,'orcamentos')" style="flex: 1;">Orçamentos</a>
                     <button class="star-btn" onclick="toggleFavorito(event, 'orcamentos', 'Orçamentos')">☆</button>

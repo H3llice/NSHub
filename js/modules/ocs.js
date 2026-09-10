@@ -1379,6 +1379,7 @@ export function inicializarContasAPagar() {
   const container = document.getElementById('contasPagar')
   container.innerHTML = `
     <div class="tab">Contas a Pagar</div>
+    ${podeMarcarPagoOC ? `<button class="btn btn-success" onclick="abrirFormularioContaPagarAvulsa()">+ Nova Conta a Pagar</button>` : ''}
 
     <div id="resumo-contas-pagar" style="display:grid; grid-template-columns:repeat(3, 1fr); gap:16px; margin: 16px 0;">
       <div style="background:white; border-radius:6px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06);">
@@ -1438,9 +1439,32 @@ export function inicializarContasAPagar() {
 
 let contasAPagarCache = []
 
+function normalizarContaAvulsa(c) {
+  return {
+    id: c.id,
+    tipo: 'avulsa',
+    numero: null,
+    ano: null,
+    fornecedor: { nome: c.fornecedorNome || c.descricao || 'Conta avulsa' },
+    empresa: null,
+    dataPedido: c.dataVencimento,
+    valorTotal: c.valor,
+    pago: c.status === 'pago',
+    dataPagamento: c.dataPagamento
+  }
+}
+
 window.carregarContasAPagar = async function () {
   try {
-    contasAPagarCache = await apiFetch(`${API}/ocs/contas-a-pagar`).then(r => r.json())
+    const [ocs, avulsas] = await Promise.all([
+      apiFetch(`${API}/ocs/contas-a-pagar`).then(r => r.json()),
+      apiFetch(`${API}/contas-pagar`).then(r => r.json())
+    ])
+
+    contasAPagarCache = [
+      ...ocs.map(oc => ({ ...oc, tipo: 'oc' })),
+      ...avulsas.map(normalizarContaAvulsa)
+    ]
 
     const pendentes = contasAPagarCache.filter(oc => !oc.pago)
     const totalAPagar = pendentes.reduce((acc, oc) => acc + (oc.valorTotal || 0), 0)
@@ -1474,7 +1498,7 @@ window.filtrarContasAPagar = function () {
   if (busca) {
     filtradas = filtradas.filter(oc => {
       const fornecedor = (oc.fornecedor?.nome || '').toLowerCase()
-      const numero = `${oc.numero}.${oc.ano}`.toLowerCase()
+      const numero = oc.tipo === 'avulsa' ? '' : `${oc.numero}.${oc.ano}`.toLowerCase()
       return fornecedor.includes(busca) || numero.includes(busca)
     })
   }
@@ -1497,13 +1521,14 @@ function renderizarTabelaContasAPagar(ocs) {
 
   tabela.innerHTML = ocs.map(oc => {
     const dataPedido = new Date(oc.dataPedido).toLocaleDateString('pt-BR')
+    const numeroTxt = oc.tipo === 'avulsa' ? '<span style="color:#999;">Avulsa</span>' : `${oc.numero}.${oc.ano}`
     const acoes = oc.pago
-      ? `<button class="btn btn-sm btn-secondary" onclick="reverterPagamentoOC(${oc.id})">Reverter</button>`
-      : `<button class="btn btn-sm btn-success" onclick="marcarOCPaga(${oc.id})">Marcar Pago</button>`
+      ? `<button class="btn btn-sm btn-secondary" onclick="reverterContaAPagar(${oc.id}, '${oc.tipo}')">Reverter</button>`
+      : `<button class="btn btn-sm btn-success" onclick="marcarContaAPagarPaga(${oc.id}, '${oc.tipo}')">Marcar Pago</button>`
 
     return `
       <tr>
-        <td>${oc.numero}.${oc.ano}</td>
+        <td>${numeroTxt}</td>
         <td>${oc.fornecedor?.nome || '-'}</td>
         <td>${oc.empresa?.nome || '-'}</td>
         <td>${dataPedido}</td>
@@ -1515,23 +1540,69 @@ function renderizarTabelaContasAPagar(ocs) {
   }).join('')
 }
 
-window.marcarOCPaga = async function (id) {
-  if (!confirm('Confirmar que esta OC foi paga?')) return
-  const res = await apiJson(`${API}/ocs/${id}/marcar-pago`, { method: 'POST', body: JSON.stringify({}) })
+window.marcarContaAPagarPaga = async function (id, tipo) {
+  const confirmMsg = tipo === 'avulsa' ? 'Confirmar que esta conta foi paga?' : 'Confirmar que esta OC foi paga?'
+  if (!confirm(confirmMsg)) return
+  const url = tipo === 'avulsa' ? `${API}/contas-pagar/${id}/marcar-pago` : `${API}/ocs/${id}/marcar-pago`
+  const res = await apiJson(url, { method: 'POST', body: JSON.stringify({}) })
   if (res.ok) {
     carregarContasAPagar()
   } else {
-    alert('Erro ao marcar OC como paga')
+    alert('Erro ao marcar conta como paga')
   }
 }
 
-window.reverterPagamentoOC = async function (id) {
-  if (!confirm('Reverter o pagamento desta OC?')) return
-  const res = await apiJson(`${API}/ocs/${id}/reverter-pagamento`, { method: 'POST', body: JSON.stringify({}) })
+window.reverterContaAPagar = async function (id, tipo) {
+  if (!confirm('Reverter o pagamento desta conta?')) return
+  const url = tipo === 'avulsa' ? `${API}/contas-pagar/${id}/reverter` : `${API}/ocs/${id}/reverter-pagamento`
+  const res = await apiJson(url, { method: 'POST', body: JSON.stringify({}) })
   if (res.ok) {
     carregarContasAPagar()
   } else {
     alert('Erro ao reverter pagamento')
+  }
+}
+
+// ===== FORMULÁRIO — NOVA CONTA A PAGAR (avulsa, sem OC vinculada) =============
+window.abrirFormularioContaPagarAvulsa = function () {
+  document.getElementById('contasPagar').innerHTML = `
+    <div style="margin-top:20px; max-width:600px;">
+      <button class="btn btn-secondary" onclick="inicializarContasAPagar()">← Voltar</button>
+      <h3 style="margin:20px 0;">Nova Conta a Pagar (avulsa)</h3>
+      <p style="font-size:13px; color:#999;">Use isso para despesas que não vêm de uma Ordem de Compra.</p>
+
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+        <div style="grid-column:span 2;"><label>Fornecedor</label><input type="text" id="conta-pagar-fornecedorNome" class="form-control" placeholder="Nome do fornecedor (opcional)"></div>
+        <div style="grid-column:span 2;"><label>Descrição *</label><input type="text" id="conta-pagar-descricao" class="form-control" placeholder="Ex: Serviço avulso, taxa, etc."></div>
+        <div><label>Valor *</label><input type="number" id="conta-pagar-valor" class="form-control" step="0.01"></div>
+        <div><label>Data de Vencimento *</label><input type="date" id="conta-pagar-dataVencimento" class="form-control" value="${new Date().toISOString().split('T')[0]}"></div>
+      </div>
+
+      <button type="button" class="btn btn-success" style="margin-top:20px;" onclick="salvarContaPagarAvulsa()">Salvar Conta</button>
+    </div>
+  `
+}
+
+window.salvarContaPagarAvulsa = async function () {
+  const body = {
+    fornecedorNome: document.getElementById('conta-pagar-fornecedorNome').value.trim(),
+    descricao: document.getElementById('conta-pagar-descricao').value.trim(),
+    valor: document.getElementById('conta-pagar-valor').value,
+    dataVencimento: document.getElementById('conta-pagar-dataVencimento').value,
+  }
+
+  if (!body.descricao || !body.valor || !body.dataVencimento) {
+    alert('Descrição, valor e data de vencimento são obrigatórios!')
+    return
+  }
+
+  const res = await apiJson(`${API}/contas-pagar`, { method: 'POST', body: JSON.stringify(body) })
+  if (res.ok) {
+    alert('Conta cadastrada com sucesso!')
+    inicializarContasAPagar()
+  } else {
+    const err = await res.json()
+    alert('Erro: ' + (err.erro || 'Falha ao cadastrar'))
   }
 }
 

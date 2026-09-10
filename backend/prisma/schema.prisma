@@ -402,6 +402,19 @@ model Pagamento {
   criadoEm       DateTime  @default(now())
 }
 
+model ContaPagar {
+  id             Int       @id @default(autoincrement())
+  fornecedorNome String? // conta avulsa (sem OC vinculada)
+  descricao      String?
+  referencia     String?
+  valor          Float
+  dataVencimento DateTime
+  dataPagamento  DateTime?
+  status         String    @default("pendente")
+  // status: pendente | pago
+  criadoEm       DateTime  @default(now())
+}
+
 model Produto {
   id           Int      @id @default(autoincrement())
   codigo       String   @unique
