@@ -1,9 +1,8 @@
 import 'dotenv/config'
 import { PrismaClient } from '@prisma/client'
 import fs from 'fs'
-import os from 'os'
 import path from 'path'
-import { execSync } from 'child_process'
+import JSZip from 'jszip'
 
 const prisma = new PrismaClient()
 
@@ -17,37 +16,33 @@ const prisma = new PrismaClient()
 // arquivos diferentes, e bate com as constantes já usadas pra desenhar o PDF
 // (CAMPOS_CERTIFICADO em routes/certificados.js, KIT_LINHA_Y0 etc em
 // routes/relatorios.js) — ambas vêm do mesmo template original.
+// .docm é um zip — usa jszip (puro JS, sem depender do comando `unzip` do
+// sistema, que não existe por padrão num Windows Server sem Git Bash).
 const EMU_POR_MM = 36000
 
-function extrairCamposPosicionais(caminhoDocm) {
-    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'docm-'))
-    try {
-        const zipPath = path.join(tmpDir, 'sample.zip')
-        fs.copyFileSync(caminhoDocm, zipPath)
-        execSync(`unzip -o -q "${zipPath}" -d "${tmpDir}/extracted"`, { stdio: 'pipe' })
-        const xmlPath = path.join(tmpDir, 'extracted', 'word', 'document.xml')
-        if (!fs.existsSync(xmlPath)) return []
-        const xml = fs.readFileSync(xmlPath, 'utf8')
+async function extrairCamposPosicionais(caminhoDocm) {
+    const buffer = fs.readFileSync(caminhoDocm)
+    const zip = await JSZip.loadAsync(buffer)
+    const arquivoXml = zip.file('word/document.xml')
+    if (!arquivoXml) return []
+    const xml = await arquivoXml.async('string')
 
-        const campos = []
-        const blocos = xml.split('<w:drawing>').slice(1)
-        for (const blocoBruto of blocos) {
-            const bloco = blocoBruto.split('</w:drawing>')[0]
-            const mH = bloco.match(/<wp:positionH[^>]*>\s*<wp:posOffset>(-?\d+)<\/wp:posOffset>/)
-            const mV = bloco.match(/<wp:positionV[^>]*>\s*<wp:posOffset>(-?\d+)<\/wp:posOffset>/)
-            if (!mH || !mV) continue // ancorado por alinhamento (ex: número do certificado, centralizado) em vez de offset — não usado na migração, número vem do nome do arquivo
-            const xMm = parseInt(mH[1]) / EMU_POR_MM
-            const yMm = parseInt(mV[1]) / EMU_POR_MM
+    const campos = []
+    const blocos = xml.split('<w:drawing>').slice(1)
+    for (const blocoBruto of blocos) {
+        const bloco = blocoBruto.split('</w:drawing>')[0]
+        const mH = bloco.match(/<wp:positionH[^>]*>\s*<wp:posOffset>(-?\d+)<\/wp:posOffset>/)
+        const mV = bloco.match(/<wp:positionV[^>]*>\s*<wp:posOffset>(-?\d+)<\/wp:posOffset>/)
+        if (!mH || !mV) continue // ancorado por alinhamento (ex: número do certificado, centralizado) em vez de offset — não usado na migração, número vem do nome do arquivo
+        const xMm = parseInt(mH[1]) / EMU_POR_MM
+        const yMm = parseInt(mV[1]) / EMU_POR_MM
 
-            const txbx = bloco.match(/<w:txbxContent>([\s\S]*?)<\/w:txbxContent>/)
-            if (!txbx) continue
-            const texto = [...txbx[1].matchAll(/<w:t[^>]*>([^<]*)<\/w:t>/g)].map(m => m[1]).join('').trim()
-            campos.push({ xMm, yMm, texto })
-        }
-        return campos
-    } finally {
-        fs.rmSync(tmpDir, { recursive: true, force: true })
+        const txbx = bloco.match(/<w:txbxContent>([\s\S]*?)<\/w:txbxContent>/)
+        if (!txbx) continue
+        const texto = [...txbx[1].matchAll(/<w:t[^>]*>([^<]*)<\/w:t>/g)].map(m => m[1]).join('').trim()
+        campos.push({ xMm, yMm, texto })
     }
+    return campos
 }
 
 // ===== TABELA DE POSIÇÕES CONHECIDAS =====
@@ -329,7 +324,7 @@ async function debugArquivo(filePath) {
     console.log('nome parseado:', nome, 'ano:', ano)
 
     const slots = gerarSlots()
-    const camposPosicionais = extrairCamposPosicionais(filePath)
+    const camposPosicionais = await extrairCamposPosicionais(filePath)
     const { valores, naoReconhecidos } = mapearCampos(camposPosicionais, slots)
     const dados = montarCertificado(nome.numero, ano, nome.navio, nome.cancelado, valores)
 
@@ -385,7 +380,7 @@ async function migrar() {
             const existente = await prisma.certificado.findFirst({ where: { numero: nome.numero, ano } })
             if (existente) { relatorio.pulado.push({ arquivo: nomeArquivo, motivo: `Certificado ${nome.numero}/${ano} já existe (id ${existente.id})` }); continue }
 
-            const camposPosicionais = extrairCamposPosicionais(filePath)
+            const camposPosicionais = await extrairCamposPosicionais(filePath)
             const { valores, naoReconhecidos } = mapearCampos(camposPosicionais, slots)
             const dados = montarCertificado(nome.numero, ano, nome.navio, nome.cancelado, valores)
             dados.empresaId = empresa.id
