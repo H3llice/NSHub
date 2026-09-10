@@ -19,6 +19,19 @@ let formularioAtualCarregado = null;
 
 // ===== AUTENTICAÇÃO =====
 const usuarioLogado = JSON.parse(localStorage.getItem('ns_usuario') || 'null')
+const perfilLogado = usuarioLogado?.perfil || 'usuario'
+
+// ===== PERMISSÕES DE TELA POR PERFIL =====
+// Elementos da sidebar/topbar marcados com data-perm="admin,gerente,..." só
+// aparecem pro perfil logado. Restrições de edição por página (o que cada
+// perfil pode ALTERAR, não só ver) ficam dentro de cada módulo (js/modules/*),
+// perto da lógica que elas afetam.
+function aplicarPermissoesInterface() {
+    document.querySelectorAll('[data-perm]').forEach(el => {
+        const permitido = el.dataset.perm.split(',').includes(perfilLogado)
+        el.style.display = permitido ? '' : 'none'
+    })
+}
 
 window.addEventListener('load', () => {
     // Mostra nome na topbar
@@ -26,6 +39,8 @@ window.addEventListener('load', () => {
     if (span && usuarioLogado) {
         span.textContent = `👤 ${usuarioLogado.nome} (${usuarioLogado.perfil})`
     }
+
+    aplicarPermissoesInterface()
 
     // ... resto do load que já existe
 })

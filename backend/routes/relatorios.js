@@ -3,7 +3,7 @@ import { PDFDocument, StandardFonts, rgb } from 'pdf-lib'
 import fs from 'fs'
 import path from 'path'
 import { prisma } from '../server.js'
-import { autenticar } from '../middleware/auth.js'
+import { autenticar, exigirPerfil } from '../middleware/auth.js'
 
 const router = Router()
 
@@ -127,7 +127,8 @@ router.get('/:id', autenticar, async (req, res) => {
 })
 
 // ─── Criar novo relatório (sempre a partir de uma Ordem de Serviço) ────────────
-router.post('/', autenticar, async (req, res) => {
+// Financeiro não mexe em Serviços — de fora daqui e das duas rotas abaixo.
+router.post('/', autenticar, exigirPerfil('usuario', 'gerente', 'admin', 'tecnico'), async (req, res) => {
   const { cilindros, testeImo, ordemServicoId } = req.body
   const dados = extrair(req.body, CAMPOS_RELATORIO)
 
@@ -206,7 +207,7 @@ export async function atualizarRelatorioCompleto(id, body) {
 }
 
 // ─── Editar relatório ───────────────────────────────────────────────────────────
-router.put('/:id', autenticar, async (req, res) => {
+router.put('/:id', autenticar, exigirPerfil('usuario', 'gerente', 'admin', 'tecnico'), async (req, res) => {
   const id = Number(req.params.id)
   const atual = await prisma.relatorio.findUnique({ where: { id } })
   if (!atual) return res.status(404).json({ erro: 'Relatório não encontrado' })
@@ -225,7 +226,7 @@ router.put('/:id', autenticar, async (req, res) => {
 })
 
 // ─── Concluir relatório (assinatura do técnico) ────────────────────────────────
-router.post('/:id/concluir', autenticar, async (req, res) => {
+router.post('/:id/concluir', autenticar, exigirPerfil('usuario', 'gerente', 'admin', 'tecnico'), async (req, res) => {
   const id = Number(req.params.id)
   const { assinaturaImg } = req.body
 

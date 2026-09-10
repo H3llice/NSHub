@@ -44,6 +44,10 @@ async function apiJson(url, options = {}) {
 const usuarioAtual = JSON.parse(localStorage.getItem('ns_usuario') || 'null')
 const perfil = usuarioAtual?.perfil || 'usuario'
 const podeEmitirCertificado = perfil === 'admin' || perfil === 'gerente'
+// Emitir/cancelar/excluir é restrito a gerente/admin, mas editar os dados
+// (antes de emitido) também é permitido ao Usuário — Técnico e Financeiro
+// não têm essa tela na sidebar e o backend já bloqueia o acesso direto.
+const podeEditarCertificado = podeEmitirCertificado || perfil === 'usuario'
 const tokenAtual = localStorage.getItem('ns_token')
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -173,7 +177,7 @@ function renderCertificado(c, empresas) {
   const emitido = c.status === 'emitido' || c.status === 'migrado'
   const cancelado = c.status === 'cancelado'
   const r = c.relatorio
-  const dis = (!podeEmitirCertificado || cancelado) ? 'disabled' : ''
+  const dis = (!podeEditarCertificado || cancelado) ? 'disabled' : ''
   const dataEmissaoValor = c.dataEmissao ? c.dataEmissao.split('T')[0] : hojeISO()
   const validadeValor = c.validade || validadePadrao(dataEmissaoValor)
   const opcoesEmpresas = empresas.map(e =>
@@ -249,7 +253,7 @@ function renderCertificado(c, empresas) {
         ${cancelado ? `
           <p style="margin-top:16px; color:#dc3545; font-size:13px; font-weight:600;">Certificado cancelado.</p>
           ${podeEmitirCertificado ? `<button type="button" class="btn btn-danger" onclick="excluirCertificado(${c.id})">Excluir Certificado</button>` : ''}
-        ` : !podeEmitirCertificado ? `
+        ` : !podeEditarCertificado ? `
           <p style="margin-top:16px; color:#999; font-size:13px;">${emitido ? 'Certificado emitido.' : 'Aguardando um gerente ou administrador revisar e emitir este certificado.'}</p>
         ` : novo ? `
           <div style="margin-top:16px;">
@@ -259,12 +263,14 @@ function renderCertificado(c, empresas) {
           <div style="margin-top:16px; display:flex; justify-content:space-between;">
             <div style="display:flex; gap:12px;">
               <button type="button" class="btn btn-secondary" onclick="atualizarCertificado(${c.id})">Salvar</button>
-              ${!emitido ? `<button type="button" class="btn btn-success" onclick="emitirCertificado(${c.id})">Emitir Certificado</button>` : ''}
+              ${!emitido && podeEmitirCertificado ? `<button type="button" class="btn btn-success" onclick="emitirCertificado(${c.id})">Emitir Certificado</button>` : ''}
             </div>
+            ${podeEmitirCertificado ? `
             <div style="display:flex; gap:12px;">
               <button type="button" class="btn btn-warning" onclick="cancelarCertificado(${c.id})">Cancelar Certificado</button>
               <button type="button" class="btn btn-danger" onclick="excluirCertificado(${c.id})">Excluir Certificado</button>
             </div>
+            ` : ''}
           </div>
         `}
       </div>

@@ -1299,6 +1299,12 @@ export async function renderizarDashboardOCs() {
   const container = document.getElementById('inicio')
   if (!container) return
 
+  // Técnico não mexe com Ordens de Compra
+  if (perfil === 'tecnico') {
+    document.getElementById('painel-ocs-inicio')?.remove()
+    return
+  }
+
   let painel = document.getElementById('painel-ocs-inicio')
   if (!painel) {
     painel = document.createElement('div')
@@ -1309,16 +1315,21 @@ export async function renderizarDashboardOCs() {
 
   painel.innerHTML = `<div style="color:#999; padding:12px;">Carregando resumo de compras...</div>`
 
+  // Contas a Pagar/Pago é informação financeira — Usuário/Gerente só veem
+  // o card de pendentes de aprovação, que é sobre o fluxo de OC em si.
+  const vePagamentosOC = perfil === 'admin' || perfil === 'financeiro'
+
   try {
     const d = await apiFetch(`${API}/ocs/dashboard`).then(r => r.json())
 
     painel.innerHTML = `
       <h5 style="margin-bottom:12px;">Ordens de Compra</h5>
-      <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:16px; margin-bottom:20px;">
+      <div style="display:grid; grid-template-columns:repeat(${vePagamentosOC ? 3 : 1}, 1fr); gap:16px; margin-bottom:20px;">
         <div style="background:white; border-radius:6px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06);">
           <div style="color:#999; font-size:12px;">OCs Pendentes de Aprovação</div>
           <div style="font-size:20px; font-weight:700; color:#fd7e14;">${d.qtdPendentesAprovacao}</div>
         </div>
+        ${vePagamentosOC ? `
         <div style="background:white; border-radius:6px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06); cursor:pointer;" onclick="abrirPagina(event, 'contasPagar')">
           <div style="color:#999; font-size:12px;">Contas a Pagar</div>
           <div style="font-size:20px; font-weight:700; color:#dc3545;">${d.qtdContasAPagar} (${formatarMoeda(d.totalAPagar)})</div>
@@ -1327,9 +1338,10 @@ export async function renderizarDashboardOCs() {
           <div style="color:#999; font-size:12px;">Pago (últimos 30 dias)</div>
           <div style="font-size:20px; font-weight:700; color:#0d6efd;">${formatarMoeda(d.totalPago30dias)}</div>
         </div>
+        ` : ''}
       </div>
 
-      ${d.contasAPagar?.length > 0 ? `
+      ${vePagamentosOC && d.contasAPagar?.length > 0 ? `
         <div style="background:white; border-radius:6px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06);">
           <div style="font-weight:700; color:#dc3545; margin-bottom:10px;">Próximas Contas a Pagar</div>
           <ul style="list-style:none; padding:0; margin:0;">

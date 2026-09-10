@@ -43,6 +43,12 @@ async function apiJson(url, options = {}) {
 // ORDENS DE SERVIÇO (Serviços → Ordens de serviço) — precede o Relatório
 // ══════════════════════════════════════════════════════════════════════════
 
+const usuarioAtual = JSON.parse(localStorage.getItem('ns_usuario') || 'null')
+const perfil = usuarioAtual?.perfil || 'usuario'
+// Técnico só preenche relatório a partir de uma OS já aberta por outra pessoa —
+// não cria nem edita a OS em si (backend também bloqueia, ver rota ordens-servico).
+const podeGerenciarOS = perfil !== 'tecnico'
+
 const STATUS_LABEL = {
   aberta: { texto: 'Aberta', cor: '#6c757d' },
   concluida: { texto: 'Concluída', cor: '#198754' },
@@ -59,7 +65,7 @@ export function inicializarOrdensServico() {
 
   document.getElementById('os').innerHTML = `
     <div class="tab">Ordens de Serviço</div>
-    <button class="btn btn-success" onclick="abrirFormularioOS()">+ Nova OS</button>
+    ${podeGerenciarOS ? `<button class="btn btn-success" onclick="abrirFormularioOS()">+ Nova OS</button>` : ''}
 
     <table class="table-certificados" style="margin-top:16px;">
       <thead>
@@ -99,7 +105,7 @@ async function carregarOrdensServico() {
         <td>${new Date(os.dataEmissao).toLocaleDateString('pt-BR', { timeZone: 'UTC' })}</td>
         <td>${badgeStatus(os.status)}</td>
         <td>
-          <button class="btn btn-sm btn-info" onclick="editarOS(${os.id})">${os.status === 'aberta' ? 'Editar' : 'Ver'}</button>
+          <button class="btn btn-sm btn-info" onclick="editarOS(${os.id})">${os.status === 'aberta' && podeGerenciarOS ? 'Editar' : 'Ver'}</button>
           ${!os.relatorio ? `<button class="btn btn-sm btn-warning" onclick="gerarRelatorioDeOS(${os.id})">Gerar Relatório</button>` : `<button class="btn btn-sm btn-secondary" onclick="editarRelatorio(${os.relatorio.id})">Ver Relatório</button>`}
         </td>
       </tr>
@@ -127,7 +133,7 @@ window.editarOS = async function (id) {
 }
 
 function renderFormularioOS(os, empresas) {
-  const somenteLeitura = os?.status === 'concluida'
+  const somenteLeitura = os?.status === 'concluida' || !podeGerenciarOS
   const dis = somenteLeitura ? 'disabled' : ''
   const opcoesEmpresas = empresas.map(e =>
     `<option value="${e.id}" ${os?.empresaId === e.id ? 'selected' : ''}>${e.nome} (${e.sigla})</option>`

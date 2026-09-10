@@ -1,6 +1,6 @@
 import { Router } from 'express'
 import { prisma } from '../server.js'
-import { autenticar } from '../middleware/auth.js'
+import { autenticar, exigirPerfil } from '../middleware/auth.js'
 
 const router = Router()
 
@@ -62,7 +62,9 @@ router.get('/:id', autenticar, async (req, res) => {
 })
 
 // ─── Criar nova OS ──────────────────────────────────────────────────────────────
-router.post('/', autenticar, async (req, res) => {
+// Técnico não abre OS (só preenche Relatório a partir de uma já existente) e
+// Financeiro não mexe em Serviços — ambos de fora.
+router.post('/', autenticar, exigirPerfil('usuario', 'gerente', 'admin'), async (req, res) => {
   const dados = extrair(req.body)
 
   if (!dados.empresaId || !dados.clienteId || !dados.embarcacaoId) {
@@ -93,7 +95,7 @@ router.post('/', autenticar, async (req, res) => {
 })
 
 // ─── Editar OS ──────────────────────────────────────────────────────────────────
-router.put('/:id', autenticar, async (req, res) => {
+router.put('/:id', autenticar, exigirPerfil('usuario', 'gerente', 'admin'), async (req, res) => {
   const id = Number(req.params.id)
   const atual = await prisma.ordemServico.findUnique({ where: { id } })
   if (!atual) return res.status(404).json({ erro: 'Ordem de Serviço não encontrada' })
@@ -116,7 +118,7 @@ router.put('/:id', autenticar, async (req, res) => {
 })
 
 // ─── Concluir OS (canhoto de retirada do equipamento) ──────────────────────────
-router.post('/:id/concluir', autenticar, async (req, res) => {
+router.post('/:id/concluir', autenticar, exigirPerfil('usuario', 'gerente', 'admin'), async (req, res) => {
   const id = Number(req.params.id)
   const { horaEntrada, horaSaida, assinaturaCliente } = req.body
 

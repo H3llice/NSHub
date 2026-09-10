@@ -426,6 +426,12 @@ export async function renderizarDashboardEstoque() {
   const container = document.getElementById('inicio')
   if (!container) return
 
+  // Balsas disponíveis não interessa ao Financeiro
+  if (perfil === 'financeiro') {
+    document.getElementById('painel-estoque-inicio')?.remove()
+    return
+  }
+
   let painel = document.getElementById('painel-estoque-inicio')
   if (!painel) {
     painel = document.createElement('div')

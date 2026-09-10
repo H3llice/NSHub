@@ -738,6 +738,13 @@ export async function renderizarDashboardContratos() {
   const container = document.getElementById('inicio')
   if (!container) return
 
+  // Contratos de balsa só aparecem pro admin (Financeiro fica de fora explicitamente;
+  // Usuário/Gerente/Técnico nem têm acesso à tela de Contratos)
+  if (perfil !== 'admin') {
+    document.getElementById('painel-contratos-inicio')?.remove()
+    return
+  }
+
   let painel = document.getElementById('painel-contratos-inicio')
   if (!painel) {
     painel = document.createElement('div')

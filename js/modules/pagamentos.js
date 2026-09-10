@@ -293,6 +293,12 @@ export async function renderizarDashboardInicio() {
   const container = document.getElementById('inicio')
   if (!container) return
 
+  // Resumo financeiro é só pra quem lida com contas a pagar/receber
+  if (perfil !== 'admin' && perfil !== 'financeiro') {
+    document.getElementById('painel-financeiro-inicio')?.remove()
+    return
+  }
+
   // Preserva conteúdo já existente na página de início, só adiciona o painel financeiro
   let painel = document.getElementById('painel-financeiro-inicio')
   if (!painel) {
