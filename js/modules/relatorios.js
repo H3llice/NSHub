@@ -60,6 +60,7 @@ const STATUS_LABEL = {
 const STATUS_CERTIFICADO_LABEL = {
   pendente: { texto: 'Certificado pendente', cor: '#fd7e14' },
   emitido: { texto: 'Certificado emitido', cor: '#198754' },
+  migrado: { texto: 'Certificado migrado', cor: '#0d6efd' },
 }
 
 function badgeStatus(status) {

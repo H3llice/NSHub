@@ -60,6 +60,7 @@ const tokenAtual = localStorage.getItem('ns_token')
 const STATUS_LABEL = {
   pendente: { texto: 'Pendente', cor: '#fd7e14' },
   emitido: { texto: 'Emitido', cor: '#198754' },
+  migrado: { texto: 'Migrado', cor: '#0d6efd' },
   cancelado: { texto: 'Cancelado', cor: '#dc3545' },
 }
 
@@ -164,7 +165,10 @@ window.atualizarValidadePadrao = function () {
 // por baixo dos panos (única exceção às travas de documento concluído).
 function renderCertificado(c, empresas) {
   const novo = !c.id
-  const emitido = c.status === 'emitido'
+  // migrado (importado do sistema antigo) conta como já finalizado igual
+  // emitido pra fins de UI — não mostra botão de emitir de novo — mas
+  // continua editável por gerente/admin (mesma regra do emitido).
+  const emitido = c.status === 'emitido' || c.status === 'migrado'
   const cancelado = c.status === 'cancelado'
   const r = c.relatorio
   const dis = (!podeEmitirCertificado || cancelado) ? 'disabled' : ''
