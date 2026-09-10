@@ -416,19 +416,31 @@ window.salvarCertificado = function (event, tipo) {
 // as duas listas são mescladas aqui pra aparecerem juntas na mesma aba.
 async function atualizarTabelaCertificados() {
     const tabela = document.getElementById('tabela-certificados');
-    const reais = await listarCertificadosBalsa();
+    const filtros = {
+        navio: document.getElementById('filtro-cert-navio')?.value.trim() || '',
+        armador: document.getElementById('filtro-cert-armador')?.value.trim() || '',
+        tecnico: document.getElementById('filtro-cert-tecnico')?.value.trim() || '',
+    };
+    const filtrando = filtros.navio || filtros.armador || filtros.tecnico;
+    const reais = await listarCertificadosBalsa(filtros);
 
-    if (certificados.length === 0 && reais.length === 0) {
-        tabela.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #999; padding: 30px;">Nenhum certificado cadastrado ainda</td></tr>';
+    // Filtros só valem pro certificado de balsa (é o único com Embarcacao/Armador/
+    // Relatorio de verdade) — com filtro ativo, o legado (baleeira/turco/colete) some da lista.
+    if (reais.length === 0 && (filtrando || certificados.length === 0)) {
+        tabela.innerHTML = '<tr><td colspan="8" style="text-align: center; color: #999; padding: 30px;">Nenhum certificado encontrado</td></tr>';
         return;
     }
 
     const linhasReais = reais.map(cert => {
         const dataEmissao = cert.dataEmissao ? new Date(cert.dataEmissao).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : '-'
+        const armador = cert.armador || cert.embarcacao?.armador?.nome || '-'
+        const tecnico = cert.relatorio?.criadoPor?.nome || cert.criadoPor?.nome || '-'
         return `
             <tr>
                 <td>${cert.numero}/${cert.ano}</td>
                 <td>${cert.navio || cert.embarcacao?.nome || '-'}</td>
+                <td>${armador}</td>
+                <td>${tecnico}</td>
                 <td>Balsa</td>
                 <td>${badgeStatusCertificado(cert.status)}</td>
                 <td>${dataEmissao}</td>
@@ -440,12 +452,14 @@ async function atualizarTabelaCertificados() {
         `;
     }).join('');
 
-    const linhasLegado = certificados.map(cert => {
+    const linhasLegado = filtrando ? '' : certificados.map(cert => {
         const dataEmissao = new Date(cert.dataEmissao).toLocaleDateString('pt-BR');
         return `
             <tr>
                 <td>${cert.numero}</td>
                 <td>${cert.navio}</td>
+                <td>-</td>
+                <td>-</td>
                 <td>${cert.tipo.charAt(0).toUpperCase() + cert.tipo.slice(1)}</td>
                 <td>-</td>
                 <td>${dataEmissao}</td>
@@ -459,6 +473,9 @@ async function atualizarTabelaCertificados() {
 
     tabela.innerHTML = linhasReais + linhasLegado;
 }
+// Exposta em window — os inputs de filtro (Navio/Armador/Técnico) chamam via
+// oninput inline no HTML, que roda no escopo global, não no do módulo.
+window.atualizarTabelaCertificados = atualizarTabelaCertificados;
 
 window.editarCertificado = function (id) {
     alert('Função de edição em desenvolvimento');

@@ -220,11 +220,18 @@
                         <a href="#" onclick="carregarFormulario(event, 'colete')">Colete</a>
                     </div>
                 </div>
+                <div style="display:flex; gap:12px; margin-bottom:16px; flex-wrap:wrap;">
+                    <input type="text" id="filtro-cert-navio" class="form-control" placeholder="Filtrar por embarcação..." style="max-width:220px;" oninput="atualizarTabelaCertificados()">
+                    <input type="text" id="filtro-cert-armador" class="form-control" placeholder="Filtrar por armador..." style="max-width:220px;" oninput="atualizarTabelaCertificados()">
+                    <input type="text" id="filtro-cert-tecnico" class="form-control" placeholder="Filtrar por técnico..." style="max-width:220px;" oninput="atualizarTabelaCertificados()">
+                </div>
                 <table class="table-certificados">
                     <thead>
                         <tr>
                             <th>Número</th>
                             <th>Navio</th>
+                            <th>Armador</th>
+                            <th>Técnico</th>
                             <th>Tipo</th>
                             <th>Status</th>
                             <th>Data Emissão</th>
@@ -233,7 +240,7 @@
                     </thead>
                     <tbody id="tabela-certificados">
                         <tr>
-                            <td colspan="6" style="text-align: center; color: #999; padding: 30px;">Nenhum certificado
+                            <td colspan="8" style="text-align: center; color: #999; padding: 30px;">Nenhum certificado
                                 cadastrado ainda</td>
                         </tr>
                     </tbody>

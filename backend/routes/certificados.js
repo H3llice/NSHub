@@ -34,19 +34,49 @@ function extrairEquipamentoCertificado(body) {
 }
 
 // ─── Listar certificados ────────────────────────────────────────────────────────
+// navio/armador filtram tanto o texto livre do próprio Certificado quanto o
+// cadastro de Embarcacao (cobre os dois jeitos de o dado ter chegado lá — ver
+// comentário em valoresCertificado). técnico é sempre o Usuario que preencheu
+// o Relatorio de origem (Relatorio.criadoPor) — no avulso, que não tem
+// Relatorio, cai pro criadoPor do próprio Certificado (mesmo fallback usado
+// no rodapé da página 2 do PDF, ver dadosPagina2 mais abaixo).
 router.get('/', autenticar, async (req, res) => {
-  const { busca, empresa, status, pagina = 1 } = req.query
+  const { busca, empresa, status, navio, armador, tecnico, pagina = 1 } = req.query
   const porPagina = 50
 
-  const where = {}
-  if (status) where.status = status
-  if (empresa) where.empresaId = parseInt(empresa)
-  if (busca && !isNaN(busca)) where.numero = parseInt(busca)
+  const and = []
+  if (status) and.push({ status })
+  if (empresa) and.push({ empresaId: parseInt(empresa) })
+  if (busca && !isNaN(busca)) and.push({ numero: parseInt(busca) })
+  if (navio) {
+    and.push({ OR: [
+      { navio: { contains: navio, mode: 'insensitive' } },
+      { embarcacao: { nome: { contains: navio, mode: 'insensitive' } } }
+    ] })
+  }
+  if (armador) {
+    and.push({ OR: [
+      { armador: { contains: armador, mode: 'insensitive' } },
+      { embarcacao: { armador: { nome: { contains: armador, mode: 'insensitive' } } } }
+    ] })
+  }
+  if (tecnico) {
+    and.push({ OR: [
+      { relatorio: { criadoPor: { nome: { contains: tecnico, mode: 'insensitive' } } } },
+      { relatorioId: null, criadoPor: { nome: { contains: tecnico, mode: 'insensitive' } } }
+    ] })
+  }
+  const where = and.length ? { AND: and } : {}
 
   const [certificados, total] = await Promise.all([
     prisma.certificado.findMany({
       where,
-      include: { embarcacao: { include: { armador: true } }, empresa: true, relatorio: true },
+      include: {
+        embarcacao: { include: { armador: true } },
+        empresa: true,
+        relatorio: { include: { criadoPor: true } },
+        criadoPor: true
+      },
       orderBy: { numero: 'desc' },
       take: porPagina,
       skip: (parseInt(pagina) - 1) * porPagina

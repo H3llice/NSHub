@@ -102,9 +102,18 @@ window.abrirNovoCertificadoAvulso = async function () {
 
 // Usada pela aba "Certificados" (Serviços → Certificados, ver js/app.js) pra
 // listar junto com os certificados avulsos antigos (baleeira/turco/colete).
-export async function listarCertificadosBalsa() {
+// filtros: { navio, armador, tecnico } — repassados direto pro backend
+// (GET /certificados), que já sabe cair no cadastro de Embarcacao/Armador
+// quando o texto livre do Certificado não bate, e resolver o técnico pelo
+// Relatorio.criadoPor (ou pelo criadoPor do próprio Certificado no avulso).
+export async function listarCertificadosBalsa(filtros = {}) {
   try {
-    const resp = await apiFetch(`${API}/certificados`).then(r => r.json())
+    const params = new URLSearchParams()
+    if (filtros.navio) params.set('navio', filtros.navio)
+    if (filtros.armador) params.set('armador', filtros.armador)
+    if (filtros.tecnico) params.set('tecnico', filtros.tecnico)
+    const qs = params.toString()
+    const resp = await apiFetch(`${API}/certificados${qs ? `?${qs}` : ''}`).then(r => r.json())
     return resp.certificados || []
   } catch {
     return []
@@ -135,7 +144,7 @@ function exibirCertificado(c, empresas) {
 // Certificado emitido é referência oficial (assinatura já registrada), mas ao
 // contrário de OC/Solicitação/Relatório ele não trava para edição depois de
 // emitido — gerente/admin pode corrigir dataEmissao/validade/observações a
-// qualquer momento (usuário pediu explicitamente essa exceção).
+// qualquer momento.
 function validadePadrao(dataEmissaoStr) {
   if (!dataEmissaoStr) return ''
   const [ano, mes, dia] = dataEmissaoStr.split('-').map(Number)
