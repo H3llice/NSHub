@@ -103,16 +103,18 @@ window.abrirNovoCertificadoAvulso = async function () {
 
 // Usada pela aba "Certificados" (Serviços → Certificados, ver js/app.js) pra
 // listar junto com os certificados avulsos antigos (baleeira/turco/colete).
-// filtros: { navio, armador, tecnico } — repassados direto pro backend
-// (GET /certificados), que já sabe cair no cadastro de Embarcacao/Armador
-// quando o texto livre do Certificado não bate, e resolver o técnico pelo
-// Relatorio.criadoPor (ou pelo criadoPor do próprio Certificado no avulso).
+// filtros: { navio, armador, tecnico, numero, ano } — repassados direto pro
+// backend (GET /certificados), que já sabe cair no cadastro de Embarcacao/
+// Armador quando o texto livre do Certificado não bate, e resolver o técnico
+// pelo Relatorio.criadoPor (ou pelo criadoPor do próprio Certificado no avulso).
 export async function listarCertificadosBalsa(filtros = {}) {
   try {
     const params = new URLSearchParams()
     if (filtros.navio) params.set('navio', filtros.navio)
     if (filtros.armador) params.set('armador', filtros.armador)
     if (filtros.tecnico) params.set('tecnico', filtros.tecnico)
+    if (filtros.numero) params.set('busca', filtros.numero)
+    if (filtros.ano) params.set('ano', filtros.ano)
     const qs = params.toString()
     const resp = await apiFetch(`${API}/certificados${qs ? `?${qs}` : ''}`).then(r => r.json())
     return resp.certificados || []

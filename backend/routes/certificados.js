@@ -58,7 +58,7 @@ const INCLUDE_LISTAGEM = {
 // Relatorio, cai pro criadoPor do próprio Certificado (mesmo fallback usado
 // no rodapé da página 2 do PDF, ver dadosPagina2 mais abaixo).
 router.get('/', autenticar, async (req, res) => {
-  const { busca, empresa, status, navio, armador, tecnico, pagina = 1 } = req.query
+  const { busca, empresa, status, navio, armador, tecnico, ano, pagina = 1 } = req.query
   const porPagina = 50
   const paginaNum = parseInt(pagina)
 
@@ -66,6 +66,7 @@ router.get('/', autenticar, async (req, res) => {
   if (status) where.status = status
   if (empresa) where.empresaId = parseInt(empresa)
   if (busca && !isNaN(busca)) where.numero = parseInt(busca)
+  if (ano && !isNaN(ano)) where.ano = parseInt(ano)
 
   // navio/armador/tecnico não dá pra filtrar direto no banco (precisa ignorar
   // acento) — busca tudo que bate no resto e filtra/pagina em JS. Sem esses 3

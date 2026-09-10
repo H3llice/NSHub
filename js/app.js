@@ -417,11 +417,13 @@ window.salvarCertificado = function (event, tipo) {
 async function atualizarTabelaCertificados() {
     const tabela = document.getElementById('tabela-certificados');
     const filtros = {
+        numero: document.getElementById('filtro-cert-numero')?.value.trim() || '',
+        ano: document.getElementById('filtro-cert-ano')?.value.trim() || '',
         navio: document.getElementById('filtro-cert-navio')?.value.trim() || '',
         armador: document.getElementById('filtro-cert-armador')?.value.trim() || '',
         tecnico: document.getElementById('filtro-cert-tecnico')?.value.trim() || '',
     };
-    const filtrando = filtros.navio || filtros.armador || filtros.tecnico;
+    const filtrando = filtros.numero || filtros.ano || filtros.navio || filtros.armador || filtros.tecnico;
     const reais = await listarCertificadosBalsa(filtros);
 
     // Filtros só valem pro certificado de balsa (é o único com Embarcacao/Armador/
