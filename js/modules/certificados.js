@@ -206,7 +206,7 @@ function renderCertificado(c, empresas) {
       <p style="color:#999; font-size:13px; margin-bottom:20px;">${origem}</p>
 
       <div style="background:white; border-radius:6px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06); margin-bottom:16px;">
-        <div style="font-weight:700; color:#158815; margin-bottom:10px;">Identificação</div>
+        <div style="font-weight:700; color:var(--acento); margin-bottom:10px;">Identificação</div>
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
           <div><label>Empresa executante *</label><select id="cert-empresaId" class="form-control" ${dis}>${opcoesEmpresas}</select></div>
           <div><label>Navio *</label><input type="text" id="cert-navio" class="form-control" value="${c.navio || c.embarcacao?.nome || ''}" ${dis}></div>
@@ -218,7 +218,7 @@ function renderCertificado(c, empresas) {
       </div>
 
       <div style="background:white; border-radius:6px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06); margin-bottom:16px;">
-        <div style="font-weight:700; color:#158815; margin-bottom:10px;">Equipamento</div>
+        <div style="font-weight:700; color:var(--acento); margin-bottom:10px;">Equipamento</div>
         <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:16px;">
           <div><label>Equipamento</label><input type="text" id="cert-equipTipo" class="form-control" value="${c.equipTipo || r?.equipTipo || 'BALSA INFLÁVEL'}" ${dis}></div>
           <div><label>Nº Série</label><input type="text" id="cert-equipNumeroSerie" class="form-control" value="${c.equipNumeroSerie || r?.equipNumeroSerie || ''}" ${dis}></div>
@@ -233,7 +233,7 @@ function renderCertificado(c, empresas) {
       ${renderSecoesTecnicasRelatorio(r || c.dadosTecnicos || {}, false, { incluirTesteImo: false, nomeTecnicoDefault: c.criadoPor?.nome || usuarioAtual?.nome || '' })}
 
       <div style="background:white; border-radius:6px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06); margin-bottom:16px;">
-        <div style="font-weight:700; color:#158815; margin-bottom:10px;">Emissão</div>
+        <div style="font-weight:700; color:var(--acento); margin-bottom:10px;">Emissão</div>
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
           <div>
             <label>Data de Emissão *</label>

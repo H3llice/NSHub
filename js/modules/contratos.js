@@ -310,7 +310,7 @@ function renderizarTabelaContratos(contratos) {
 
     return `
       <tr>
-        <td><a href="#" onclick="verContrato(${c.id}); return false;" style="color:var(--verde); font-weight:600; text-decoration:none;">${c.numero}.${c.ano}</a></td>
+        <td><a href="#" onclick="verContrato(${c.id}); return false;" style="color:var(--acento); font-weight:600; text-decoration:none;">${c.numero}.${c.ano}</a></td>
         <td>${c.cliente.nome}</td>
         <td>${balsasTxt}</td>
         <td>${inicio}</td>
@@ -359,7 +359,7 @@ window.verContrato = async function (id) {
       </div>
 
       <div style="background:white; border-radius:6px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06); margin-bottom:16px;">
-        <div style="font-weight:700; color:#158815; margin-bottom:10px;">Cliente</div>
+        <div style="font-weight:700; color:var(--acento); margin-bottom:10px;">Cliente</div>
         <div><strong>${c.cliente.nome}</strong></div>
         <div style="color:#666; font-size:13px;">${formatarDocumento(c.cliente.cpfCnpj)}</div>
         ${c.cliente.telefone ? `<div style="color:#666; font-size:13px;">Tel: ${c.cliente.telefone}</div>` : ''}
@@ -367,7 +367,7 @@ window.verContrato = async function (id) {
       </div>
 
       <div style="background:white; border-radius:6px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06); margin-bottom:16px;">
-        <div style="font-weight:700; color:#158815; margin-bottom:10px;">Balsas Locadas</div>
+        <div style="font-weight:700; color:var(--acento); margin-bottom:10px;">Balsas Locadas</div>
         <ul style="list-style:none; padding:0; margin:0;">
           ${c.balsas.map(cb => `
             <li style="padding:6px 0; border-bottom:1px solid #eee; font-size:13px; display:flex; justify-content:space-between;">
@@ -379,7 +379,7 @@ window.verContrato = async function (id) {
       </div>
 
       <div style="background:white; border-radius:6px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06); margin-bottom:16px;">
-        <div style="font-weight:700; color:#158815; margin-bottom:10px;">Condições</div>
+        <div style="font-weight:700; color:var(--acento); margin-bottom:10px;">Condições</div>
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px; font-size:13px;">
           <div><span style="color:#999;">Início</span><br><strong>${inicio}</strong></div>
           <div><span style="color:#999;">Fim</span><br><strong>${fim}</strong></div>
@@ -393,14 +393,14 @@ window.verContrato = async function (id) {
 
       ${c.observacoes ? `
         <div style="background:white; border-radius:6px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06); margin-bottom:16px;">
-          <div style="font-weight:700; color:#158815; margin-bottom:8px;">Observações</div>
+          <div style="font-weight:700; color:var(--acento); margin-bottom:8px;">Observações</div>
           <div style="font-size:13px; color:#444;">${c.observacoes}</div>
         </div>
       ` : ''}
 
       ${podeGerenciarContratos && c.status === 'ativo' ? `
         <div style="background:white; border-radius:6px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06); margin-bottom:16px;">
-          <div style="font-weight:700; color:#158815; margin-bottom:10px;">Renovar Contrato</div>
+          <div style="font-weight:700; color:var(--acento); margin-bottom:10px;">Renovar Contrato</div>
           <div style="display:flex; gap:8px; align-items:end;">
             <div>
               <label style="font-size:12px;">Nova data de fim</label>

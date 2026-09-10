@@ -214,7 +214,7 @@ function renderizarTabela(ocs) {
 
     return `
       <tr style="${cancelada ? 'opacity:0.6; background:#fff5f5;' : ''}">
-        <td><a href="#" onclick="verOC(${oc.id}); return false;" style="color:var(--verde); font-weight:600; text-decoration:none;">${numero}</a></td>
+        <td><a href="#" onclick="verOC(${oc.id}); return false;" style="color:var(--acento); font-weight:600; text-decoration:none;">${numero}</a></td>
         <td><a href="#" onclick="verOC(${oc.id}); return false;" style="color:inherit; text-decoration:none;">${oc.fornecedor?.nome || '-'}</a></td>
         <td>${data}</td>
         <td>R$ ${total.toFixed(2)}</td>
@@ -267,7 +267,7 @@ window.verOC = async function (id) {
 
   function blocoAssinatura(cargo, assinatura, acao) {
     const recusada = assinatura?.acao === 'recusada'
-    const cor = recusada ? '#dc3545' : '#158815'
+    const cor = recusada ? '#dc3545' : 'var(--acento)'
 
     const podeAssinarSolicitante = acao === 'solicitante' && !assinatura
 
@@ -281,10 +281,10 @@ window.verOC = async function (id) {
     const cursor = podeAssinar ? 'cursor:pointer;' : ''
     const hover = podeAssinar ? `onmouseover="this.style.background='#f0fff0'" onmouseout="this.style.background='white'"` : ''
     const click = podeAssinar ? `onclick="abrirModalAssinatura(${oc.id}, '${acao}')"` : ''
-    const dica = podeAssinar ? `<div style="font-size:11px; color:#158815; margin-top:6px;">Clique para assinar</div>` : ''
+    const dica = podeAssinar ? `<div style="font-size:11px; color:var(--acento); margin-top:6px;">Clique para assinar</div>` : ''
 
     return `
-      <div style="text-align:center; border:1px solid ${podeAssinar ? '#158815' : '#ddd'}; border-radius:6px; padding:16px; ${cursor}" ${hover} ${click}>
+      <div style="text-align:center; border:1px solid ${podeAssinar ? 'var(--acento)' : '#ddd'}; border-radius:6px; padding:16px; ${cursor}" ${hover} ${click}>
         <div style="font-weight:700; font-size:12px; color:#555; margin-bottom:8px;">${cargo}</div>
         ${assinatura?.assinaturaImg
         ? `<img src="${assinatura.assinaturaImg}" style="max-height:60px; max-width:160px; margin:0 auto 8px; display:block;">`
@@ -336,7 +336,7 @@ window.verOC = async function (id) {
 
       <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:20px;">
         <div style="background:white; border-radius:6px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06);">
-          <div style="font-weight:700; color:#158815; margin-bottom:10px;">Fornecedor</div>
+          <div style="font-weight:700; color:var(--acento); margin-bottom:10px;">Fornecedor</div>
           <div><strong>${oc.fornecedor?.nome || '-'}</strong></div>
           ${oc.fornecedor?.documento ? `<div style="color:#666; font-size:13px;">CNPJ: ${oc.fornecedor.documento}</div>` : ''}
           ${oc.fornecedor?.endereco ? `<div style="color:#666; font-size:13px;">${oc.fornecedor.endereco}</div>` : ''}
@@ -346,7 +346,7 @@ window.verOC = async function (id) {
         </div>
 
         <div style="background:white; border-radius:6px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06);">
-          <div style="font-weight:700; color:#158815; margin-bottom:10px;">Condições Comerciais</div>
+          <div style="font-weight:700; color:var(--acento); margin-bottom:10px;">Condições Comerciais</div>
           <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px; font-size:13px;">
             <div><span style="color:#999;">Data</span><br><strong>${dataPedido}</strong></div>
             <div><span style="color:#999;">Empresa</span><br><strong>${oc.empresa?.sigla || '-'}</strong></div>
@@ -365,7 +365,7 @@ window.verOC = async function (id) {
       </div>
 
       <div style="background:white; border-radius:6px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06); margin-bottom:16px;">
-        <div style="font-weight:700; color:#158815; margin-bottom:10px;">Itens</div>
+        <div style="font-weight:700; color:var(--acento); margin-bottom:10px;">Itens</div>
         <table class="table-certificados">
           <thead><tr><th>Qtd</th><th>Unid</th><th>Descrição</th><th>Valor Unit</th><th>Desconto</th><th>IPI</th><th>Total</th></tr></thead>
           <tbody>
@@ -390,19 +390,19 @@ window.verOC = async function (id) {
 
       ${oc.instrucoes ? `
         <div style="background:white; border-radius:6px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06); margin-bottom:16px;">
-          <div style="font-weight:700; color:#158815; margin-bottom:8px;">Instruções Especiais</div>
+          <div style="font-weight:700; color:var(--acento); margin-bottom:8px;">Instruções Especiais</div>
           <div style="font-size:13px; color:#444;">${oc.instrucoes}</div>
         </div>
       ` : ''}
 
       ${oc.anexos?.length > 0 ? `
         <div style="background:white; border-radius:6px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06); margin-bottom:16px;">
-          <div style="font-weight:700; color:#158815; margin-bottom:8px;">Anexos</div>
+          <div style="font-weight:700; color:var(--acento); margin-bottom:8px;">Anexos</div>
           <ul style="list-style:none; padding:0; margin:0;">
             ${oc.anexos.map(a => `
               <li style="padding:6px 0; border-bottom:1px solid #eee; display:flex; justify-content:space-between; font-size:13px;">
                 <span>📎 ${a.nomeOriginal} <small style="color:#999;">(${a.tipo})</small></span>
-                <a href="${API}/uploads/${a.nomeArquivo}?token=${encodeURIComponent(tokenAtual)}" target="_blank" style="color:#158815;">Ver</a>
+                <a href="${API}/uploads/${a.nomeArquivo}?token=${encodeURIComponent(tokenAtual)}" target="_blank" style="color:var(--acento);">Ver</a>
               </li>
             `).join('')}
           </ul>
@@ -410,7 +410,7 @@ window.verOC = async function (id) {
       ` : ''}
 
       <div style="background:white; border-radius:6px; padding:20px; box-shadow:0 2px 6px rgba(0,0,0,0.06);">
-        <div style="font-weight:700; color:#158815; margin-bottom:16px;">Assinaturas</div>
+        <div style="font-weight:700; color:var(--acento); margin-bottom:16px;">Assinaturas</div>
         <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:16px;">
           ${blocoAssinatura('SOLICITANTE', asSolicitante || null, 'solicitante')}
           ${blocoAssinatura('AUTORIZADO', asAprovacao || null, 'aprovar')}
@@ -451,7 +451,7 @@ window.abrirModalAssinatura = function (ocId, acao) {
   `
   modal.innerHTML = `
     <div style="background:white; border-radius:8px; padding:28px; width:480px; max-width:95vw; box-shadow:0 8px 32px rgba(0,0,0,0.2);">
-      <h4 style="margin:0 0 16px; color:#158815;">${titulo}</h4>
+      <h4 style="margin:0 0 16px; color:var(--acento);">${titulo}</h4>
 
       <p style="font-size:13px; color:#555; margin-bottom:12px;">
         Desenhe sua assinatura abaixo (opcional):

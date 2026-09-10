@@ -62,6 +62,8 @@ model Usuario {
   email            String    @unique
   senha            String
   perfil           String    @default("usuario")
+  tema             String    @default("azul")
+  // tema: azul (padrão) | classico (verde) — preferência de UI, editável em "Editar Perfil"
   ativo            Boolean   @default(true)
   criadoEm         DateTime  @default(now())
   primeiroLogin    Boolean   @default(true)
@@ -416,14 +418,17 @@ model ContaPagar {
 }
 
 model Produto {
-  id           Int      @id @default(autoincrement())
-  codigo       String   @unique
-  nome         String
-  unidade      String
-  valor        Float?
-  quantidade   Float    @default(0)
-  criadoEm     DateTime @default(now())
-  atualizadoEm DateTime @updatedAt
+  id                Int      @id @default(autoincrement())
+  codigo            String   @unique
+  nome              String
+  unidade           String
+  valor             Float?
+  quantidade        Float    @default(0)
+  quantidadeCritica Float    @default(0)
+  // Quando quantidade <= quantidadeCritica (e quantidadeCritica > 0), o produto
+  // entra no alerta de estoque baixo (dashboard e página do almoxarifado).
+  criadoEm          DateTime @default(now())
+  atualizadoEm      DateTime @updatedAt
 
   itensPedido ItemPedidoAlmoxarifado[]
 }

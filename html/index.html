@@ -11,6 +11,13 @@
         if (!localStorage.getItem('ns_token')) {
             window.location.href = './login.html'
         }
+        // Aplica o tema salvo antes da primeira pintura da página (evita flash do tema errado)
+        try {
+            const usuarioSalvo = JSON.parse(localStorage.getItem('ns_usuario') || 'null')
+            if (usuarioSalvo?.tema === 'classico') {
+                document.documentElement.setAttribute('data-theme', 'classico')
+            }
+        } catch { }
     </script>
 </head>
 
@@ -23,7 +30,7 @@
     <!-- SIDEBAR -->
     <div class="sidebar">
         <div class="logo">
-            Natal Safety <span style="color:var(--laranja)">App</span>
+            <img src="../img/logo.png" alt="Natal Safety">
         </div>
 
         <div class="menu">

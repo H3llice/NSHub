@@ -1,6 +1,6 @@
 :root {
-    --verde: #158815;
-    --verde-escuro: #0e6a0e;
+    --acento: #244d69;
+    --acento-escuro: #1a3a4f;
     --laranja: #FC7A1E;
     --cinza-bg: #f3f5f7;
 }
@@ -30,23 +30,22 @@ body {
 }
 
 .login-header {
-    background: linear-gradient(180deg, var(--verde), var(--verde-escuro));
-    padding: 28px 32px;
+    background: white;
+    padding: 32px 32px 20px;
     border-bottom: 4px solid var(--laranja);
+    text-align: center;
 }
 
-.login-header h1 {
-    color: white;
-    font-size: 22px;
-    font-weight: 700;
-}
-
-.login-header h1 span {
-    color: var(--laranja);
+.login-logo {
+    display: block;
+    max-width: 220px;
+    width: 100%;
+    height: auto;
+    margin: 0 auto 12px;
 }
 
 .login-header p {
-    color: rgba(255, 255, 255, 0.75);
+    color: #667;
     font-size: 13px;
     margin-top: 4px;
 }
@@ -79,13 +78,13 @@ body {
 
 .form-group input:focus {
     outline: none;
-    border-color: var(--verde);
+    border-color: var(--acento);
 }
 
 .btn-entrar {
     width: 100%;
     padding: 12px;
-    background: var(--verde);
+    background: var(--acento);
     color: white;
     border: none;
     border-radius: 4px;
@@ -98,7 +97,7 @@ body {
 }
 
 .btn-entrar:hover {
-    background: var(--verde-escuro);
+    background: var(--acento-escuro);
 }
 
 .btn-entrar:disabled {

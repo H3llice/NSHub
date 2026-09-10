@@ -27,7 +27,7 @@ router.get('/produtos/:id', autenticar, async (req, res) => {
 
 // ─── Cadastrar produto (só admin e gerente) ────────────────────────────────────
 router.post('/produtos', autenticar, exigirPerfil('admin', 'gerente'), async (req, res) => {
-  const { codigo, nome, unidade, valor, quantidade } = req.body
+  const { codigo, nome, unidade, valor, quantidade, quantidadeCritica } = req.body
 
   if (!codigo || !nome || !unidade) {
     return res.status(400).json({ erro: 'Código, nome e unidade são obrigatórios' })
@@ -44,7 +44,8 @@ router.post('/produtos', autenticar, exigirPerfil('admin', 'gerente'), async (re
       nome,
       unidade,
       valor: valor !== undefined && valor !== null && valor !== '' ? parseFloat(valor) : null,
-      quantidade: quantidade !== undefined && quantidade !== null && quantidade !== '' ? parseFloat(quantidade) : 0
+      quantidade: quantidade !== undefined && quantidade !== null && quantidade !== '' ? parseFloat(quantidade) : 0,
+      quantidadeCritica: quantidadeCritica !== undefined && quantidadeCritica !== null && quantidadeCritica !== '' ? parseFloat(quantidadeCritica) : 0
     }
   })
 
@@ -54,7 +55,7 @@ router.post('/produtos', autenticar, exigirPerfil('admin', 'gerente'), async (re
 // ─── Editar produto — inclui corrigir quantidade em estoque (só admin e gerente) ─
 router.put('/produtos/:id', autenticar, exigirPerfil('admin', 'gerente'), async (req, res) => {
   const id = Number(req.params.id)
-  const { codigo, nome, unidade, valor, quantidade } = req.body
+  const { codigo, nome, unidade, valor, quantidade, quantidadeCritica } = req.body
 
   const dados = {}
   if (codigo) dados.codigo = codigo
@@ -62,6 +63,7 @@ router.put('/produtos/:id', autenticar, exigirPerfil('admin', 'gerente'), async 
   if (unidade) dados.unidade = unidade
   if (valor !== undefined) dados.valor = valor !== null && valor !== '' ? parseFloat(valor) : null
   if (quantidade !== undefined) dados.quantidade = parseFloat(quantidade) || 0
+  if (quantidadeCritica !== undefined) dados.quantidadeCritica = parseFloat(quantidadeCritica) || 0
 
   try {
     const produto = await prisma.produto.update({
@@ -72,6 +74,16 @@ router.put('/produtos/:id', autenticar, exigirPerfil('admin', 'gerente'), async 
   } catch {
     res.status(404).json({ erro: 'Produto não encontrado' })
   }
+})
+
+// ─── Alerta de estoque crítico — produtos com quantidade <= quantidadeCritica ──
+// (só admin, gerente e técnico — mesmos perfis que veem o aviso no dashboard)
+router.get('/alertas', autenticar, exigirPerfil('admin', 'gerente', 'tecnico'), async (req, res) => {
+  // Prisma não permite comparar duas colunas direto no findMany — filtra em memória
+  const todos = await prisma.produto.findMany({ orderBy: { nome: 'asc' } })
+  const criticos = todos.filter(p => p.quantidadeCritica > 0 && p.quantidade <= p.quantidadeCritica)
+
+  res.json(criticos)
 })
 
 // ═══════════════════════════════ PEDIDOS ═════════════════════════════════════════

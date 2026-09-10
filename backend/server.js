@@ -64,6 +64,7 @@ const raizProjeto = path.resolve(__dirname, '..')
 app.use('/html', express.static(path.join(raizProjeto, 'html')))
 app.use('/css', express.static(path.join(raizProjeto, 'css')))
 app.use('/js', express.static(path.join(raizProjeto, 'js')))
+app.use('/img', express.static(path.join(raizProjeto, 'img')))
 
 app.get('/', (req, res) => {
   res.redirect('/html/login.html')

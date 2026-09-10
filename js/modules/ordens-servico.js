@@ -181,7 +181,7 @@ function renderFormularioOS(os, empresas) {
       </div>
 
       <div style="background:white; border-radius:6px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06); margin-bottom:16px;">
-        <div style="font-weight:700; color:#158815; margin-bottom:10px;">Equipamento Recebido</div>
+        <div style="font-weight:700; color:var(--acento); margin-bottom:10px;">Equipamento Recebido</div>
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
           <div style="grid-column: span 2;"><label>Equipamento</label><input type="text" id="os-equipamentoRecebido" class="form-control" placeholder="Ex: Balsa de resgate inflável salva vidas" value="${os?.equipamentoRecebido || ''}" ${dis}></div>
           <div><label>Nº de Série</label><input type="text" id="os-equipNumeroSerie" class="form-control" value="${os?.equipNumeroSerie || ''}" ${dis}></div>
