@@ -303,8 +303,9 @@ const CILINDRO_LINHAS_Y = [154.1, 159.1, 164.4, 169.3]
 
 const DATA_ATENDIMENTO_POS = { x: 139.7, y: 243.7 }
 // Nome de quem criou o registro (criadoPor), centralizado embaixo do logo —
-// caixa do meio do rodapé (Navio/Vessel | logo | Data de Atendimento).
-const RESPONSAVEL_POS = { xCentro: 84.0, y: 259.4 }
+// caixa do meio do rodapé (Navio/Vessel | logo | Data de Atendimento). Y um
+// pouco mais baixo que o fundo do logo (~258mm) pra não colar nele.
+const RESPONSAVEL_POS = { xCentro: 84.0, y: 261.0 }
 // Nome do técnico responsável (Relatorio.tecnicoNome — editável, nasce
 // preenchido com criadoPor mas pode ser outra pessoa), logo abaixo da Data
 // de Atendimento, na mesma caixa da direita.

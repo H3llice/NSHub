@@ -399,22 +399,20 @@ router.get('/:id/pdf', autenticar, async (req, res) => {
     page.drawText(texto, { x: xPt, y: yPt, size, font: fonte, color: preto })
   }
 
-  // Assinatura do engenheiro responsável — só no certificado já emitido; um
-  // "pendente" fica sem ela (rascunho, ainda não foi de fato aprovado/assinado).
-  if (certificado.status === 'emitido') {
-    const assinaturaPath = path.resolve('assets/assinatura-engenheiro.jpeg')
-    if (fs.existsSync(assinaturaPath)) {
-      const assinaturaBytes = fs.readFileSync(assinaturaPath)
-      const assinaturaImg = await pdfDoc.embedJpg(assinaturaBytes)
-      const larguraPt = ASSINATURA_POS.larguraMm * MM
-      const alturaPt = ASSINATURA_POS.alturaMm * MM
-      page.drawImage(assinaturaImg, {
-        x: (MARGEM_ESQUERDA_MM + ASSINATURA_POS.x) * MM,
-        y: alturaPagina - (MARGEM_TOPO_MM + ASSINATURA_POS.y) * MM - alturaPt,
-        width: larguraPt,
-        height: alturaPt,
-      })
-    }
+  // Assinatura do engenheiro responsável — sai em qualquer status (mesmo
+  // "pendente"), igual ao modelo em papel, que já vem com ela.
+  const assinaturaPath = path.resolve('assets/assinatura-engenheiro.jpeg')
+  if (fs.existsSync(assinaturaPath)) {
+    const assinaturaBytes = fs.readFileSync(assinaturaPath)
+    const assinaturaImg = await pdfDoc.embedJpg(assinaturaBytes)
+    const larguraPt = ASSINATURA_POS.larguraMm * MM
+    const alturaPt = ASSINATURA_POS.alturaMm * MM
+    page.drawImage(assinaturaImg, {
+      x: (MARGEM_ESQUERDA_MM + ASSINATURA_POS.x) * MM,
+      y: alturaPagina - (MARGEM_TOPO_MM + ASSINATURA_POS.y) * MM - alturaPt,
+      width: larguraPt,
+      height: alturaPt,
+    })
   }
 
   // Segunda página — Lista de Verificação e Reparos, igual ao .docm original,
