@@ -39,11 +39,9 @@ function formatarOC(oc) {
     fornecedor: oc.fornecedor?.nome ?? 'Não informado',
     empresa: oc.empresa?.nome ?? oc.empresa?.sigla ?? '',
     solicitante: oc.solicitante ?? 'Não informado',
-    data: oc.dataPedido ? new Date(oc.dataPedido).toLocaleDateString('pt-BR') : 'Não informada',
-    total: (oc.itens ?? []).reduce((acc, item) => {
-      const sub = (item.quantidade ?? 0) * (item.valorUnitario ?? 0)
-      return acc + sub + sub * ((item.ipi ?? 0) / 100)
-    }, 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }),
+    data: oc.dataPedido ? new Date(oc.dataPedido).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : 'Não informada',
+    total: (oc.itens ?? []).reduce((acc, item) => acc + (item.valorTotal ?? 0), 0)
+      .toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }),
     condicoes: oc.condicoesPagto ?? '-',
     prazo: oc.prazoEntrega ?? '-',
   }
