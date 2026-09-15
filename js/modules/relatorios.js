@@ -640,11 +640,13 @@ export function renderizarCilindros() {
 }
 
 window.adicionarCilindro = function () {
+  cilindrosEstado = lerCilindrosDoForm()
   cilindrosEstado.push({})
   renderizarCilindros()
 }
 
 window.removerCilindro = function (i) {
+  cilindrosEstado = lerCilindrosDoForm()
   cilindrosEstado.splice(i, 1)
   renderizarCilindros()
 }
