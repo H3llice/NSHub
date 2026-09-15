@@ -27,6 +27,7 @@ const CAMPOS_RELATORIO = [
   'apito', 'protecaoTermica', 'esponja', 'refletorRadar', 'abridorLatas', 'foleManual',
   'napRealizado', 'napValor', 'wpRealizado', 'wpValor', 'giRealizado', 'giValor',
   'fsRealizado', 'fsValor', 'olRealizado', 'olValor', 'temperatura',
+  'casuloReparo', 'casuloPintura', 'casuloValvulaNumero', 'casuloValvulaFabricante', 'casuloValvulaValidade',
   'revisaoAnualOk', 'observacoes', 'tecnicoNome'
 ]
 
@@ -301,6 +302,16 @@ const CILINDRO_COL_ESQUERDA_X = 47.4
 const CILINDRO_COL_DIREITA_X = 142.9
 const CILINDRO_LINHAS_Y = [154.1, 159.1, 164.4, 169.3]
 
+// Casulo (Glass Fiber Container) — logo abaixo do Cilindro. Coordenadas
+// estimadas visualmente a partir do fundo (não extraídas do XML do .docm,
+// diferente do resto desta página — seção nunca tinha sido desenhada antes),
+// então podem precisar de um ajuste fino depois de conferir o PDF gerado.
+const CASULO_REPARO_POS = { x: 155.0, y: 179.5 }
+const CASULO_PINTURA_POS = { x: 155.0, y: 184.9 }
+const CASULO_VALVULA_NUMERO_POS = { x: CILINDRO_COL_ESQUERDA_X, y: 193.5 }
+const CASULO_VALVULA_FABRICANTE_POS = { x: CILINDRO_COL_DIREITA_X, y: 193.5 }
+const CASULO_VALVULA_VALIDADE_POS = { x: CILINDRO_COL_ESQUERDA_X, y: 198.9 }
+
 const DATA_ATENDIMENTO_POS = { x: 139.7, y: 243.7 }
 // Nome de quem criou o registro (criadoPor), centralizado embaixo do logo —
 // caixa do meio do rodapé (Navio/Vessel | logo | Data de Atendimento). Y um
@@ -308,8 +319,10 @@ const DATA_ATENDIMENTO_POS = { x: 139.7, y: 243.7 }
 const RESPONSAVEL_POS = { xCentro: 84.0, y: 261.0 }
 // Nome do técnico responsável (Relatorio.tecnicoNome — editável, nasce
 // preenchido com criadoPor mas pode ser outra pessoa), logo abaixo da Data
-// de Atendimento, na mesma caixa da direita.
-const TECNICO_POS = { x: 113.5, y: 250.5 }
+// de Atendimento, na mesma caixa da direita. x original (113.5) caía em cima
+// da borda da caixa do meio (logo) — empurrado pra direita pra ficar dentro
+// da caixa certa.
+const TECNICO_POS = { x: 120.5, y: 250.5 }
 
 function formatarKg(v) {
   return v === null || v === undefined ? '' : v.toFixed(3).replace('.', ',')
@@ -408,6 +421,13 @@ export async function desenharPaginaRelatorio(pdfDoc, relatorio) {
   texto(juntarCilindros(cilindros, 'cargaN2', formatarKg), CILINDRO_COL_DIREITA_X, CILINDRO_LINHAS_Y[2])
   texto(juntarCilindros(cilindros, 'fabricante'), CILINDRO_COL_ESQUERDA_X, CILINDRO_LINHAS_Y[3])
   texto(juntarCilindros(cilindros, 'anoFabricacao'), CILINDRO_COL_DIREITA_X, CILINDRO_LINHAS_Y[3])
+
+  // ─── Casulo (reparo/pintura da fibra + válvula de liberação) ────────────────
+  texto(relatorio.casuloReparo ? 'S' : 'N', CASULO_REPARO_POS.x, CASULO_REPARO_POS.y)
+  texto(relatorio.casuloPintura ? 'S' : 'N', CASULO_PINTURA_POS.x, CASULO_PINTURA_POS.y)
+  texto(relatorio.casuloValvulaNumero, CASULO_VALVULA_NUMERO_POS.x, CASULO_VALVULA_NUMERO_POS.y)
+  texto(relatorio.casuloValvulaFabricante, CASULO_VALVULA_FABRICANTE_POS.x, CASULO_VALVULA_FABRICANTE_POS.y)
+  texto(relatorio.casuloValvulaValidade, CASULO_VALVULA_VALIDADE_POS.x, CASULO_VALVULA_VALIDADE_POS.y)
 
   // ─── Rodapé ──────────────────────────────────────────────────────────────────
   // relatorio pode ser um Relatorio de verdade OU o JSON dadosTecnicos de um

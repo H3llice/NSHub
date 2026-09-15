@@ -347,24 +347,29 @@ const MARGEM_TOPO_MM = 12.7
 const IMG_LARGURA_MM = 180
 const IMG_ALTURA_MM = 270
 
+// larguraMm trava o texto dentro da própria caixa (quebra em mais de uma
+// linha) pra um valor comprido não invadir o campo vizinho — ex: nome de
+// armador grande enfiando por cima do rótulo "Telefone". Estimado a partir do
+// fundo (fim da coluna esquerda ~90mm, borda direita da caixa ~172mm), não
+// extraído do XML do .docm como o x/y de cada campo.
 const CAMPOS_CERTIFICADO = [
   { campo: 'numero', x: 90, y: 45.8, size: 22, bold: true, centro: true },
-  { campo: 'navio', x: 31.3, y: 122.4, size: 10, bold: true },
-  { campo: 'portoRegistro', x: 125.0, y: 124.9, size: 10, bold: true },
-  { campo: 'armador', x: 29.2, y: 135.5, size: 10, bold: true },
-  { campo: 'telefone', x: 124.9, y: 133.3, size: 10, bold: true },
-  { campo: 'email', x: 29.3, y: 144.7, size: 9, bold: true },
-  { campo: 'numeroSerie', x: 126.3, y: 144.5, size: 10, bold: true },
-  { campo: 'equipamento', x: 43.0, y: 155.9, size: 10, bold: true },
-  { campo: 'capacidade', x: 128.9, y: 155.3, size: 10, bold: true },
-  { campo: 'modelo', x: 42.2, y: 167.4, size: 10, bold: true },
-  { campo: 'classe', x: 111.7, y: 167.0, size: 10, bold: true },
-  { campo: 'fabricante', x: 41.1, y: 177.5, size: 10, bold: true },
-  { campo: 'anoFabricacao', x: 132.7, y: 178.6, size: 10, bold: true },
+  { campo: 'navio', x: 31.3, y: 122.4, size: 10, bold: true, larguraMm: 58 },
+  { campo: 'portoRegistro', x: 125.0, y: 124.9, size: 10, bold: true, larguraMm: 47 },
+  { campo: 'armador', x: 29.2, y: 135.5, size: 10, bold: true, larguraMm: 60 },
+  { campo: 'telefone', x: 124.9, y: 133.3, size: 10, bold: true, larguraMm: 47 },
+  { campo: 'email', x: 29.3, y: 144.7, size: 9, bold: true, larguraMm: 60 },
+  { campo: 'numeroSerie', x: 126.3, y: 144.5, size: 10, bold: true, larguraMm: 45 },
+  { campo: 'equipamento', x: 43.0, y: 155.9, size: 10, bold: true, larguraMm: 47 },
+  { campo: 'capacidade', x: 128.9, y: 155.3, size: 10, bold: true, larguraMm: 43 },
+  { campo: 'modelo', x: 42.2, y: 167.4, size: 10, bold: true, larguraMm: 47 },
+  { campo: 'classe', x: 111.7, y: 167.0, size: 10, bold: true, larguraMm: 60 },
+  { campo: 'fabricante', x: 41.1, y: 177.5, size: 10, bold: true, larguraMm: 48 },
+  { campo: 'anoFabricacao', x: 132.7, y: 178.6, size: 10, bold: true, larguraMm: 39 },
   // validade (data de vencimento) não é impressa no certificado — usuário
   // pediu pra deixar só a data de emissão na página 1 (o campo continua
   // existindo/editável na tela e no banco, só não sai no PDF).
-  { campo: 'dataEmissao', x: 120.1, y: 193.7, size: 10, bold: true },
+  { campo: 'dataEmissao', x: 120.1, y: 193.7, size: 10, bold: true, larguraMm: 52 },
 ]
 
 const ASSINATURA_POS = { x: 66.0, y: 198.4, larguraMm: 56.8, alturaMm: 17.7 }
@@ -396,6 +401,29 @@ function valoresCertificado(c) {
     anoFabricacao: c.equipAnoFabricacao || r?.equipAnoFabricacao || '',
     dataEmissao: c.dataEmissao ? new Date(c.dataEmissao).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : '',
   }
+}
+
+// Quebra o texto em linhas que cabem em larguraMm, na fonte/tamanho dados —
+// usado pra impedir que um valor comprido (ex: nome de armador grande) invada
+// o campo vizinho da página 1. Sem larguraMm, comportamento antigo (1 linha só).
+function quebrarLinhas(texto, fonte, size, larguraMm) {
+  if (!larguraMm) return [texto]
+  const larguraMaxPt = larguraMm * MM
+  const palavras = texto.split(' ')
+  const linhas = []
+  let linhaAtual = ''
+
+  for (const palavra of palavras) {
+    const tentativa = linhaAtual ? `${linhaAtual} ${palavra}` : palavra
+    if (!linhaAtual || fonte.widthOfTextAtSize(tentativa, size) <= larguraMaxPt) {
+      linhaAtual = tentativa
+    } else {
+      linhas.push(linhaAtual)
+      linhaAtual = palavra
+    }
+  }
+  if (linhaAtual) linhas.push(linhaAtual)
+  return linhas
 }
 
 router.get('/:id/pdf', autenticar, async (req, res) => {
@@ -437,14 +465,19 @@ router.get('/:id/pdf', autenticar, async (req, res) => {
     const fonte = campo.bold ? fonteNegrito : fonteNormal
     const size = campo.size
     const yTopoPt = alturaPagina - (MARGEM_TOPO_MM + campo.y) * MM
-    const yPt = yTopoPt - size
+    const passoLinhaPt = size * 1.15
 
-    let xPt = (MARGEM_ESQUERDA_MM + campo.x) * MM
-    if (campo.centro) {
-      xPt -= fonte.widthOfTextAtSize(texto, size) / 2
-    }
+    const linhas = quebrarLinhas(texto, fonte, size, campo.larguraMm)
+    linhas.forEach((linha, i) => {
+      const yPt = yTopoPt - size - i * passoLinhaPt
 
-    page.drawText(texto, { x: xPt, y: yPt, size, font: fonte, color: preto })
+      let xPt = (MARGEM_ESQUERDA_MM + campo.x) * MM
+      if (campo.centro) {
+        xPt -= fonte.widthOfTextAtSize(linha, size) / 2
+      }
+
+      page.drawText(linha, { x: xPt, y: yPt, size, font: fonte, color: preto })
+    })
   }
 
   // Assinatura do engenheiro responsável — sai em qualquer status (mesmo

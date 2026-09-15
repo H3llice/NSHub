@@ -386,6 +386,24 @@ export function renderSecoesTecnicasRelatorio(r, somenteLeitura, opcoes = {}) {
         ${somenteLeitura ? '' : '<button class="btn btn-secondary btn-sm" style="margin-top:8px;" onclick="adicionarCilindro()">+ Cilindro</button>'}
       `)}
 
+      ${secao('Casulo (Reparo / Pintura)', `
+        <div style="display:grid; grid-template-columns:repeat(2, 1fr); gap:16px; margin-bottom:12px;">
+          <label style="display:flex; align-items:center; gap:6px; font-size:13px;">
+            <input type="checkbox" id="rel-casulo-reparo" ${r?.casuloReparo ? 'checked' : ''} ${dis}>
+            Reparo de fibra
+          </label>
+          <label style="display:flex; align-items:center; gap:6px; font-size:13px;">
+            <input type="checkbox" id="rel-casulo-pintura" ${r?.casuloPintura ? 'checked' : ''} ${dis}>
+            Pintura
+          </label>
+        </div>
+        <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:16px;">
+          <div><label>Nº Válvula de Liberação</label><input type="text" class="form-control" id="rel-casulo-valvulaNumero" value="${r?.casuloValvulaNumero || ''}" ${dis}></div>
+          <div><label>Fabricante</label><input type="text" class="form-control" id="rel-casulo-valvulaFabricante" value="${r?.casuloValvulaFabricante || ''}" ${dis}></div>
+          <div><label>Validade</label><input type="text" class="form-control" placeholder="Ex: 05/2027" id="rel-casulo-valvulaValidade" value="${r?.casuloValvulaValidade || ''}" ${dis}></div>
+        </div>
+      `)}
+
       ${!incluirTesteImo ? '' : secao('Testes IMO — Resolução A.761(18)', `
         <div style="border:1px solid #ddd; border-radius:6px; padding:12px; margin-bottom:12px;">
           <strong>WP — Teste de Pressão de Trabalho</strong>
@@ -707,6 +725,12 @@ export function lerCamposTecnicosRelatorio() {
   })
 
   body.cilindros = lerCilindrosDoForm()
+
+  body.casuloReparo = document.getElementById('rel-casulo-reparo').checked
+  body.casuloPintura = document.getElementById('rel-casulo-pintura').checked
+  body.casuloValvulaNumero = document.getElementById('rel-casulo-valvulaNumero').value
+  body.casuloValvulaFabricante = document.getElementById('rel-casulo-valvulaFabricante').value
+  body.casuloValvulaValidade = document.getElementById('rel-casulo-valvulaValidade').value
 
   // Testes IMO não existem na tela do Certificado (renderSecoesTecnicasRelatorio
   // com incluirTesteImo:false) — sem os elementos no DOM, nem tenta ler.

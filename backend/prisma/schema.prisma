@@ -590,6 +590,15 @@ model Relatorio {
   olValor      Float?
   temperatura  String?
 
+  // Casulo (Glass Fiber Container) — reparo/pintura do casulo de fibra +
+  // válvula de liberação hidrostática, seção própria no papel (abaixo de
+  // Cilindro), nunca tinha campo nenhum no schema.
+  casuloReparo            Boolean @default(false)
+  casuloPintura           Boolean @default(false)
+  casuloValvulaNumero     String?
+  casuloValvulaFabricante String?
+  casuloValvulaValidade   String?
+
   revisaoAnualOk Boolean?
   observacoes    String?
   // Técnico responsável pelo relatório impresso no rodapé da 2ª página
