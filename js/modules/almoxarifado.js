@@ -108,14 +108,21 @@ async function carregarProdutosAlmox() {
 
 function renderizarTabelaProdutosAlmox(produtos) {
   const container = document.getElementById('conteudo-almox')
-  const colspan = podeGerenciar ? 6 : 5
+  const colspan = podeGerenciar ? 7 : 6
 
   if (produtos.length === 0) {
     container.innerHTML = `<p style="text-align:center; color:#999; padding:30px;">Nenhum produto cadastrado ainda</p>`
     return
   }
 
+  const criticos = produtos.filter(estoqueCriticoAlmox)
+
   container.innerHTML = `
+    ${criticos.length > 0 ? `
+      <div style="background:#fff3cd; border:1px solid #ffe69c; color:#664d03; border-radius:6px; padding:12px 16px; margin-bottom:16px; font-size:13px;">
+        ⚠️ <strong>${criticos.length}</strong> item(ns) com estoque no nível crítico ou abaixo: ${criticos.map(p => p.nome).join(', ')}
+      </div>
+    ` : ''}
     <table class="table-certificados">
       <thead>
         <tr>
@@ -124,23 +131,31 @@ function renderizarTabelaProdutosAlmox(produtos) {
           <th>Unidade</th>
           <th>Valor</th>
           <th>Qtd. disponível</th>
+          <th>Qtd. crítica</th>
           ${podeGerenciar ? '<th>Ações</th>' : ''}
         </tr>
       </thead>
       <tbody>
         ${produtos.map(p => `
-          <tr>
+          <tr${estoqueCriticoAlmox(p) ? ' style="background:#fff3cd;"' : ''}>
             <td>${p.codigo}</td>
             <td>${p.nome}</td>
             <td>${p.unidade}</td>
             <td>${formatarMoedaAlmox(p.valor)}</td>
-            <td><strong>${p.quantidade}</strong></td>
+            <td><strong>${p.quantidade}</strong>${estoqueCriticoAlmox(p) ? ' ⚠️' : ''}</td>
+            <td>${p.quantidadeCritica ?? 0}</td>
             ${podeGerenciar ? `<td><button class="btn btn-sm btn-info" onclick="editarProdutoAlmox(${p.id})">Editar</button></td>` : ''}
           </tr>
         `).join('')}
       </tbody>
     </table>
   `
+}
+
+// Um produto está em estado crítico quando a quantidade crítica está definida
+// (> 0) e a quantidade disponível caiu para esse nível ou abaixo dele.
+function estoqueCriticoAlmox(p) {
+  return (p.quantidadeCritica || 0) > 0 && p.quantidade <= p.quantidadeCritica
 }
 
 // ===== FORMULÁRIO — NOVO PRODUTO ===============================================
@@ -156,6 +171,11 @@ window.abrirFormularioProdutoAlmox = function () {
         <div><label>Unidade de medida *</label><input type="text" id="prod-unidade" class="form-control" placeholder="Ex: unidade, kit, kg..."></div>
         <div><label>Valor (R$)</label><input type="number" step="0.01" id="prod-valor" class="form-control"></div>
         <div><label>Quantidade inicial</label><input type="number" step="0.01" id="prod-quantidade" class="form-control" value="0"></div>
+        <div>
+          <label>Quantidade crítica</label>
+          <input type="number" step="0.01" id="prod-quantidade-critica" class="form-control" value="0">
+          <small style="color:#999;">Gera alerta quando a qtd. disponível ficar igual ou menor que esse número</small>
+        </div>
       </div>
 
       <button type="button" class="btn btn-success" style="margin-top:20px;" onclick="salvarProdutoAlmox()">Salvar Produto</button>
@@ -170,6 +190,7 @@ window.salvarProdutoAlmox = async function () {
     unidade: document.getElementById('prod-unidade').value.trim(),
     valor: document.getElementById('prod-valor').value,
     quantidade: document.getElementById('prod-quantidade').value,
+    quantidadeCritica: document.getElementById('prod-quantidade-critica').value,
   }
 
   if (!body.codigo || !body.nome || !body.unidade) {
@@ -206,6 +227,11 @@ window.editarProdutoAlmox = async function (id) {
         <div><label>Unidade de medida *</label><input type="text" id="prod-unidade" class="form-control" value="${p.unidade}"></div>
         <div><label>Valor (R$)</label><input type="number" step="0.01" id="prod-valor" class="form-control" value="${p.valor ?? ''}"></div>
         <div><label>Quantidade em estoque</label><input type="number" step="0.01" id="prod-quantidade" class="form-control" value="${p.quantidade}"></div>
+        <div>
+          <label>Quantidade crítica</label>
+          <input type="number" step="0.01" id="prod-quantidade-critica" class="form-control" value="${p.quantidadeCritica ?? 0}">
+          <small style="color:#999;">Gera alerta quando a qtd. disponível ficar igual ou menor que esse número</small>
+        </div>
       </div>
 
       <button type="button" class="btn btn-success" style="margin-top:20px;" onclick="atualizarProdutoAlmox(${p.id})">Salvar Alterações</button>
@@ -220,6 +246,7 @@ window.atualizarProdutoAlmox = async function (id) {
     unidade: document.getElementById('prod-unidade').value.trim(),
     valor: document.getElementById('prod-valor').value,
     quantidade: document.getElementById('prod-quantidade').value,
+    quantidadeCritica: document.getElementById('prod-quantidade-critica').value,
   }
 
   const res = await apiJson(`${API}/almoxarifado/produtos/${id}`, {
@@ -399,7 +426,7 @@ window.verPedidoAlmox = async function (id) {
       </div>
 
       <div style="background:white; border-radius:6px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06); margin-bottom:16px;">
-        <div style="font-weight:700; color:#158815; margin-bottom:10px;">Itens</div>
+        <div style="font-weight:700; color:var(--acento); margin-bottom:10px;">Itens</div>
         <table class="table-certificados">
           <thead>
             <tr><th>Código</th><th>Material</th><th>Qtd.</th><th>Valor Uni.</th><th>Subtotal</th></tr>
@@ -421,10 +448,58 @@ window.verPedidoAlmox = async function (id) {
 
       ${p.observacoes ? `
         <div style="background:white; border-radius:6px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06); margin-bottom:16px;">
-          <div style="font-weight:700; color:#158815; margin-bottom:8px;">Observações</div>
+          <div style="font-weight:700; color:var(--acento); margin-bottom:8px;">Observações</div>
           <div style="font-size:13px; color:#444;">${p.observacoes}</div>
         </div>
       ` : ''}
     </div>
   `
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// DASHBOARD DE ESTOQUE CRÍTICO — Tela Início
+// Visível só para gerente, admin e técnico (quem toma ação sobre reposição).
+// ══════════════════════════════════════════════════════════════════════════
+
+export async function renderizarDashboardAlmoxarifado() {
+  const container = document.getElementById('inicio')
+  if (!container) return
+
+  if (!['admin', 'gerente', 'tecnico'].includes(perfil)) {
+    document.getElementById('painel-almoxarifado-inicio')?.remove()
+    return
+  }
+
+  let painel = document.getElementById('painel-almoxarifado-inicio')
+  if (!painel) {
+    painel = document.createElement('div')
+    painel.id = 'painel-almoxarifado-inicio'
+    painel.style = 'margin-top:20px;'
+    container.appendChild(painel)
+  }
+
+  try {
+    const criticos = await apiFetch(`${API}/almoxarifado/alertas`).then(r => r.json())
+
+    if (!criticos?.length) {
+      painel.innerHTML = ''
+      return
+    }
+
+    painel.innerHTML = `
+      <div style="background:#fff3cd; border:1px solid #ffe69c; border-radius:6px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06);">
+        <div style="font-weight:700; color:#664d03; margin-bottom:10px;">⚠️ Estoque crítico no Almoxarifado</div>
+        <ul style="list-style:none; padding:0; margin:0;">
+          ${criticos.map(p => `
+            <li style="padding:6px 0; border-bottom:1px solid #ffe69c; font-size:13px; display:flex; justify-content:space-between;">
+              <span>${p.codigo} — ${p.nome}</span>
+              <span>Disponível: <strong>${p.quantidade} ${p.unidade}</strong> (crítico: ${p.quantidadeCritica})</span>
+            </li>
+          `).join('')}
+        </ul>
+      </div>
+    `
+  } catch {
+    painel.innerHTML = ''
+  }
 }

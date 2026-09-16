@@ -41,7 +41,7 @@ router.post('/login', async (req, res) => {
   res.json({
     token,
     primeiroLogin: usuario.primeiroLogin,
-    usuario: { id: usuario.id, nome: usuario.nome, email: usuario.email, perfil: usuario.perfil }
+    usuario: { id: usuario.id, nome: usuario.nome, email: usuario.email, perfil: usuario.perfil, tema: usuario.tema }
   })
 })
 
@@ -87,6 +87,29 @@ router.post('/', autenticar, exigirPerfil('admin'), async (req, res) => {
   const usuario = await prisma.usuario.create({
     data: { nome, email, senha: hash, perfil, primeiroLogin: true },
     select: { id: true, nome: true, email: true, perfil: true, ativo: true, criadoEm: true }
+  })
+
+  res.json(usuario)
+})
+
+// ─── Editar o próprio perfil (nome e tema) — qualquer usuário logado ──────────
+// Precisa vir ANTES de PUT /:id, senão "/perfil" seria capturado por essa rota.
+router.put('/perfil', autenticar, async (req, res) => {
+  const { nome, tema } = req.body
+
+  const dados = {}
+  if (nome) dados.nome = nome
+  if (tema !== undefined) {
+    if (!['azul', 'classico'].includes(tema)) {
+      return res.status(400).json({ erro: 'Tema inválido. Use: azul, classico' })
+    }
+    dados.tema = tema
+  }
+
+  const usuario = await prisma.usuario.update({
+    where: { id: req.usuario.id },
+    data: dados,
+    select: { id: true, nome: true, email: true, perfil: true, tema: true }
   })
 
   res.json(usuario)

@@ -44,6 +44,10 @@ async function apiJson(url, options = {}) {
 const usuarioAtual = JSON.parse(localStorage.getItem('ns_usuario') || 'null')
 const perfil = usuarioAtual?.perfil || 'usuario'
 const podeEmitirCertificado = perfil === 'admin' || perfil === 'gerente'
+// Emitir/cancelar/excluir é restrito a gerente/admin, mas editar os dados
+// (antes de emitido) também é permitido ao Usuário — Técnico e Financeiro
+// não têm essa tela na sidebar e o backend já bloqueia o acesso direto.
+const podeEditarCertificado = podeEmitirCertificado || perfil === 'usuario'
 const tokenAtual = localStorage.getItem('ns_token')
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -173,7 +177,7 @@ function renderCertificado(c, empresas) {
   const emitido = c.status === 'emitido' || c.status === 'migrado'
   const cancelado = c.status === 'cancelado'
   const r = c.relatorio
-  const dis = (!podeEmitirCertificado || cancelado) ? 'disabled' : ''
+  const dis = (!podeEditarCertificado || cancelado) ? 'disabled' : ''
   const dataEmissaoValor = c.dataEmissao ? c.dataEmissao.split('T')[0] : hojeISO()
   const validadeValor = c.validade || validadePadrao(dataEmissaoValor)
   const opcoesEmpresas = empresas.map(e =>
@@ -202,7 +206,7 @@ function renderCertificado(c, empresas) {
       <p style="color:#999; font-size:13px; margin-bottom:20px;">${origem}</p>
 
       <div style="background:white; border-radius:6px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06); margin-bottom:16px;">
-        <div style="font-weight:700; color:#158815; margin-bottom:10px;">Identificação</div>
+        <div style="font-weight:700; color:var(--acento); margin-bottom:10px;">Identificação</div>
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
           <div><label>Empresa executante *</label><select id="cert-empresaId" class="form-control" ${dis}>${opcoesEmpresas}</select></div>
           <div><label>Navio *</label><input type="text" id="cert-navio" class="form-control" value="${c.navio || c.embarcacao?.nome || ''}" ${dis}></div>
@@ -214,7 +218,7 @@ function renderCertificado(c, empresas) {
       </div>
 
       <div style="background:white; border-radius:6px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06); margin-bottom:16px;">
-        <div style="font-weight:700; color:#158815; margin-bottom:10px;">Equipamento</div>
+        <div style="font-weight:700; color:var(--acento); margin-bottom:10px;">Equipamento</div>
         <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:16px;">
           <div><label>Equipamento</label><input type="text" id="cert-equipTipo" class="form-control" value="${c.equipTipo || r?.equipTipo || 'BALSA INFLÁVEL'}" ${dis}></div>
           <div><label>Nº Série</label><input type="text" id="cert-equipNumeroSerie" class="form-control" value="${c.equipNumeroSerie || r?.equipNumeroSerie || ''}" ${dis}></div>
@@ -229,7 +233,7 @@ function renderCertificado(c, empresas) {
       ${renderSecoesTecnicasRelatorio(r || c.dadosTecnicos || {}, false, { incluirTesteImo: false, nomeTecnicoDefault: c.criadoPor?.nome || usuarioAtual?.nome || '' })}
 
       <div style="background:white; border-radius:6px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06); margin-bottom:16px;">
-        <div style="font-weight:700; color:#158815; margin-bottom:10px;">Emissão</div>
+        <div style="font-weight:700; color:var(--acento); margin-bottom:10px;">Emissão</div>
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
           <div>
             <label>Data de Emissão *</label>
@@ -249,7 +253,7 @@ function renderCertificado(c, empresas) {
         ${cancelado ? `
           <p style="margin-top:16px; color:#dc3545; font-size:13px; font-weight:600;">Certificado cancelado.</p>
           ${podeEmitirCertificado ? `<button type="button" class="btn btn-danger" onclick="excluirCertificado(${c.id})">Excluir Certificado</button>` : ''}
-        ` : !podeEmitirCertificado ? `
+        ` : !podeEditarCertificado ? `
           <p style="margin-top:16px; color:#999; font-size:13px;">${emitido ? 'Certificado emitido.' : 'Aguardando um gerente ou administrador revisar e emitir este certificado.'}</p>
         ` : novo ? `
           <div style="margin-top:16px;">
@@ -259,12 +263,14 @@ function renderCertificado(c, empresas) {
           <div style="margin-top:16px; display:flex; justify-content:space-between;">
             <div style="display:flex; gap:12px;">
               <button type="button" class="btn btn-secondary" onclick="atualizarCertificado(${c.id})">Salvar</button>
-              ${!emitido ? `<button type="button" class="btn btn-success" onclick="emitirCertificado(${c.id})">Emitir Certificado</button>` : ''}
+              ${!emitido && podeEmitirCertificado ? `<button type="button" class="btn btn-success" onclick="emitirCertificado(${c.id})">Emitir Certificado</button>` : ''}
             </div>
+            ${podeEmitirCertificado ? `
             <div style="display:flex; gap:12px;">
               <button type="button" class="btn btn-warning" onclick="cancelarCertificado(${c.id})">Cancelar Certificado</button>
               <button type="button" class="btn btn-danger" onclick="excluirCertificado(${c.id})">Excluir Certificado</button>
             </div>
+            ` : ''}
           </div>
         `}
       </div>

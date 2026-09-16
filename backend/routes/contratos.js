@@ -27,7 +27,7 @@ router.get('/', autenticar, async (req, res) => {
 })
 
 // ─── Dashboard de contratos (tela Início) — contagem por situação ──────────────
-router.get('/dashboard', autenticar, async (req, res) => {
+router.get('/dashboard', autenticar, exigirPerfil('admin'), async (req, res) => {
   const ativos = await prisma.contrato.findMany({
     where: { status: 'ativo' },
     include: { pagamentos: { where: { status: 'atrasado' }, select: { id: true } } }

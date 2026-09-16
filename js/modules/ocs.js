@@ -214,7 +214,7 @@ function renderizarTabela(ocs) {
 
     return `
       <tr style="${cancelada ? 'opacity:0.6; background:#fff5f5;' : ''}">
-        <td><a href="#" onclick="verOC(${oc.id}); return false;" style="color:var(--verde); font-weight:600; text-decoration:none;">${numero}</a></td>
+        <td><a href="#" onclick="verOC(${oc.id}); return false;" style="color:var(--acento); font-weight:600; text-decoration:none;">${numero}</a></td>
         <td><a href="#" onclick="verOC(${oc.id}); return false;" style="color:inherit; text-decoration:none;">${oc.fornecedor?.nome || '-'}</a></td>
         <td>${data}</td>
         <td>R$ ${total.toFixed(2)}</td>
@@ -267,7 +267,7 @@ window.verOC = async function (id) {
 
   function blocoAssinatura(cargo, assinatura, acao) {
     const recusada = assinatura?.acao === 'recusada'
-    const cor = recusada ? '#dc3545' : '#158815'
+    const cor = recusada ? '#dc3545' : 'var(--acento)'
 
     const podeAssinarSolicitante = acao === 'solicitante' && !assinatura
 
@@ -281,10 +281,10 @@ window.verOC = async function (id) {
     const cursor = podeAssinar ? 'cursor:pointer;' : ''
     const hover = podeAssinar ? `onmouseover="this.style.background='#f0fff0'" onmouseout="this.style.background='white'"` : ''
     const click = podeAssinar ? `onclick="abrirModalAssinatura(${oc.id}, '${acao}')"` : ''
-    const dica = podeAssinar ? `<div style="font-size:11px; color:#158815; margin-top:6px;">Clique para assinar</div>` : ''
+    const dica = podeAssinar ? `<div style="font-size:11px; color:var(--acento); margin-top:6px;">Clique para assinar</div>` : ''
 
     return `
-      <div style="text-align:center; border:1px solid ${podeAssinar ? '#158815' : '#ddd'}; border-radius:6px; padding:16px; ${cursor}" ${hover} ${click}>
+      <div style="text-align:center; border:1px solid ${podeAssinar ? 'var(--acento)' : '#ddd'}; border-radius:6px; padding:16px; ${cursor}" ${hover} ${click}>
         <div style="font-weight:700; font-size:12px; color:#555; margin-bottom:8px;">${cargo}</div>
         ${assinatura?.assinaturaImg
         ? `<img src="${assinatura.assinaturaImg}" style="max-height:60px; max-width:160px; margin:0 auto 8px; display:block;">`
@@ -336,7 +336,7 @@ window.verOC = async function (id) {
 
       <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:20px;">
         <div style="background:white; border-radius:6px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06);">
-          <div style="font-weight:700; color:#158815; margin-bottom:10px;">Fornecedor</div>
+          <div style="font-weight:700; color:var(--acento); margin-bottom:10px;">Fornecedor</div>
           <div><strong>${oc.fornecedor?.nome || '-'}</strong></div>
           ${oc.fornecedor?.documento ? `<div style="color:#666; font-size:13px;">CNPJ: ${oc.fornecedor.documento}</div>` : ''}
           ${oc.fornecedor?.endereco ? `<div style="color:#666; font-size:13px;">${oc.fornecedor.endereco}</div>` : ''}
@@ -346,7 +346,7 @@ window.verOC = async function (id) {
         </div>
 
         <div style="background:white; border-radius:6px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06);">
-          <div style="font-weight:700; color:#158815; margin-bottom:10px;">Condições Comerciais</div>
+          <div style="font-weight:700; color:var(--acento); margin-bottom:10px;">Condições Comerciais</div>
           <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px; font-size:13px;">
             <div><span style="color:#999;">Data</span><br><strong>${dataPedido}</strong></div>
             <div><span style="color:#999;">Empresa</span><br><strong>${oc.empresa?.sigla || '-'}</strong></div>
@@ -365,7 +365,7 @@ window.verOC = async function (id) {
       </div>
 
       <div style="background:white; border-radius:6px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06); margin-bottom:16px;">
-        <div style="font-weight:700; color:#158815; margin-bottom:10px;">Itens</div>
+        <div style="font-weight:700; color:var(--acento); margin-bottom:10px;">Itens</div>
         <table class="table-certificados">
           <thead><tr><th>Qtd</th><th>Unid</th><th>Descrição</th><th>Valor Unit</th><th>Desconto</th><th>IPI</th><th>Total</th></tr></thead>
           <tbody>
@@ -390,19 +390,19 @@ window.verOC = async function (id) {
 
       ${oc.instrucoes ? `
         <div style="background:white; border-radius:6px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06); margin-bottom:16px;">
-          <div style="font-weight:700; color:#158815; margin-bottom:8px;">Instruções Especiais</div>
+          <div style="font-weight:700; color:var(--acento); margin-bottom:8px;">Instruções Especiais</div>
           <div style="font-size:13px; color:#444;">${oc.instrucoes}</div>
         </div>
       ` : ''}
 
       ${oc.anexos?.length > 0 ? `
         <div style="background:white; border-radius:6px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06); margin-bottom:16px;">
-          <div style="font-weight:700; color:#158815; margin-bottom:8px;">Anexos</div>
+          <div style="font-weight:700; color:var(--acento); margin-bottom:8px;">Anexos</div>
           <ul style="list-style:none; padding:0; margin:0;">
             ${oc.anexos.map(a => `
               <li style="padding:6px 0; border-bottom:1px solid #eee; display:flex; justify-content:space-between; font-size:13px;">
                 <span>📎 ${a.nomeOriginal} <small style="color:#999;">(${a.tipo})</small></span>
-                <a href="${API}/uploads/${a.nomeArquivo}?token=${encodeURIComponent(tokenAtual)}" target="_blank" style="color:#158815;">Ver</a>
+                <a href="${API}/uploads/${a.nomeArquivo}?token=${encodeURIComponent(tokenAtual)}" target="_blank" style="color:var(--acento);">Ver</a>
               </li>
             `).join('')}
           </ul>
@@ -410,7 +410,7 @@ window.verOC = async function (id) {
       ` : ''}
 
       <div style="background:white; border-radius:6px; padding:20px; box-shadow:0 2px 6px rgba(0,0,0,0.06);">
-        <div style="font-weight:700; color:#158815; margin-bottom:16px;">Assinaturas</div>
+        <div style="font-weight:700; color:var(--acento); margin-bottom:16px;">Assinaturas</div>
         <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:16px;">
           ${blocoAssinatura('SOLICITANTE', asSolicitante || null, 'solicitante')}
           ${blocoAssinatura('AUTORIZADO', asAprovacao || null, 'aprovar')}
@@ -451,7 +451,7 @@ window.abrirModalAssinatura = function (ocId, acao) {
   `
   modal.innerHTML = `
     <div style="background:white; border-radius:8px; padding:28px; width:480px; max-width:95vw; box-shadow:0 8px 32px rgba(0,0,0,0.2);">
-      <h4 style="margin:0 0 16px; color:#158815;">${titulo}</h4>
+      <h4 style="margin:0 0 16px; color:var(--acento);">${titulo}</h4>
 
       <p style="font-size:13px; color:#555; margin-bottom:12px;">
         Desenhe sua assinatura abaixo (opcional):
@@ -1299,6 +1299,12 @@ export async function renderizarDashboardOCs() {
   const container = document.getElementById('inicio')
   if (!container) return
 
+  // Técnico não mexe com Ordens de Compra
+  if (perfil === 'tecnico') {
+    document.getElementById('painel-ocs-inicio')?.remove()
+    return
+  }
+
   let painel = document.getElementById('painel-ocs-inicio')
   if (!painel) {
     painel = document.createElement('div')
@@ -1309,16 +1315,21 @@ export async function renderizarDashboardOCs() {
 
   painel.innerHTML = `<div style="color:#999; padding:12px;">Carregando resumo de compras...</div>`
 
+  // Contas a Pagar/Pago é informação financeira — Usuário/Gerente só veem
+  // o card de pendentes de aprovação, que é sobre o fluxo de OC em si.
+  const vePagamentosOC = perfil === 'admin' || perfil === 'financeiro'
+
   try {
     const d = await apiFetch(`${API}/ocs/dashboard`).then(r => r.json())
 
     painel.innerHTML = `
       <h5 style="margin-bottom:12px;">Ordens de Compra</h5>
-      <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:16px; margin-bottom:20px;">
+      <div style="display:grid; grid-template-columns:repeat(${vePagamentosOC ? 3 : 1}, 1fr); gap:16px; margin-bottom:20px;">
         <div style="background:white; border-radius:6px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06);">
           <div style="color:#999; font-size:12px;">OCs Pendentes de Aprovação</div>
           <div style="font-size:20px; font-weight:700; color:#fd7e14;">${d.qtdPendentesAprovacao}</div>
         </div>
+        ${vePagamentosOC ? `
         <div style="background:white; border-radius:6px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06); cursor:pointer;" onclick="abrirPagina(event, 'contasPagar')">
           <div style="color:#999; font-size:12px;">Contas a Pagar</div>
           <div style="font-size:20px; font-weight:700; color:#dc3545;">${d.qtdContasAPagar} (${formatarMoeda(d.totalAPagar)})</div>
@@ -1327,9 +1338,10 @@ export async function renderizarDashboardOCs() {
           <div style="color:#999; font-size:12px;">Pago (últimos 30 dias)</div>
           <div style="font-size:20px; font-weight:700; color:#0d6efd;">${formatarMoeda(d.totalPago30dias)}</div>
         </div>
+        ` : ''}
       </div>
 
-      ${d.contasAPagar?.length > 0 ? `
+      ${vePagamentosOC && d.contasAPagar?.length > 0 ? `
         <div style="background:white; border-radius:6px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06);">
           <div style="font-weight:700; color:#dc3545; margin-bottom:10px;">Próximas Contas a Pagar</div>
           <ul style="list-style:none; padding:0; margin:0;">
@@ -1367,6 +1379,7 @@ export function inicializarContasAPagar() {
   const container = document.getElementById('contasPagar')
   container.innerHTML = `
     <div class="tab">Contas a Pagar</div>
+    ${podeMarcarPagoOC ? `<button class="btn btn-success" onclick="abrirFormularioContaPagarAvulsa()">+ Nova Conta a Pagar</button>` : ''}
 
     <div id="resumo-contas-pagar" style="display:grid; grid-template-columns:repeat(3, 1fr); gap:16px; margin: 16px 0;">
       <div style="background:white; border-radius:6px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06);">
@@ -1426,9 +1439,32 @@ export function inicializarContasAPagar() {
 
 let contasAPagarCache = []
 
+function normalizarContaAvulsa(c) {
+  return {
+    id: c.id,
+    tipo: 'avulsa',
+    numero: null,
+    ano: null,
+    fornecedor: { nome: c.fornecedorNome || c.descricao || 'Conta avulsa' },
+    empresa: null,
+    dataPedido: c.dataVencimento,
+    valorTotal: c.valor,
+    pago: c.status === 'pago',
+    dataPagamento: c.dataPagamento
+  }
+}
+
 window.carregarContasAPagar = async function () {
   try {
-    contasAPagarCache = await apiFetch(`${API}/ocs/contas-a-pagar`).then(r => r.json())
+    const [ocs, avulsas] = await Promise.all([
+      apiFetch(`${API}/ocs/contas-a-pagar`).then(r => r.json()),
+      apiFetch(`${API}/contas-pagar`).then(r => r.json())
+    ])
+
+    contasAPagarCache = [
+      ...ocs.map(oc => ({ ...oc, tipo: 'oc' })),
+      ...avulsas.map(normalizarContaAvulsa)
+    ]
 
     const pendentes = contasAPagarCache.filter(oc => !oc.pago)
     const totalAPagar = pendentes.reduce((acc, oc) => acc + (oc.valorTotal || 0), 0)
@@ -1462,7 +1498,7 @@ window.filtrarContasAPagar = function () {
   if (busca) {
     filtradas = filtradas.filter(oc => {
       const fornecedor = (oc.fornecedor?.nome || '').toLowerCase()
-      const numero = `${oc.numero}.${oc.ano}`.toLowerCase()
+      const numero = oc.tipo === 'avulsa' ? '' : `${oc.numero}.${oc.ano}`.toLowerCase()
       return fornecedor.includes(busca) || numero.includes(busca)
     })
   }
@@ -1485,13 +1521,14 @@ function renderizarTabelaContasAPagar(ocs) {
 
   tabela.innerHTML = ocs.map(oc => {
     const dataPedido = new Date(oc.dataPedido).toLocaleDateString('pt-BR')
+    const numeroTxt = oc.tipo === 'avulsa' ? '<span style="color:#999;">Avulsa</span>' : `${oc.numero}.${oc.ano}`
     const acoes = oc.pago
-      ? `<button class="btn btn-sm btn-secondary" onclick="reverterPagamentoOC(${oc.id})">Reverter</button>`
-      : `<button class="btn btn-sm btn-success" onclick="marcarOCPaga(${oc.id})">Marcar Pago</button>`
+      ? `<button class="btn btn-sm btn-secondary" onclick="reverterContaAPagar(${oc.id}, '${oc.tipo}')">Reverter</button>`
+      : `<button class="btn btn-sm btn-success" onclick="marcarContaAPagarPaga(${oc.id}, '${oc.tipo}')">Marcar Pago</button>`
 
     return `
       <tr>
-        <td>${oc.numero}.${oc.ano}</td>
+        <td>${numeroTxt}</td>
         <td>${oc.fornecedor?.nome || '-'}</td>
         <td>${oc.empresa?.nome || '-'}</td>
         <td>${dataPedido}</td>
@@ -1503,23 +1540,69 @@ function renderizarTabelaContasAPagar(ocs) {
   }).join('')
 }
 
-window.marcarOCPaga = async function (id) {
-  if (!confirm('Confirmar que esta OC foi paga?')) return
-  const res = await apiJson(`${API}/ocs/${id}/marcar-pago`, { method: 'POST', body: JSON.stringify({}) })
+window.marcarContaAPagarPaga = async function (id, tipo) {
+  const confirmMsg = tipo === 'avulsa' ? 'Confirmar que esta conta foi paga?' : 'Confirmar que esta OC foi paga?'
+  if (!confirm(confirmMsg)) return
+  const url = tipo === 'avulsa' ? `${API}/contas-pagar/${id}/marcar-pago` : `${API}/ocs/${id}/marcar-pago`
+  const res = await apiJson(url, { method: 'POST', body: JSON.stringify({}) })
   if (res.ok) {
     carregarContasAPagar()
   } else {
-    alert('Erro ao marcar OC como paga')
+    alert('Erro ao marcar conta como paga')
   }
 }
 
-window.reverterPagamentoOC = async function (id) {
-  if (!confirm('Reverter o pagamento desta OC?')) return
-  const res = await apiJson(`${API}/ocs/${id}/reverter-pagamento`, { method: 'POST', body: JSON.stringify({}) })
+window.reverterContaAPagar = async function (id, tipo) {
+  if (!confirm('Reverter o pagamento desta conta?')) return
+  const url = tipo === 'avulsa' ? `${API}/contas-pagar/${id}/reverter` : `${API}/ocs/${id}/reverter-pagamento`
+  const res = await apiJson(url, { method: 'POST', body: JSON.stringify({}) })
   if (res.ok) {
     carregarContasAPagar()
   } else {
     alert('Erro ao reverter pagamento')
+  }
+}
+
+// ===== FORMULÁRIO — NOVA CONTA A PAGAR (avulsa, sem OC vinculada) =============
+window.abrirFormularioContaPagarAvulsa = function () {
+  document.getElementById('contasPagar').innerHTML = `
+    <div style="margin-top:20px; max-width:600px;">
+      <button class="btn btn-secondary" onclick="inicializarContasAPagar()">← Voltar</button>
+      <h3 style="margin:20px 0;">Nova Conta a Pagar (avulsa)</h3>
+      <p style="font-size:13px; color:#999;">Use isso para despesas que não vêm de uma Ordem de Compra.</p>
+
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+        <div style="grid-column:span 2;"><label>Fornecedor</label><input type="text" id="conta-pagar-fornecedorNome" class="form-control" placeholder="Nome do fornecedor (opcional)"></div>
+        <div style="grid-column:span 2;"><label>Descrição *</label><input type="text" id="conta-pagar-descricao" class="form-control" placeholder="Ex: Serviço avulso, taxa, etc."></div>
+        <div><label>Valor *</label><input type="number" id="conta-pagar-valor" class="form-control" step="0.01"></div>
+        <div><label>Data de Vencimento *</label><input type="date" id="conta-pagar-dataVencimento" class="form-control" value="${new Date().toISOString().split('T')[0]}"></div>
+      </div>
+
+      <button type="button" class="btn btn-success" style="margin-top:20px;" onclick="salvarContaPagarAvulsa()">Salvar Conta</button>
+    </div>
+  `
+}
+
+window.salvarContaPagarAvulsa = async function () {
+  const body = {
+    fornecedorNome: document.getElementById('conta-pagar-fornecedorNome').value.trim(),
+    descricao: document.getElementById('conta-pagar-descricao').value.trim(),
+    valor: document.getElementById('conta-pagar-valor').value,
+    dataVencimento: document.getElementById('conta-pagar-dataVencimento').value,
+  }
+
+  if (!body.descricao || !body.valor || !body.dataVencimento) {
+    alert('Descrição, valor e data de vencimento são obrigatórios!')
+    return
+  }
+
+  const res = await apiJson(`${API}/contas-pagar`, { method: 'POST', body: JSON.stringify(body) })
+  if (res.ok) {
+    alert('Conta cadastrada com sucesso!')
+    inicializarContasAPagar()
+  } else {
+    const err = await res.json()
+    alert('Erro: ' + (err.erro || 'Falha ao cadastrar'))
   }
 }
 

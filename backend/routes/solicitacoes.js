@@ -88,7 +88,8 @@ router.get('/:id', autenticar, async (req, res) => {
 //   fornecedores: [{ nome, documento, telefone, prazoEntrega, condicoesPagto, observacoes, favorito }],
 //   precos: [{ itemIndex, fornecedorIndex, valor }]   // referencia pelo índice nos arrays acima
 // }
-router.post('/', autenticar, async (req, res) => {
+// Usuário não tem essa tela (fluxo dele é criar a OC direto) e Técnico não mexe com compras.
+router.post('/', autenticar, exigirPerfil('gerente', 'financeiro', 'admin'), async (req, res) => {
   const { empresaId, instrucoes, departamentoDestino, itens, fornecedores, precos } = req.body
 
   if (!empresaId || !itens?.length || !fornecedores?.length) {

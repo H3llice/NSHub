@@ -149,7 +149,8 @@ router.get('/:id', autenticar, async (req, res) => {
 })
 
 // ─── Criar nova OC ────────────────────────────────────────────────────────────
-router.post('/', autenticar, async (req, res) => {
+// Técnico não mexe com compras.
+router.post('/', autenticar, exigirPerfil('usuario', 'gerente', 'financeiro', 'admin'), async (req, res) => {
   const { empresaId, fornecedorId, vendedorId, itens,
           fornecedorNome, fornecedorDocumento, fornecedorEndereco, fornecedorCidade, fornecedorTelefone,
           ...dados } = req.body
@@ -240,7 +241,7 @@ router.post('/:id/assinar-solicitante', autenticar, async (req, res) => {
 })
 
 // ─── Editar OC ────────────────────────────────────────────────────────────────
-router.put('/:id', autenticar, async (req, res) => {
+router.put('/:id', autenticar, exigirPerfil('usuario', 'gerente', 'financeiro', 'admin'), async (req, res) => {
   const id = Number(req.params.id)
   const ocAtual = await prisma.ordemCompra.findUnique({ where: { id } })
 

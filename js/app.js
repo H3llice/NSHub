@@ -5,11 +5,12 @@ import { inicializarVendas } from './modules/vendas.js'
 import { inicializarContasReceber, renderizarDashboardInicio } from './modules/pagamentos.js'
 import { inicializarFornecedores } from './modules/fornecedores.js'
 import { inicializarSolicitacoes } from './modules/solicitacoes.js'
-import { inicializarAlmoxarifado } from './modules/almoxarifado.js'
+import { inicializarAlmoxarifado, renderizarDashboardAlmoxarifado } from './modules/almoxarifado.js'
 import { inicializarEmbarcacoes } from './modules/embarcacoes.js'
 import { inicializarRelatorios } from './modules/relatorios.js'
 import { inicializarOrdensServico } from './modules/ordens-servico.js'
 import { listarCertificadosBalsa, urlPdfCertificado, badgeStatusCertificado } from './modules/certificados.js'
+import { inicializarPerfil } from './modules/perfil.js'
 
 
 let favoritos = JSON.parse(localStorage.getItem('favoritos')) || [];
@@ -19,6 +20,19 @@ let formularioAtualCarregado = null;
 
 // ===== AUTENTICAÇÃO =====
 const usuarioLogado = JSON.parse(localStorage.getItem('ns_usuario') || 'null')
+const perfilLogado = usuarioLogado?.perfil || 'usuario'
+
+// ===== PERMISSÕES DE TELA POR PERFIL =====
+// Elementos da sidebar/topbar marcados com data-perm="admin,gerente,..." só
+// aparecem pro perfil logado. Restrições de edição por página (o que cada
+// perfil pode ALTERAR, não só ver) ficam dentro de cada módulo (js/modules/*),
+// perto da lógica que elas afetam.
+function aplicarPermissoesInterface() {
+    document.querySelectorAll('[data-perm]').forEach(el => {
+        const permitido = el.dataset.perm.split(',').includes(perfilLogado)
+        el.style.display = permitido ? '' : 'none'
+    })
+}
 
 window.addEventListener('load', () => {
     // Mostra nome na topbar
@@ -26,6 +40,9 @@ window.addEventListener('load', () => {
     if (span && usuarioLogado) {
         span.textContent = `👤 ${usuarioLogado.nome} (${usuarioLogado.perfil})`
     }
+
+    aplicarPermissoesInterface()
+    inicializarPerfil()
 
     // ... resto do load que já existe
 })
@@ -182,7 +199,7 @@ function atualizarFavoritos() {
     } else {
         lista.innerHTML = favoritos.map(fav => `
             <li>
-                <a href="#" onclick="abrirPagina(event, '${fav.id}')" style="color: var(--verde); text-decoration: none; flex: 1;">
+                <a href="#" onclick="abrirPagina(event, '${fav.id}')" style="color: var(--acento); text-decoration: none; flex: 1;">
                     ${fav.nome}
                 </a>
                 <button class="remove-favorito" onclick="removerFavorito(event, '${fav.id}')">✕</button>
@@ -221,6 +238,7 @@ window.addEventListener('load', () => {
     renderizarDashboardOCs();
     renderizarDashboardContratos();
     renderizarDashboardEstoque();
+    renderizarDashboardAlmoxarifado();
 
     // ── Abre OC direto se vier do link do email ──────────────
     const hash = window.location.hash // ex: #oc-42

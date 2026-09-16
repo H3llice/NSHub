@@ -74,7 +74,7 @@ export function inicializarContasReceber() {
     <div id="resumo-contas-receber" style="display:grid; grid-template-columns:repeat(3, 1fr); gap:16px; margin: 16px 0;">
       <div style="background:white; border-radius:6px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06);">
         <div style="color:#999; font-size:12px;">Total a Receber</div>
-        <div id="resumo-total-receber" style="font-size:22px; font-weight:700; color:#158815;">-</div>
+        <div id="resumo-total-receber" style="font-size:22px; font-weight:700; color:var(--acento);">-</div>
       </div>
       <div style="background:white; border-radius:6px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06);">
         <div style="color:#999; font-size:12px;">Total Atrasado</div>
@@ -293,6 +293,12 @@ export async function renderizarDashboardInicio() {
   const container = document.getElementById('inicio')
   if (!container) return
 
+  // Resumo financeiro é só pra quem lida com contas a pagar/receber
+  if (perfil !== 'admin' && perfil !== 'financeiro') {
+    document.getElementById('painel-financeiro-inicio')?.remove()
+    return
+  }
+
   // Preserva conteúdo já existente na página de início, só adiciona o painel financeiro
   let painel = document.getElementById('painel-financeiro-inicio')
   if (!painel) {
@@ -312,7 +318,7 @@ export async function renderizarDashboardInicio() {
       <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:16px; margin-bottom:20px;">
         <div style="background:white; border-radius:6px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06);">
           <div style="color:#999; font-size:12px;">Total a Receber</div>
-          <div style="font-size:20px; font-weight:700; color:#158815;">${formatarMoeda(d.totalAReceber)}</div>
+          <div style="font-size:20px; font-weight:700; color:var(--acento);">${formatarMoeda(d.totalAReceber)}</div>
         </div>
         <div style="background:white; border-radius:6px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06);">
           <div style="color:#999; font-size:12px;">Pagamentos Atrasados</div>
@@ -326,7 +332,7 @@ export async function renderizarDashboardInicio() {
 
       ${d.proximosVencimentos?.length > 0 ? `
         <div style="background:white; border-radius:6px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06);">
-          <div style="font-weight:700; color:#158815; margin-bottom:10px;">Próximos Vencimentos</div>
+          <div style="font-weight:700; color:var(--acento); margin-bottom:10px;">Próximos Vencimentos</div>
           <ul style="list-style:none; padding:0; margin:0;">
             ${d.proximosVencimentos.map(p => `
               <li style="padding:6px 0; border-bottom:1px solid #eee; font-size:13px; display:flex; justify-content:space-between;">

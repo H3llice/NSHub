@@ -46,7 +46,7 @@ router.post('/', autenticar, exigirPerfil('admin', 'financeiro'), async (req, re
 })
 
 // ─── Dashboard de contas a receber ─────────────────────────────────────────────
-router.get('/dashboard', autenticar, async (req, res) => {
+router.get('/dashboard', autenticar, exigirPerfil('admin', 'financeiro'), async (req, res) => {
     const [pendentes, atrasados, pagos30dias] = await Promise.all([
         prisma.pagamento.findMany({
             where: { status: 'pendente' },

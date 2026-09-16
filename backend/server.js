@@ -22,6 +22,7 @@ import ordensServicoRouter from './routes/ordens-servico.js'
 import contratosRouter from './routes/contratos.js'
 import vendasRouter from './routes/vendas.js'
 import pagamentosRouter from './routes/pagamentos.js'
+import contasPagarRouter from './routes/contas-pagar.js'
 import almoxarifadoRouter from './routes/almoxarifado.js'
 import { notificarPagamentoAtrasado } from './email.js'
 
@@ -63,6 +64,7 @@ const raizProjeto = path.resolve(__dirname, '..')
 app.use('/html', express.static(path.join(raizProjeto, 'html')))
 app.use('/css', express.static(path.join(raizProjeto, 'css')))
 app.use('/js', express.static(path.join(raizProjeto, 'js')))
+app.use('/img', express.static(path.join(raizProjeto, 'img')))
 
 app.get('/', (req, res) => {
   res.redirect('/html/login.html')
@@ -86,6 +88,7 @@ app.use('/ordens-servico', ordensServicoRouter)
 app.use('/contratos', contratosRouter)
 app.use('/vendas', vendasRouter)
 app.use('/pagamentos', pagamentosRouter)
+app.use('/contas-pagar', contasPagarRouter)
 app.use('/almoxarifado', almoxarifadoRouter)
 
 app.get('/api', (req, res) => {

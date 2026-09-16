@@ -127,7 +127,7 @@ async function proximoNumeroCertificado(ano) {
 // O avulso existe pra cobrir a transição pro sistema novo (OS/Relatório ainda
 // preenchidos no papel) e a futura importação de certificados antigos, que
 // nunca tiveram esse rastro digital — usuário pediu essa exceção explicitamente.
-router.post('/', autenticar, async (req, res) => {
+router.post('/', autenticar, exigirPerfil('usuario', 'gerente', 'admin'), async (req, res) => {
   const { relatorioId, empresaId, navio, armador, portoRegistro, telefone, email, dataEmissao, validade, observacoes, relatorio: dadosTecnicos } = req.body
   const ano = new Date().getFullYear()
 
@@ -208,7 +208,7 @@ router.post('/', autenticar, async (req, res) => {
 
 // ─── Editar certificado (sempre editável, mesmo já emitido — diferente de OC/
 // Relatório/Solicitação, que travam após concluídos) ────────────────────────────
-router.put('/:id', autenticar, exigirPerfil('gerente', 'admin'), async (req, res) => {
+router.put('/:id', autenticar, exigirPerfil('usuario', 'gerente', 'admin'), async (req, res) => {
   const id = Number(req.params.id)
   const { dataEmissao, validade, observacoes, empresaId, navio, armador, portoRegistro, telefone, email, relatorio } = req.body
 

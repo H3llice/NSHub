@@ -190,7 +190,7 @@ function renderizarTabelaSC(solicitacoes) {
 
     return `
       <tr style="${cancelada ? 'opacity:0.6; background:#fff5f5;' : ''}">
-        <td><a href="#" onclick="verSolicitacao(${sc.id}); return false;" style="color:var(--verde); font-weight:600; text-decoration:none;">${numero}</a></td>
+        <td><a href="#" onclick="verSolicitacao(${sc.id}); return false;" style="color:var(--acento); font-weight:600; text-decoration:none;">${numero}</a></td>
         <td>${sc.empresa?.sigla || '-'}</td>
         <td>${sc.itens?.length || 0}</td>
         <td>${sc.fornecedores?.length || 0}</td>
@@ -565,7 +565,7 @@ window.verSolicitacao = async function (id) {
       ` : ''}
 
       <div style="background:white; border-radius:6px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06); margin-bottom:16px;">
-        <div style="font-weight:700; color:#158815; margin-bottom:10px;">Quadro Comparativo</div>
+        <div style="font-weight:700; color:var(--acento); margin-bottom:10px;">Quadro Comparativo</div>
         <table class="table-certificados">
           <thead>
             <tr>
@@ -594,7 +594,7 @@ window.verSolicitacao = async function (id) {
       </div>
 
       <div style="background:white; border-radius:6px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06); margin-bottom:16px;">
-        <div style="font-weight:700; color:#158815; margin-bottom:10px;">Dados dos Fornecedores</div>
+        <div style="font-weight:700; color:var(--acento); margin-bottom:10px;">Dados dos Fornecedores</div>
         <div style="display:grid; grid-template-columns:repeat(${Math.min(sc.fornecedores.length, 3)}, 1fr); gap:12px;">
           ${sc.fornecedores.map(f => `
             <div style="border:1px solid #eee; border-radius:6px; padding:10px; font-size:13px;">
@@ -618,7 +618,7 @@ window.verSolicitacao = async function (id) {
 
       ${podeAprovar ? `
         <div style="background:white; border-radius:6px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06); margin-bottom:16px;">
-          <div style="font-weight:700; color:#158815; margin-bottom:10px;">Escolher fornecedor e aprovar</div>
+          <div style="font-weight:700; color:var(--acento); margin-bottom:10px;">Escolher fornecedor e aprovar</div>
           <select id="sc-fornecedor-escolhido" class="form-control" style="max-width:400px; margin-bottom:12px;">
             <option value="">Selecione o fornecedor...</option>
             ${sc.fornecedores.map(f => `<option value="${f.id}">${f.nome} ${f.favorito ? '⭐' : ''} — R$ ${totais.find(t => t.fornecedor.id === f.id).total.toFixed(2)}</option>`).join('')}
@@ -709,7 +709,7 @@ window.abrirModalAssinaturaSC = function (id, acao) {
   modal.style = `position:fixed; inset:0; background:rgba(0,0,0,0.5); display:flex; align-items:center; justify-content:center; z-index:9999;`
   modal.innerHTML = `
     <div style="background:white; border-radius:8px; padding:28px; width:480px; max-width:95vw; box-shadow:0 8px 32px rgba(0,0,0,0.2);">
-      <h4 style="margin:0 0 16px; color:#158815;">${titulos[acao]}</h4>
+      <h4 style="margin:0 0 16px; color:var(--acento);">${titulos[acao]}</h4>
       <p style="font-size:13px; color:#555; margin-bottom:12px;">Desenhe sua assinatura abaixo (opcional):</p>
       <canvas id="canvas-assinatura-sc" width="420" height="120" style="border:1px solid #ddd; border-radius:4px; cursor:crosshair; touch-action:none; width:100%;"></canvas>
       <div style="margin-top:8px;"><button class="btn btn-sm btn-secondary" onclick="limparCanvasSC()">Limpar</button></div>
