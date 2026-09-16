@@ -8,3 +8,4 @@ backend/scripts/relatorio-migracao.json
 .DS_Store
 Thumbs.db
 CLAUDE.md
+.claude/settings.local.json
