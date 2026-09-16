@@ -89,6 +89,42 @@ const KIT_ITENS = [
   { key: 'bateriaResgate', label: 'Luz de Resgate' },
 ]
 
+// Quantidades padrão do kit de sobrevivência, levantadas a partir dos
+// certificados de balsa antigos (backend/migracao/certificados) — foguetes,
+// fachos, fumígeno, pilhas e os 3 estojos+luz de resgate são fixos, não
+// dependem da capacidade da balsa. Rações líquidas e comprimidos contra
+// enjoo escalam 2x a capacidade (bateu em quase todos os certificados
+// analisados); rações sólidas fica perto de capacidade/3, com variação maior
+// entre os certificados reais. Só usado pra sugerir valor inicial num
+// certificado novo — o técnico sempre pode corrigir.
+const KIT_QTD_PADRAO_FIXO = {
+  foguetes: 2, fachos: 3, fumigeno: 1, pilhas: 4,
+  medicamentos: 1, pesca: 1, reparos: 1, bateriaResgate: 1,
+}
+
+export function calcularQuantidadesPadraoKit(capacidade) {
+  const cap = parseInt(capacidade, 10)
+  const porCapacidade = cap > 0 ? {
+    racoesSolidas: Math.round(cap / 3),
+    racoesLiquidas: cap * 2,
+    enjoo: cap * 2,
+  } : {}
+  return { ...KIT_QTD_PADRAO_FIXO, ...porCapacidade }
+}
+
+// Preenche os campos de quantidade do kit já renderizados na tela — chamada
+// ao abrir um certificado novo (do zero) e de novo sempre que a capacidade
+// mudar. Só toca no campo de quantidade; substituído/validade continuam em
+// branco pro técnico preencher à mão.
+export function preencherQuantidadesPadraoKit(capacidade) {
+  const padrao = calcularQuantidadesPadraoKit(capacidade)
+  KIT_ITENS.forEach(item => {
+    if (padrao[item.key] === undefined) return
+    const el = document.getElementById(`rel-kit-${item.key}-qtd`)
+    if (el) el.value = padrao[item.key]
+  })
+}
+
 // Checklist de componentes — só verificado sim/não
 const COMPONENTES = [
   ['ancoraFlutuante', 'Âncora flutuante sobressalente'],

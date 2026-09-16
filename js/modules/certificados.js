@@ -1,4 +1,4 @@
-import { renderSecoesTecnicasRelatorio, prepararCilindros, renderizarCilindros, lerCamposTecnicosRelatorio, hojeISO } from './relatorios.js'
+import { renderSecoesTecnicasRelatorio, prepararCilindros, renderizarCilindros, lerCamposTecnicosRelatorio, hojeISO, preencherQuantidadesPadraoKit } from './relatorios.js'
 
 const API = 'https://override-steerable-professed.ngrok-free.dev'
 
@@ -146,6 +146,13 @@ function exibirCertificado(c, empresas) {
   document.getElementById('relatorios').classList.add('active')
   document.getElementById('relatorios').innerHTML = renderCertificado(c, empresas)
   renderizarCilindros()
+  // Certificado do zero (sem id ainda) — sugere as quantidades padrão do kit.
+  // Vindo de relatório ou já salvo antes, os valores que já estão lá prevalecem.
+  if (!c.id) preencherQuantidadesPadraoKit(c.equipCapacidade)
+}
+
+window.atualizarQuantidadesPadraoCertificado = function () {
+  preencherQuantidadesPadraoKit(document.getElementById('cert-equipCapacidade').value)
 }
 
 // Certificado emitido é referência oficial (assinatura já registrada), mas ao
@@ -226,7 +233,7 @@ function renderCertificado(c, empresas) {
           <div><label>Marca/Fabricante</label><input type="text" id="cert-equipFabricante" class="form-control" value="${c.equipFabricante || r?.equipFabricante || ''}" ${dis}></div>
           <div><label>Modelo</label><input type="text" id="cert-equipModelo" class="form-control" value="${c.equipModelo || r?.equipModelo || ''}" ${dis}></div>
           <div><label>Classe</label><input type="text" id="cert-equipClasse" class="form-control" placeholder="Ex: Classe II Pack B" value="${c.equipClasse || r?.equipClasse || ''}" ${dis}></div>
-          <div><label>Capacidade (pessoas)</label><input type="number" id="cert-equipCapacidade" class="form-control" value="${c.equipCapacidade ?? r?.equipCapacidade ?? ''}" ${dis}></div>
+          <div><label>Capacidade (pessoas)</label><input type="number" id="cert-equipCapacidade" class="form-control" value="${c.equipCapacidade ?? r?.equipCapacidade ?? ''}" ${novo ? 'onchange="atualizarQuantidadesPadraoCertificado()"' : ''} ${dis}></div>
         </div>
       </div>
 
