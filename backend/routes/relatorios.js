@@ -303,14 +303,19 @@ const CILINDRO_COL_DIREITA_X = 142.9
 const CILINDRO_LINHAS_Y = [154.1, 159.1, 164.4, 169.3]
 
 // Casulo (Glass Fiber Container) — logo abaixo do Cilindro. Coordenadas
-// estimadas visualmente a partir do fundo (não extraídas do XML do .docm,
-// diferente do resto desta página — seção nunca tinha sido desenhada antes),
-// então podem precisar de um ajuste fino depois de conferir o PDF gerado.
-const CASULO_REPARO_POS = { x: 155.0, y: 179.5 }
-const CASULO_PINTURA_POS = { x: 155.0, y: 184.9 }
-const CASULO_VALVULA_NUMERO_POS = { x: CILINDRO_COL_ESQUERDA_X, y: 193.5 }
-const CASULO_VALVULA_FABRICANTE_POS = { x: CILINDRO_COL_DIREITA_X, y: 193.5 }
-const CASULO_VALVULA_VALIDADE_POS = { x: CILINDRO_COL_ESQUERDA_X, y: 198.9 }
+// conferidas renderizando a página contra o fundo real (certificado 4057 -
+// PEROA OFFSHORE II, migracao/certificados/CERTIFICADOS DE BALSAS 2026) — duas
+// correções em relação à 1ª estimativa: REPARO/PINTURA (x 155→148) caíam em
+// cima do "NÃO/NO" em vez de no vão em branco entre "SIM/YES" e "NÃO/NO"
+// (mesma convenção usada nas linhas de Teste dos Flutuadores); e
+// CASULO_VALVULA_NUMERO_POS caía em cima do rótulo "VAL. DE LIBERAÇÃO"
+// (reaproveitava CILINDRO_COL_ESQUERDA_X, que é a coluna certa pro Cilindro
+// mas não pra essa linha, com rótulo bem mais comprido) — ganhou x próprio.
+const CASULO_REPARO_POS = { x: 148.0, y: 178.5 }
+const CASULO_PINTURA_POS = { x: 148.0, y: 184.0 }
+const CASULO_VALVULA_NUMERO_POS = { x: 75.0, y: 193.3 }
+const CASULO_VALVULA_FABRICANTE_POS = { x: CILINDRO_COL_DIREITA_X, y: 193.3 }
+const CASULO_VALVULA_VALIDADE_POS = { x: CILINDRO_COL_ESQUERDA_X, y: 199.0 }
 
 const DATA_ATENDIMENTO_POS = { x: 139.7, y: 243.7 }
 // Nome de quem criou o registro (criadoPor), centralizado embaixo do logo —
