@@ -52,6 +52,7 @@ function formatarDocumento(doc) {
 // ══════════════════════════════════════════════════════════════════════════
 
 let fornecedoresCache = []
+let paginaAtualFornecedores = 1
 
 export function inicializarFornecedores() {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'))
@@ -65,15 +66,15 @@ export function inicializarFornecedores() {
     <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin: 16px 0;">
       <div>
         <label style="font-size:12px;">Nome</label>
-        <input type="text" id="filtro-fornecedor-nome" class="form-control form-control-sm" oninput="filtrarFornecedores()">
+        <input type="text" id="filtro-fornecedor-nome" class="form-control form-control-sm" oninput="carregarFornecedores(1)">
       </div>
       <div>
         <label style="font-size:12px;">CNPJ/CPF</label>
-        <input type="text" id="filtro-fornecedor-doc" class="form-control form-control-sm" oninput="filtrarFornecedores()">
+        <input type="text" id="filtro-fornecedor-doc" class="form-control form-control-sm" oninput="carregarFornecedores(1)">
       </div>
       <div>
         <label style="font-size:12px;">Cidade</label>
-        <input type="text" id="filtro-fornecedor-cidade" class="form-control form-control-sm" oninput="filtrarFornecedores()">
+        <input type="text" id="filtro-fornecedor-cidade" class="form-control form-control-sm" oninput="carregarFornecedores(1)">
       </div>
     </div>
 
@@ -91,33 +92,47 @@ export function inicializarFornecedores() {
         <tr><td colspan="5" style="text-align:center; color:#999; padding:30px;">Carregando...</td></tr>
       </tbody>
     </table>
+    <div id="contador-fornecedores" style="margin-top:12px;"></div>
   `
 
   carregarFornecedores()
 }
 
-async function carregarFornecedores() {
+window.carregarFornecedores = async function (pagina = 1) {
+  paginaAtualFornecedores = pagina
+  const nome = document.getElementById('filtro-fornecedor-nome')?.value || ''
+  const documento = document.getElementById('filtro-fornecedor-doc')?.value || ''
+  const cidade = document.getElementById('filtro-fornecedor-cidade')?.value || ''
+
+  const params = new URLSearchParams()
+  if (nome) params.append('nome', nome)
+  if (documento) params.append('documento', documento)
+  if (cidade) params.append('cidade', cidade)
+  params.append('pagina', pagina)
+
   try {
-    fornecedoresCache = await apiFetch(`${API}/fornecedores`).then(r => r.json())
-    filtrarFornecedores()
+    const dados = await apiFetch(`${API}/fornecedores?${params}`).then(r => r.json())
+    fornecedoresCache = dados.fornecedores || []
+    renderizarTabelaFornecedores(fornecedoresCache)
+
+    const contador = document.getElementById('contador-fornecedores')
+    if (contador) {
+      contador.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <span>${dados.total || 0} fornecedores encontrados</span>
+          <div style="display:flex; gap:8px; align-items:center;">
+            <button class="btn btn-sm btn-secondary" onclick="carregarFornecedores(${pagina - 1})" ${pagina <= 1 ? 'disabled' : ''}>← Anterior</button>
+            <span>Página ${pagina} de ${dados.totalPaginas || 1}</span>
+            <button class="btn btn-sm btn-secondary" onclick="carregarFornecedores(${pagina + 1})" ${pagina >= (dados.totalPaginas || 1) ? 'disabled' : ''}>Próxima →</button>
+          </div>
+        </div>
+      `
+    }
   } catch {
     document.getElementById('tabela-fornecedores').innerHTML = `
       <tr><td colspan="5" style="text-align:center; color:red; padding:30px;">Erro ao conectar com o servidor</td></tr>
     `
   }
-}
-
-window.filtrarFornecedores = function () {
-  const nome = (document.getElementById('filtro-fornecedor-nome')?.value || '').trim().toLowerCase()
-  const doc = (document.getElementById('filtro-fornecedor-doc')?.value || '').replace(/\D/g, '')
-  const cidade = (document.getElementById('filtro-fornecedor-cidade')?.value || '').trim().toLowerCase()
-
-  let filtrados = [...fornecedoresCache]
-  if (nome) filtrados = filtrados.filter(f => f.nome.toLowerCase().includes(nome))
-  if (doc) filtrados = filtrados.filter(f => (f.documento || '').replace(/\D/g, '').includes(doc))
-  if (cidade) filtrados = filtrados.filter(f => (f.cidade || '').toLowerCase().includes(cidade))
-
-  renderizarTabelaFornecedores(filtrados)
 }
 
 function renderizarTabelaFornecedores(fornecedores) {

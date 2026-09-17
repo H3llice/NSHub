@@ -4,9 +4,28 @@ import { autenticar } from '../middleware/auth.js'
 
 const router = Router()
 
+// ─── Listar fornecedores (paginado, com filtros opcionais por nome/doc/cidade) ─
 router.get('/', autenticar, async (req, res) => {
-  const fornecedores = await prisma.fornecedor.findMany()
-  res.json(fornecedores)
+  const { nome, documento, cidade, pagina = 1 } = req.query
+  const porPagina = 50
+  const paginaNum = parseInt(pagina)
+
+  const where = {}
+  if (nome) where.nome = { contains: nome, mode: 'insensitive' }
+  if (documento) where.documento = { contains: documento.replace(/\D/g, '') || documento }
+  if (cidade) where.cidade = { contains: cidade, mode: 'insensitive' }
+
+  const [fornecedores, total] = await Promise.all([
+    prisma.fornecedor.findMany({
+      where,
+      orderBy: { nome: 'asc' },
+      take: porPagina,
+      skip: (paginaNum - 1) * porPagina
+    }),
+    prisma.fornecedor.count({ where })
+  ])
+
+  res.json({ fornecedores, total, pagina: paginaNum, totalPaginas: Math.ceil(total / porPagina) })
 })
 
 router.get('/:id/vendedores', autenticar, async (req, res) => {

@@ -76,7 +76,7 @@ export function inicializarVendas() {
     <div style="display:flex; gap:16px; margin: 16px 0; max-width:280px;">
       <div style="flex:1;">
         <label style="font-size:12px;">Status</label>
-        <select id="filtro-status-venda" class="form-control" onchange="carregarVendas()">
+        <select id="filtro-status-venda" class="form-control" onchange="carregarVendas(1)">
           <option value="">Todos</option>
           <option value="ativo">Ativo</option>
           <option value="cancelado">Cancelado</option>
@@ -101,19 +101,38 @@ export function inicializarVendas() {
         <tr><td colspan="8" style="text-align:center; color:#999; padding:30px;">Carregando...</td></tr>
       </tbody>
     </table>
+    <div id="contador-vendas" style="margin-top:12px;"></div>
   `
 
   carregarVendas()
 }
 
-window.carregarVendas = async function () {
+let paginaAtualVendas = 1
+
+window.carregarVendas = async function (pagina = 1) {
+  paginaAtualVendas = pagina
   const status = document.getElementById('filtro-status-venda')?.value || ''
   const params = new URLSearchParams()
   if (status) params.append('status', status)
+  params.append('pagina', pagina)
 
   try {
-    const vendas = await apiFetch(`${API}/vendas?${params}`).then(r => r.json())
-    renderizarTabelaVendas(vendas)
+    const dados = await apiFetch(`${API}/vendas?${params}`).then(r => r.json())
+    renderizarTabelaVendas(dados.vendas || [])
+
+    const contador = document.getElementById('contador-vendas')
+    if (contador) {
+      contador.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <span>${dados.total || 0} vendas encontradas</span>
+          <div style="display:flex; gap:8px; align-items:center;">
+            <button class="btn btn-sm btn-secondary" onclick="carregarVendas(${pagina - 1})" ${pagina <= 1 ? 'disabled' : ''}>← Anterior</button>
+            <span>Página ${pagina} de ${dados.totalPaginas || 1}</span>
+            <button class="btn btn-sm btn-secondary" onclick="carregarVendas(${pagina + 1})" ${pagina >= (dados.totalPaginas || 1) ? 'disabled' : ''}>Próxima →</button>
+          </div>
+        </div>
+      `
+    }
   } catch {
     document.getElementById('tabela-vendas').innerHTML = `
       <tr><td colspan="8" style="text-align:center; color:red; padding:30px;">Erro ao conectar com o servidor</td></tr>
@@ -157,7 +176,7 @@ function renderizarTabelaVendas(vendas) {
 window.cancelarVenda = async function (id) {
   if (!confirm('Cancelar esta venda? As balsas vinculadas voltarão a ficar disponíveis.')) return
   const res = await apiJson(`${API}/vendas/${id}`, { method: 'PUT', body: JSON.stringify({ status: 'cancelado' }) })
-  if (res.ok) carregarVendas()
+  if (res.ok) carregarVendas(paginaAtualVendas)
   else alert('Erro ao cancelar venda')
 }
 

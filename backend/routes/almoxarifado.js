@@ -6,12 +6,29 @@ const router = Router()
 
 // ═══════════════════════════════ PRODUTOS ═══════════════════════════════════════
 
-// ─── Listar produtos ───────────────────────────────────────────────────────────
+// ─── Listar produtos (paginado) ────────────────────────────────────────────────
+// ?todas=1 devolve tudo sem paginar — usado pelo select de item do Novo Pedido,
+// que precisa do catálogo inteiro pra buscar/escolher o produto
 router.get('/produtos', autenticar, async (req, res) => {
-  const produtos = await prisma.produto.findMany({
-    orderBy: { nome: 'asc' }
-  })
-  res.json(produtos)
+  if (req.query.todas) {
+    const produtos = await prisma.produto.findMany({ orderBy: { nome: 'asc' } })
+    return res.json(produtos)
+  }
+
+  const { pagina = 1 } = req.query
+  const porPagina = 50
+  const paginaNum = parseInt(pagina)
+
+  const [produtos, total] = await Promise.all([
+    prisma.produto.findMany({
+      orderBy: { nome: 'asc' },
+      take: porPagina,
+      skip: (paginaNum - 1) * porPagina
+    }),
+    prisma.produto.count()
+  ])
+
+  res.json({ produtos, total, pagina: paginaNum, totalPaginas: Math.ceil(total / porPagina) })
 })
 
 // ─── Buscar um produto ─────────────────────────────────────────────────────────
@@ -105,16 +122,26 @@ router.get('/alertas', autenticar, exigirPerfil('admin', 'gerente', 'tecnico'), 
 
 // ═══════════════════════════════ PEDIDOS ═════════════════════════════════════════
 
-// ─── Listar pedidos de almoxarifado ────────────────────────────────────────────
+// ─── Listar pedidos de almoxarifado (paginado) ─────────────────────────────────
 router.get('/pedidos', autenticar, async (req, res) => {
-  const pedidos = await prisma.pedidoAlmoxarifado.findMany({
-    include: {
-      itens: { include: { produto: true } },
-      solicitante: { select: { id: true, nome: true, email: true, perfil: true } }
-    },
-    orderBy: { criadoEm: 'desc' }
-  })
-  res.json(pedidos)
+  const { pagina = 1 } = req.query
+  const porPagina = 50
+  const paginaNum = parseInt(pagina)
+
+  const [pedidos, total] = await Promise.all([
+    prisma.pedidoAlmoxarifado.findMany({
+      include: {
+        itens: { include: { produto: true } },
+        solicitante: { select: { id: true, nome: true, email: true, perfil: true } }
+      },
+      orderBy: { criadoEm: 'desc' },
+      take: porPagina,
+      skip: (paginaNum - 1) * porPagina
+    }),
+    prisma.pedidoAlmoxarifado.count()
+  ])
+
+  res.json({ pedidos, total, pagina: paginaNum, totalPaginas: Math.ceil(total / porPagina) })
 })
 
 // ─── Buscar um pedido ──────────────────────────────────────────────────────────

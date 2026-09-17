@@ -4,13 +4,28 @@ import { autenticar, exigirPerfil } from '../middleware/auth.js'
 
 const router = Router()
 
-// ─── Listar embarcações ────────────────────────────────────────────────────────
+// ─── Listar embarcações (paginado, com filtros opcionais por navio/armador) ───
 router.get('/', autenticar, async (req, res) => {
-  const embarcacoes = await prisma.embarcacao.findMany({
-    include: { armador: true },
-    orderBy: { nome: 'asc' }
-  })
-  res.json(embarcacoes)
+  const { nome, armador, pagina = 1 } = req.query
+  const porPagina = 50
+  const paginaNum = parseInt(pagina)
+
+  const where = {}
+  if (nome) where.nome = { contains: nome, mode: 'insensitive' }
+  if (armador) where.armador = { nome: { contains: armador, mode: 'insensitive' } }
+
+  const [embarcacoes, total] = await Promise.all([
+    prisma.embarcacao.findMany({
+      where,
+      include: { armador: true },
+      orderBy: { nome: 'asc' },
+      take: porPagina,
+      skip: (paginaNum - 1) * porPagina
+    }),
+    prisma.embarcacao.count({ where })
+  ])
+
+  res.json({ embarcacoes, total, pagina: paginaNum, totalPaginas: Math.ceil(total / porPagina) })
 })
 
 // ─── Buscar embarcação por nome do navio (autocomplete) ───────────────────────

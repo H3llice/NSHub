@@ -4,12 +4,29 @@ import { autenticar, exigirPerfil } from '../middleware/auth.js'
 
 const router = Router()
 
-// ─── Listar contas a pagar avulsas (sem vínculo com OC) ───────────────────────
+// ─── Listar contas a pagar avulsas (sem vínculo com OC, paginado) ─────────────
+// ?todas=1 devolve tudo sem paginar — usado pela tela "Contas a Pagar", que
+// mescla essas avulsas com as OCs pendentes de pagamento numa lista só
 router.get('/', autenticar, async (req, res) => {
-  const contas = await prisma.contaPagar.findMany({
-    orderBy: [{ status: 'asc' }, { dataVencimento: 'asc' }]
-  })
-  res.json(contas)
+  if (req.query.todas) {
+    const contas = await prisma.contaPagar.findMany({ orderBy: [{ status: 'asc' }, { dataVencimento: 'asc' }] })
+    return res.json(contas)
+  }
+
+  const { pagina = 1 } = req.query
+  const porPagina = 50
+  const paginaNum = parseInt(pagina)
+
+  const [contas, total] = await Promise.all([
+    prisma.contaPagar.findMany({
+      orderBy: [{ status: 'asc' }, { dataVencimento: 'asc' }],
+      take: porPagina,
+      skip: (paginaNum - 1) * porPagina
+    }),
+    prisma.contaPagar.count()
+  ])
+
+  res.json({ contas, total, pagina: paginaNum, totalPaginas: Math.ceil(total / porPagina) })
 })
 
 // ─── Criar conta a pagar avulsa (só admin e financeiro) ────────────────────────

@@ -6,24 +6,31 @@ const router = Router()
 
 const STATUS_VALIDOS = ['ativo', 'encerrado', 'cancelado']
 
-// ─── Listar contratos ───────────────────────────────────────────────────────────
+// ─── Listar contratos (paginado) ───────────────────────────────────────────────
 router.get('/', autenticar, async (req, res) => {
-  const { status } = req.query
+  const { status, pagina = 1 } = req.query
+  const porPagina = 50
+  const paginaNum = parseInt(pagina)
 
   const where = {}
   if (status) where.status = status
 
-  const contratos = await prisma.contrato.findMany({
-    where,
-    include: {
-      cliente: true,
-      criadoPor: { select: { id: true, nome: true } },
-      balsas: { include: { balsa: true } }
-    },
-    orderBy: { criadoEm: 'desc' }
-  })
+  const [contratos, total] = await Promise.all([
+    prisma.contrato.findMany({
+      where,
+      include: {
+        cliente: true,
+        criadoPor: { select: { id: true, nome: true } },
+        balsas: { include: { balsa: true } }
+      },
+      orderBy: { criadoEm: 'desc' },
+      take: porPagina,
+      skip: (paginaNum - 1) * porPagina
+    }),
+    prisma.contrato.count({ where })
+  ])
 
-  res.json(contratos)
+  res.json({ contratos, total, pagina: paginaNum, totalPaginas: Math.ceil(total / porPagina) })
 })
 
 // ─── Dashboard de contratos (tela Início) — contagem por situação ──────────────

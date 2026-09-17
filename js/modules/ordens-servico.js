@@ -82,15 +82,33 @@ export function inicializarOrdensServico() {
         <tr><td colspan="6" style="text-align:center; color:#999; padding:30px;">Carregando...</td></tr>
       </tbody>
     </table>
+    <div id="contador-os" style="margin-top:12px;"></div>
   `
 
   carregarOrdensServico()
 }
 
-async function carregarOrdensServico() {
+let paginaAtualOS = 1
+
+window.carregarOrdensServico = async function (pagina = 1) {
+  paginaAtualOS = pagina
   try {
-    const resp = await apiFetch(`${API}/ordens-servico`).then(r => r.json())
+    const resp = await apiFetch(`${API}/ordens-servico?pagina=${pagina}`).then(r => r.json())
     const tabela = document.getElementById('tabela-os')
+
+    const contador = document.getElementById('contador-os')
+    if (contador) {
+      contador.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <span>${resp.total || 0} OS encontradas</span>
+          <div style="display:flex; gap:8px; align-items:center;">
+            <button class="btn btn-sm btn-secondary" onclick="carregarOrdensServico(${pagina - 1})" ${pagina <= 1 ? 'disabled' : ''}>← Anterior</button>
+            <span>Página ${pagina} de ${resp.totalPaginas || 1}</span>
+            <button class="btn btn-sm btn-secondary" onclick="carregarOrdensServico(${pagina + 1})" ${pagina >= (resp.totalPaginas || 1) ? 'disabled' : ''}>Próxima →</button>
+          </div>
+        </div>
+      `
+    }
 
     if (resp.ordensServico.length === 0) {
       tabela.innerHTML = `<tr><td colspan="6" style="text-align:center; color:#999; padding:30px;">Nenhuma OS cadastrada ainda</td></tr>`

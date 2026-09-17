@@ -437,7 +437,10 @@ window.salvarCertificado = function (event, tipo) {
 // ver js/modules/certificados.js) vêm do backend; os outros tipos (baleeira/
 // turco/colete) ainda são o formulário avulso antigo salvo em localStorage —
 // as duas listas são mescladas aqui pra aparecerem juntas na mesma aba.
-async function atualizarTabelaCertificados() {
+let paginaAtualCertificados = 1;
+
+async function atualizarTabelaCertificados(pagina = 1) {
+    paginaAtualCertificados = pagina;
     const tabela = document.getElementById('tabela-certificados');
     const filtros = {
         numero: document.getElementById('filtro-cert-numero')?.value.trim() || '',
@@ -445,9 +448,24 @@ async function atualizarTabelaCertificados() {
         navio: document.getElementById('filtro-cert-navio')?.value.trim() || '',
         armador: document.getElementById('filtro-cert-armador')?.value.trim() || '',
         tecnico: document.getElementById('filtro-cert-tecnico')?.value.trim() || '',
+        pagina,
     };
     const filtrando = filtros.numero || filtros.ano || filtros.navio || filtros.armador || filtros.tecnico;
-    const reais = await listarCertificadosBalsa(filtros);
+    const { certificados: reais, total, totalPaginas } = await listarCertificadosBalsa(filtros);
+
+    const contador = document.getElementById('contador-certificados');
+    if (contador) {
+        contador.innerHTML = `
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <span>${total} certificado(s) de balsa encontrado(s)</span>
+                <div style="display:flex; gap:8px; align-items:center;">
+                    <button class="btn btn-sm btn-secondary" onclick="atualizarTabelaCertificados(${pagina - 1})" ${pagina <= 1 ? 'disabled' : ''}>← Anterior</button>
+                    <span>Página ${pagina} de ${totalPaginas || 1}</span>
+                    <button class="btn btn-sm btn-secondary" onclick="atualizarTabelaCertificados(${pagina + 1})" ${pagina >= (totalPaginas || 1) ? 'disabled' : ''}>Próxima →</button>
+                </div>
+            </div>
+        `;
+    }
 
     // Filtros só valem pro certificado de balsa (é o único com Embarcacao/Armador/
     // Relatorio de verdade) — com filtro ativo, o legado (baleeira/turco/colete) some da lista.

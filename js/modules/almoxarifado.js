@@ -96,20 +96,24 @@ window.inicializarAlmoxarifadoWrapper = function () {
 }
 
 // ===== INVENTÁRIO DE PRODUTOS ==================================================
-async function carregarProdutosAlmox() {
+let paginaAtualProdutosAlmox = 1
+
+window.carregarProdutosAlmox = async function (pagina = 1) {
+  paginaAtualProdutosAlmox = pagina
   const container = document.getElementById('conteudo-almox')
   try {
-    const produtos = await apiFetch(`${API}/almoxarifado/produtos`).then(r => r.json())
-    produtosCacheAlmox = produtos
-    renderizarTabelaProdutosAlmox(produtos)
+    const dados = await apiFetch(`${API}/almoxarifado/produtos?pagina=${pagina}`).then(r => r.json())
+    produtosCacheAlmox = dados.produtos || []
+    renderizarTabelaProdutosAlmox(produtosCacheAlmox, dados)
   } catch (err) {
     container.innerHTML = '<p style="text-align:center; color:red; padding:30px;">Erro ao conectar com o servidor</p>'
   }
 }
 
-function renderizarTabelaProdutosAlmox(produtos) {
+function renderizarTabelaProdutosAlmox(produtos, dados) {
   const container = document.getElementById('conteudo-almox')
   const colspan = podeGerenciar ? 7 : 6
+  const pagina = dados.pagina || 1
 
   if (produtos.length === 0) {
     container.innerHTML = `<p style="text-align:center; color:#999; padding:30px;">Nenhum produto cadastrado ainda</p>`
@@ -153,6 +157,14 @@ function renderizarTabelaProdutosAlmox(produtos) {
         `).join('')}
       </tbody>
     </table>
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-top:12px;">
+      <span>${dados.total || 0} produtos encontrados</span>
+      <div style="display:flex; gap:8px; align-items:center;">
+        <button class="btn btn-sm btn-secondary" onclick="carregarProdutosAlmox(${pagina - 1})" ${pagina <= 1 ? 'disabled' : ''}>← Anterior</button>
+        <span>Página ${pagina} de ${dados.totalPaginas || 1}</span>
+        <button class="btn btn-sm btn-secondary" onclick="carregarProdutosAlmox(${pagina + 1})" ${pagina >= (dados.totalPaginas || 1) ? 'disabled' : ''}>Próxima →</button>
+      </div>
+    </div>
   `
 }
 
@@ -280,18 +292,22 @@ window.excluirProdutoAlmox = async function (id) {
 }
 
 // ===== HISTÓRICO DE PEDIDOS =====================================================
-async function carregarPedidosAlmox() {
+let paginaAtualPedidosAlmox = 1
+
+window.carregarPedidosAlmox = async function (pagina = 1) {
+  paginaAtualPedidosAlmox = pagina
   const container = document.getElementById('conteudo-almox')
   try {
-    const pedidos = await apiFetch(`${API}/almoxarifado/pedidos`).then(r => r.json())
-    renderizarTabelaPedidosAlmox(pedidos)
+    const dados = await apiFetch(`${API}/almoxarifado/pedidos?pagina=${pagina}`).then(r => r.json())
+    renderizarTabelaPedidosAlmox(dados.pedidos || [], dados)
   } catch (err) {
     container.innerHTML = '<p style="text-align:center; color:red; padding:30px;">Erro ao conectar com o servidor</p>'
   }
 }
 
-function renderizarTabelaPedidosAlmox(pedidos) {
+function renderizarTabelaPedidosAlmox(pedidos, dados) {
   const container = document.getElementById('conteudo-almox')
+  const pagina = dados.pagina || 1
 
   if (pedidos.length === 0) {
     container.innerHTML = `<p style="text-align:center; color:#999; padding:30px;">Nenhum pedido registrado ainda</p>`
@@ -324,6 +340,14 @@ function renderizarTabelaPedidosAlmox(pedidos) {
         `).join('')}
       </tbody>
     </table>
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-top:12px;">
+      <span>${dados.total || 0} pedidos encontrados</span>
+      <div style="display:flex; gap:8px; align-items:center;">
+        <button class="btn btn-sm btn-secondary" onclick="carregarPedidosAlmox(${pagina - 1})" ${pagina <= 1 ? 'disabled' : ''}>← Anterior</button>
+        <span>Página ${pagina} de ${dados.totalPaginas || 1}</span>
+        <button class="btn btn-sm btn-secondary" onclick="carregarPedidosAlmox(${pagina + 1})" ${pagina >= (dados.totalPaginas || 1) ? 'disabled' : ''}>Próxima →</button>
+      </div>
+    </div>
   `
 }
 
@@ -365,7 +389,7 @@ window.removerItemPedidoAlmox = function (i) {
 }
 
 window.abrirFormularioPedidoAlmox = async function () {
-  produtosCacheAlmox = await apiFetch(`${API}/almoxarifado/produtos`).then(r => r.json())
+  produtosCacheAlmox = await apiFetch(`${API}/almoxarifado/produtos?todas=1`).then(r => r.json())
 
   window.almoxPedidoEstado = { itens: [] }
   novoItemPedidoAlmox()

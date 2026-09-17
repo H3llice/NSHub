@@ -90,11 +90,11 @@ export function inicializarContasReceber() {
     <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 16px; align-items:end;">
       <div>
         <label style="font-size:12px;">Buscar (cliente, contrato, referência)</label>
-        <input type="text" id="filtro-busca-pagamento" class="form-control form-control-sm" oninput="filtrarPagamentos()">
+        <input type="text" id="filtro-busca-pagamento" class="form-control form-control-sm" oninput="carregarPagamentos(1)">
       </div>
       <div>
         <label style="font-size:12px;">Status</label>
-        <select id="filtro-status-pagamento" class="form-control form-control-sm" onchange="filtrarPagamentos()">
+        <select id="filtro-status-pagamento" class="form-control form-control-sm" onchange="carregarPagamentos(1)">
           <option value="">Todos</option>
           <option value="pendente">Pendente</option>
           <option value="atrasado">Atrasado</option>
@@ -103,11 +103,11 @@ export function inicializarContasReceber() {
       </div>
       <div>
         <label style="font-size:12px;">Vencimento de</label>
-        <input type="date" id="filtro-vencimento-de" class="form-control form-control-sm" onchange="filtrarPagamentos()">
+        <input type="date" id="filtro-vencimento-de" class="form-control form-control-sm" onchange="carregarPagamentos(1)">
       </div>
       <div>
         <label style="font-size:12px;">Vencimento até</label>
-        <input type="date" id="filtro-vencimento-ate" class="form-control form-control-sm" onchange="filtrarPagamentos()">
+        <input type="date" id="filtro-vencimento-ate" class="form-control form-control-sm" onchange="carregarPagamentos(1)">
       </div>
     </div>
 
@@ -127,6 +127,7 @@ export function inicializarContasReceber() {
         <tr><td colspan="7" style="text-align:center; color:#999; padding:30px;">Carregando...</td></tr>
       </tbody>
     </table>
+    <div id="contador-pagamentos" style="margin-top:12px;"></div>
   `
 
   carregarResumoContasReceber()
@@ -144,43 +145,44 @@ async function carregarResumoContasReceber() {
   }
 }
 
-let pagamentosCache = []
+let paginaAtualPagamentos = 1
 
-window.carregarPagamentos = async function () {
+window.carregarPagamentos = async function (pagina = 1) {
+  paginaAtualPagamentos = pagina
+  const busca = document.getElementById('filtro-busca-pagamento')?.value || ''
+  const status = document.getElementById('filtro-status-pagamento')?.value || ''
+  const vencimentoDe = document.getElementById('filtro-vencimento-de')?.value || ''
+  const vencimentoAte = document.getElementById('filtro-vencimento-ate')?.value || ''
+
+  const params = new URLSearchParams()
+  if (busca) params.append('busca', busca)
+  if (status) params.append('status', status)
+  if (vencimentoDe) params.append('vencimentoDe', vencimentoDe)
+  if (vencimentoAte) params.append('vencimentoAte', vencimentoAte)
+  params.append('pagina', pagina)
+
   try {
-    pagamentosCache = await apiFetch(`${API}/pagamentos`).then(r => r.json())
-    filtrarPagamentos()
+    const dados = await apiFetch(`${API}/pagamentos?${params}`).then(r => r.json())
+    renderizarTabelaPagamentos(dados.pagamentos || [])
+
+    const contador = document.getElementById('contador-pagamentos')
+    if (contador) {
+      contador.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <span>${dados.total || 0} pagamentos encontrados</span>
+          <div style="display:flex; gap:8px; align-items:center;">
+            <button class="btn btn-sm btn-secondary" onclick="carregarPagamentos(${pagina - 1})" ${pagina <= 1 ? 'disabled' : ''}>← Anterior</button>
+            <span>Página ${pagina} de ${dados.totalPaginas || 1}</span>
+            <button class="btn btn-sm btn-secondary" onclick="carregarPagamentos(${pagina + 1})" ${pagina >= (dados.totalPaginas || 1) ? 'disabled' : ''}>Próxima →</button>
+          </div>
+        </div>
+      `
+    }
   } catch {
     document.getElementById('tabela-pagamentos').innerHTML = `
       <tr><td colspan="7" style="text-align:center; color:red; padding:30px;">Erro ao conectar com o servidor</td></tr>
     `
   }
-}
-
-window.filtrarPagamentos = function () {
-  const busca = (document.getElementById('filtro-busca-pagamento')?.value || '').trim().toLowerCase()
-  const status = document.getElementById('filtro-status-pagamento')?.value || ''
-  const vencDe = document.getElementById('filtro-vencimento-de')?.value || ''
-  const vencAte = document.getElementById('filtro-vencimento-ate')?.value || ''
-
-  let filtrados = [...pagamentosCache]
-
-  if (status) filtrados = filtrados.filter(p => p.status === status)
-
-  if (busca) {
-    filtrados = filtrados.filter(p => {
-      const cliente = (p.contrato?.cliente?.nome || p.venda?.cliente?.nome || p.clienteNome || '').toLowerCase()
-      const contratoNum = p.contrato ? `${p.contrato.numero}.${p.contrato.ano}`.toLowerCase() : ''
-      const vendaNum = p.venda ? `${p.venda.numero}.${p.venda.ano}`.toLowerCase() : ''
-      const ref = (p.referencia || p.descricao || '').toLowerCase()
-      return cliente.includes(busca) || contratoNum.includes(busca) || vendaNum.includes(busca) || ref.includes(busca)
-    })
-  }
-
-  if (vencDe) filtrados = filtrados.filter(p => p.dataVencimento.split('T')[0] >= vencDe)
-  if (vencAte) filtrados = filtrados.filter(p => p.dataVencimento.split('T')[0] <= vencAte)
-
-  renderizarTabelaPagamentos(filtrados)
 }
 
 function renderizarTabelaPagamentos(pagamentos) {
@@ -268,7 +270,7 @@ window.marcarPagamentoPago = async function (id) {
   const res = await apiJson(`${API}/pagamentos/${id}/marcar-pago`, { method: 'POST', body: JSON.stringify({}) })
   if (res.ok) {
     carregarResumoContasReceber()
-    carregarPagamentos()
+    carregarPagamentos(paginaAtualPagamentos)
   } else {
     alert('Erro ao marcar pagamento como pago')
   }
@@ -279,7 +281,7 @@ window.reverterPagamento = async function (id) {
   const res = await apiJson(`${API}/pagamentos/${id}/reverter`, { method: 'POST', body: JSON.stringify({}) })
   if (res.ok) {
     carregarResumoContasReceber()
-    carregarPagamentos()
+    carregarPagamentos(paginaAtualPagamentos)
   } else {
     alert('Erro ao reverter pagamento')
   }

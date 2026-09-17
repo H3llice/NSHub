@@ -4,24 +4,45 @@ import { autenticar, exigirPerfil } from '../middleware/auth.js'
 
 const router = Router()
 
-// ─── Listar pagamentos (com filtros) ───────────────────────────────────────────
+// ─── Listar pagamentos (com filtros, paginado) ─────────────────────────────────
 router.get('/', autenticar, async (req, res) => {
-    const { status, contratoId } = req.query
+    const { status, contratoId, busca, vencimentoDe, vencimentoAte, pagina = 1 } = req.query
+    const porPagina = 50
+    const paginaNum = parseInt(pagina)
 
     const where = {}
     if (status) where.status = status
     if (contratoId) where.contratoId = parseInt(contratoId)
+    if (vencimentoDe || vencimentoAte) {
+        where.dataVencimento = {}
+        if (vencimentoDe) where.dataVencimento.gte = new Date(vencimentoDe)
+        if (vencimentoAte) where.dataVencimento.lte = new Date(vencimentoAte + 'T23:59:59')
+    }
+    if (busca) {
+        where.OR = [
+            { clienteNome: { contains: busca, mode: 'insensitive' } },
+            { descricao: { contains: busca, mode: 'insensitive' } },
+            { referencia: { contains: busca, mode: 'insensitive' } },
+            { contrato: { cliente: { nome: { contains: busca, mode: 'insensitive' } } } },
+            { venda: { cliente: { nome: { contains: busca, mode: 'insensitive' } } } },
+        ]
+    }
 
-    const pagamentos = await prisma.pagamento.findMany({
-        where,
-        include: {
-            contrato: { include: { cliente: true, balsas: { include: { balsa: true } } } },
-            venda: { include: { cliente: true, balsas: { include: { balsa: true } } } }
-        },
-        orderBy: { dataVencimento: 'asc' }
-    })
+    const [pagamentos, total] = await Promise.all([
+        prisma.pagamento.findMany({
+            where,
+            include: {
+                contrato: { include: { cliente: true, balsas: { include: { balsa: true } } } },
+                venda: { include: { cliente: true, balsas: { include: { balsa: true } } } }
+            },
+            orderBy: { dataVencimento: 'asc' },
+            take: porPagina,
+            skip: (paginaNum - 1) * porPagina
+        }),
+        prisma.pagamento.count({ where })
+    ])
 
-    res.json(pagamentos)
+    res.json({ pagamentos, total, pagina: paginaNum, totalPaginas: Math.ceil(total / porPagina) })
 })
 
 // ─── Criar conta avulsa (sem vínculo com contrato) — só admin e financeiro ────

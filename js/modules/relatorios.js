@@ -182,15 +182,33 @@ export function inicializarRelatorios() {
         <tr><td colspan="6" style="text-align:center; color:#999; padding:30px;">Carregando...</td></tr>
       </tbody>
     </table>
+    <div id="contador-relatorios" style="margin-top:12px;"></div>
   `
 
   carregarRelatorios()
 }
 
-async function carregarRelatorios() {
+let paginaAtualRelatorios = 1
+
+window.carregarRelatorios = async function (pagina = 1) {
+  paginaAtualRelatorios = pagina
   try {
-    const resp = await apiFetch(`${API}/relatorios`).then(r => r.json())
+    const resp = await apiFetch(`${API}/relatorios?pagina=${pagina}`).then(r => r.json())
     const tabela = document.getElementById('tabela-relatorios')
+
+    const contador = document.getElementById('contador-relatorios')
+    if (contador) {
+      contador.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <span>${resp.total || 0} relatórios encontrados</span>
+          <div style="display:flex; gap:8px; align-items:center;">
+            <button class="btn btn-sm btn-secondary" onclick="carregarRelatorios(${pagina - 1})" ${pagina <= 1 ? 'disabled' : ''}>← Anterior</button>
+            <span>Página ${pagina} de ${resp.totalPaginas || 1}</span>
+            <button class="btn btn-sm btn-secondary" onclick="carregarRelatorios(${pagina + 1})" ${pagina >= (resp.totalPaginas || 1) ? 'disabled' : ''}>Próxima →</button>
+          </div>
+        </div>
+      `
+    }
 
     if (resp.relatorios.length === 0) {
       tabela.innerHTML = `<tr><td colspan="6" style="text-align:center; color:#999; padding:30px;">Nenhum relatório cadastrado ainda</td></tr>`

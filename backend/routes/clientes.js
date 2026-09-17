@@ -6,12 +6,32 @@ const router = Router()
 
 const TIPOS_VALIDOS = ['fisica', 'juridica']
 
-// ─── Listar clientes ───────────────────────────────────────────────────────────
+// ─── Listar clientes (paginado, com busca opcional) ────────────────────────────
 router.get('/', autenticar, async (req, res) => {
-  const clientes = await prisma.cliente.findMany({
-    orderBy: { nome: 'asc' }
-  })
-  res.json(clientes)
+  const { busca, pagina = 1 } = req.query
+  const porPagina = 50
+  const paginaNum = parseInt(pagina)
+
+  const where = {}
+  if (busca) {
+    const digitos = busca.replace(/\D/g, '')
+    // Mesma regra de /buscar: "contains: ''" dá match em tudo e some com o filtro por nome
+    where.OR = digitos
+      ? [{ nome: { contains: busca, mode: 'insensitive' } }, { cpfCnpj: { contains: digitos } }]
+      : [{ nome: { contains: busca, mode: 'insensitive' } }]
+  }
+
+  const [clientes, total] = await Promise.all([
+    prisma.cliente.findMany({
+      where,
+      orderBy: { nome: 'asc' },
+      take: porPagina,
+      skip: (paginaNum - 1) * porPagina
+    }),
+    prisma.cliente.count({ where })
+  ])
+
+  res.json({ clientes, total, pagina: paginaNum, totalPaginas: Math.ceil(total / porPagina) })
 })
 
 // ─── Buscar cliente por nome ou CPF/CNPJ (autocomplete) ───────────────────────
@@ -19,13 +39,14 @@ router.get('/buscar', autenticar, async (req, res) => {
   const { q } = req.query
   if (!q || q.length < 2) return res.json([])
 
+  const digitos = q.replace(/\D/g, '')
+
+  // Só entra a busca por cpfCnpj quando sobra algum dígito — "contains: ''"
+  // dá match em qualquer registro e some com o filtro por nome
   const clientes = await prisma.cliente.findMany({
-    where: {
-      OR: [
-        { nome: { contains: q, mode: 'insensitive' } },
-        { cpfCnpj: { contains: q.replace(/\D/g, '') } }
-      ]
-    },
+    where: digitos
+      ? { OR: [{ nome: { contains: q, mode: 'insensitive' } }, { cpfCnpj: { contains: digitos } }] }
+      : { nome: { contains: q, mode: 'insensitive' } },
     take: 10
   })
 

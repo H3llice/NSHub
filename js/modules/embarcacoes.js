@@ -56,10 +56,8 @@ export function inicializarEmbarcacoes() {
     <button class="btn btn-success" onclick="abrirFormularioEmbarcacao()">+ Nova Embarcação</button>
 
     <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin: 16px 0;">
-      <input type="text" id="filtro-embarcacao-nome" class="form-control" placeholder="Buscar por nome do navio..." oninput="filtrarEmbarcacoes()">
-      <select id="filtro-embarcacao-armador" class="form-control" onchange="filtrarEmbarcacoes()">
-        <option value="">Todos os armadores</option>
-      </select>
+      <input type="text" id="filtro-embarcacao-nome" class="form-control" placeholder="Buscar por nome do navio..." oninput="carregarEmbarcacoes(1)">
+      <input type="text" id="filtro-embarcacao-armador" class="form-control" placeholder="Buscar por armador..." oninput="carregarEmbarcacoes(1)">
     </div>
 
     <table class="table-certificados">
@@ -76,45 +74,48 @@ export function inicializarEmbarcacoes() {
         <tr><td colspan="5" style="text-align:center; color:#999; padding:30px;">Carregando...</td></tr>
       </tbody>
     </table>
+    <div id="contador-embarcacoes" style="margin-top:12px;"></div>
   `
 
   carregarEmbarcacoes()
 }
 
 let embarcacoesCache = []
+let paginaAtualEmbarcacoes = 1
 
-async function carregarEmbarcacoes() {
+window.carregarEmbarcacoes = async function (pagina = 1) {
+  paginaAtualEmbarcacoes = pagina
+  const nome = document.getElementById('filtro-embarcacao-nome')?.value || ''
+  const armador = document.getElementById('filtro-embarcacao-armador')?.value || ''
+
+  const params = new URLSearchParams()
+  if (nome) params.append('nome', nome)
+  if (armador) params.append('armador', armador)
+  params.append('pagina', pagina)
+
   try {
-    embarcacoesCache = await apiFetch(`${API}/embarcacoes`).then(r => r.json())
-    popularFiltroArmadores()
+    const dados = await apiFetch(`${API}/embarcacoes?${params}`).then(r => r.json())
+    embarcacoesCache = dados.embarcacoes || []
     renderizarTabelaEmbarcacoes(embarcacoesCache)
+
+    const contador = document.getElementById('contador-embarcacoes')
+    if (contador) {
+      contador.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <span>${dados.total || 0} embarcações encontradas</span>
+          <div style="display:flex; gap:8px; align-items:center;">
+            <button class="btn btn-sm btn-secondary" onclick="carregarEmbarcacoes(${pagina - 1})" ${pagina <= 1 ? 'disabled' : ''}>← Anterior</button>
+            <span>Página ${pagina} de ${dados.totalPaginas || 1}</span>
+            <button class="btn btn-sm btn-secondary" onclick="carregarEmbarcacoes(${pagina + 1})" ${pagina >= (dados.totalPaginas || 1) ? 'disabled' : ''}>Próxima →</button>
+          </div>
+        </div>
+      `
+    }
   } catch {
     document.getElementById('tabela-embarcacoes').innerHTML = `
       <tr><td colspan="5" style="text-align:center; color:red; padding:30px;">Erro ao conectar com o servidor</td></tr>
     `
   }
-}
-
-function popularFiltroArmadores() {
-  const select = document.getElementById('filtro-embarcacao-armador')
-  if (!select) return
-
-  const armadores = [...new Map(embarcacoesCache.map(e => [e.armador.id, e.armador])).values()]
-    .sort((a, b) => a.nome.localeCompare(b.nome))
-
-  select.innerHTML = '<option value="">Todos os armadores</option>' +
-    armadores.map(a => `<option value="${a.id}">${a.nome}</option>`).join('')
-}
-
-window.filtrarEmbarcacoes = function () {
-  const nome = (document.getElementById('filtro-embarcacao-nome')?.value || '').trim().toLowerCase()
-  const armadorId = document.getElementById('filtro-embarcacao-armador')?.value || ''
-
-  const filtradas = embarcacoesCache.filter(e =>
-    (!nome || e.nome.toLowerCase().includes(nome)) &&
-    (!armadorId || e.armadorId === parseInt(armadorId))
-  )
-  renderizarTabelaEmbarcacoes(filtradas)
 }
 
 function renderizarTabelaEmbarcacoes(embarcacoes) {

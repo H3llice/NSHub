@@ -80,6 +80,7 @@ export function inicializarProdutosServicos() {
         <tr><td colspan="${isAdminProdServ ? 5 : 4}" style="text-align:center; color:#999; padding:30px;">Carregando...</td></tr>
       </tbody>
     </table>
+    <div id="contador-produtos-catalogo" style="margin-top:12px;"></div>
 
     <h5 style="margin: 32px 0 10px;">Serviços</h5>
     ${podeGerenciar ? `<button class="btn btn-success" onclick="abrirFormularioServico()">+ Novo Serviço</button>` : ''}
@@ -96,6 +97,7 @@ export function inicializarProdutosServicos() {
         <tr><td colspan="${podeGerenciar ? 4 : 3}" style="text-align:center; color:#999; padding:30px;">Carregando...</td></tr>
       </tbody>
     </table>
+    <div id="contador-servicos-catalogo" style="margin-top:12px;"></div>
   `
 
   carregarProdutosCatalogo()
@@ -106,11 +108,29 @@ export function inicializarProdutosServicos() {
 window.inicializarProdutosServicos = inicializarProdutosServicos
 
 // ===== PRODUTOS ==================================================================
-async function carregarProdutosCatalogo() {
+let paginaAtualProdutosCatalogo = 1
+
+window.carregarProdutosCatalogo = async function (pagina = 1) {
+  paginaAtualProdutosCatalogo = pagina
   const tabela = document.getElementById('tabela-produtos-catalogo')
   const colspan = isAdminProdServ ? 5 : 4
   try {
-    const produtos = await apiFetch(`${API}/almoxarifado/produtos`).then(r => r.json())
+    const dados = await apiFetch(`${API}/almoxarifado/produtos?pagina=${pagina}`).then(r => r.json())
+    const produtos = dados.produtos || []
+
+    const contador = document.getElementById('contador-produtos-catalogo')
+    if (contador) {
+      contador.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <span>${dados.total || 0} produtos encontrados</span>
+          <div style="display:flex; gap:8px; align-items:center;">
+            <button class="btn btn-sm btn-secondary" onclick="carregarProdutosCatalogo(${pagina - 1})" ${pagina <= 1 ? 'disabled' : ''}>← Anterior</button>
+            <span>Página ${pagina} de ${dados.totalPaginas || 1}</span>
+            <button class="btn btn-sm btn-secondary" onclick="carregarProdutosCatalogo(${pagina + 1})" ${pagina >= (dados.totalPaginas || 1) ? 'disabled' : ''}>Próxima →</button>
+          </div>
+        </div>
+      `
+    }
 
     if (produtos.length === 0) {
       tabela.innerHTML = `<tr><td colspan="${colspan}" style="text-align:center; color:#999; padding:30px;">Nenhum produto cadastrado ainda</td></tr>`
@@ -194,20 +214,38 @@ window.excluirProdutoCatalogo = async function (id) {
 
 // ===== SERVIÇOS ==================================================================
 let servicosCache = []
+let paginaAtualServicosCatalogo = 1
 
-async function carregarServicosCatalogo() {
+window.carregarServicosCatalogo = async function (pagina = 1) {
+  paginaAtualServicosCatalogo = pagina
   const tabela = document.getElementById('tabela-servicos-catalogo')
   try {
-    servicosCache = await apiFetch(`${API}/servicos`).then(r => r.json())
-    renderizarTabelaServicos(servicosCache)
+    const dados = await apiFetch(`${API}/servicos?pagina=${pagina}`).then(r => r.json())
+    servicosCache = dados.servicos || []
+    renderizarTabelaServicos(servicosCache, dados)
   } catch {
     tabela.innerHTML = `<tr><td colspan="${podeGerenciar ? 4 : 3}" style="text-align:center; color:red; padding:30px;">Erro ao conectar com o servidor</td></tr>`
   }
 }
 
-function renderizarTabelaServicos(servicos) {
+function renderizarTabelaServicos(servicos, dados) {
   const tabela = document.getElementById('tabela-servicos-catalogo')
   const colspan = podeGerenciar ? 4 : 3
+  const pagina = dados.pagina || 1
+
+  const contador = document.getElementById('contador-servicos-catalogo')
+  if (contador) {
+    contador.innerHTML = `
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <span>${dados.total || 0} serviços encontrados</span>
+        <div style="display:flex; gap:8px; align-items:center;">
+          <button class="btn btn-sm btn-secondary" onclick="carregarServicosCatalogo(${pagina - 1})" ${pagina <= 1 ? 'disabled' : ''}>← Anterior</button>
+          <span>Página ${pagina} de ${dados.totalPaginas || 1}</span>
+          <button class="btn btn-sm btn-secondary" onclick="carregarServicosCatalogo(${pagina + 1})" ${pagina >= (dados.totalPaginas || 1) ? 'disabled' : ''}>Próxima →</button>
+        </div>
+      </div>
+    `
+  }
 
   if (servicos.length === 0) {
     tabela.innerHTML = `<tr><td colspan="${colspan}" style="text-align:center; color:#999; padding:30px;">Nenhum serviço cadastrado ainda</td></tr>`

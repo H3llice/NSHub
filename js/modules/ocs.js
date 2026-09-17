@@ -1458,7 +1458,7 @@ window.carregarContasAPagar = async function () {
   try {
     const [ocs, avulsas] = await Promise.all([
       apiFetch(`${API}/ocs/contas-a-pagar`).then(r => r.json()),
-      apiFetch(`${API}/contas-pagar`).then(r => r.json())
+      apiFetch(`${API}/contas-pagar?todas=1`).then(r => r.json())
     ])
 
     contasAPagarCache = [

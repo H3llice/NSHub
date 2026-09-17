@@ -107,10 +107,12 @@ window.abrirNovoCertificadoAvulso = async function () {
 
 // Usada pela aba "Certificados" (Serviços → Certificados, ver js/app.js) pra
 // listar junto com os certificados avulsos antigos (baleeira/turco/colete).
-// filtros: { navio, armador, tecnico, numero, ano } — repassados direto pro
-// backend (GET /certificados), que já sabe cair no cadastro de Embarcacao/
+// filtros: { navio, armador, tecnico, numero, ano, pagina } — repassados direto
+// pro backend (GET /certificados), que já sabe cair no cadastro de Embarcacao/
 // Armador quando o texto livre do Certificado não bate, e resolver o técnico
 // pelo Relatorio.criadoPor (ou pelo criadoPor do próprio Certificado no avulso).
+// Devolve a resposta paginada inteira ({ certificados, total, pagina, totalPaginas }),
+// não só o array — quem chama precisa do total/totalPaginas pra montar os botões.
 export async function listarCertificadosBalsa(filtros = {}) {
   try {
     const params = new URLSearchParams()
@@ -119,11 +121,11 @@ export async function listarCertificadosBalsa(filtros = {}) {
     if (filtros.tecnico) params.set('tecnico', filtros.tecnico)
     if (filtros.numero) params.set('busca', filtros.numero)
     if (filtros.ano) params.set('ano', filtros.ano)
-    const qs = params.toString()
-    const resp = await apiFetch(`${API}/certificados${qs ? `?${qs}` : ''}`).then(r => r.json())
-    return resp.certificados || []
+    params.set('pagina', filtros.pagina || 1)
+    const resp = await apiFetch(`${API}/certificados?${params}`).then(r => r.json())
+    return { certificados: resp.certificados || [], total: resp.total || 0, pagina: resp.pagina || 1, totalPaginas: resp.totalPaginas || 1 }
   } catch {
-    return []
+    return { certificados: [], total: 0, pagina: 1, totalPaginas: 1 }
   }
 }
 

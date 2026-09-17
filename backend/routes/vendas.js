@@ -6,25 +6,32 @@ const router = Router()
 
 const STATUS_VALIDOS = ['ativo', 'cancelado']
 
-// ─── Listar vendas ───────────────────────────────────────────────────────────
+// ─── Listar vendas (paginado) ──────────────────────────────────────────────────
 router.get('/', autenticar, async (req, res) => {
-  const { status } = req.query
+  const { status, pagina = 1 } = req.query
+  const porPagina = 50
+  const paginaNum = parseInt(pagina)
 
   const where = {}
   if (status) where.status = status
 
-  const vendas = await prisma.venda.findMany({
-    where,
-    include: {
-      cliente: true,
-      vendedor: { select: { id: true, nome: true } },
-      criadoPor: { select: { id: true, nome: true } },
-      balsas: { include: { balsa: true } }
-    },
-    orderBy: { criadoEm: 'desc' }
-  })
+  const [vendas, total] = await Promise.all([
+    prisma.venda.findMany({
+      where,
+      include: {
+        cliente: true,
+        vendedor: { select: { id: true, nome: true } },
+        criadoPor: { select: { id: true, nome: true } },
+        balsas: { include: { balsa: true } }
+      },
+      orderBy: { criadoEm: 'desc' },
+      take: porPagina,
+      skip: (paginaNum - 1) * porPagina
+    }),
+    prisma.venda.count({ where })
+  ])
 
-  res.json(vendas)
+  res.json({ vendas, total, pagina: paginaNum, totalPaginas: Math.ceil(total / porPagina) })
 })
 
 // ─── Buscar uma venda pelo ID ──────────────────────────────────────────────────

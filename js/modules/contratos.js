@@ -57,7 +57,7 @@ export function inicializarClientes() {
     <button class="btn btn-success" onclick="abrirFormularioCliente()">+ Novo Cliente</button>
 
     <div style="margin: 16px 0;">
-      <input type="text" id="filtro-cliente" class="form-control" placeholder="Buscar por nome ou CPF/CNPJ..." oninput="filtrarClientes()">
+      <input type="text" id="filtro-cliente" class="form-control" placeholder="Buscar por nome ou CPF/CNPJ..." oninput="carregarClientes(1)">
     </div>
 
     <table class="table-certificados">
@@ -75,32 +75,44 @@ export function inicializarClientes() {
         <tr><td colspan="6" style="text-align:center; color:#999; padding:30px;">Carregando...</td></tr>
       </tbody>
     </table>
+    <div id="contador-clientes" style="margin-top:12px;"></div>
   `
 
   carregarClientes()
 }
 
-let clientesCache = []
+let paginaAtualClientes = 1
 
-async function carregarClientes() {
+window.carregarClientes = async function (pagina = 1) {
+  paginaAtualClientes = pagina
+  const busca = document.getElementById('filtro-cliente')?.value || ''
+
+  const params = new URLSearchParams()
+  if (busca) params.append('busca', busca)
+  params.append('pagina', pagina)
+
   try {
-    clientesCache = await apiFetch(`${API}/clientes`).then(r => r.json())
-    renderizarTabelaClientes(clientesCache)
+    const dados = await apiFetch(`${API}/clientes?${params}`).then(r => r.json())
+    renderizarTabelaClientes(dados.clientes || [])
+
+    const contador = document.getElementById('contador-clientes')
+    if (contador) {
+      contador.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <span>${dados.total || 0} clientes encontrados</span>
+          <div style="display:flex; gap:8px; align-items:center;">
+            <button class="btn btn-sm btn-secondary" onclick="carregarClientes(${pagina - 1})" ${pagina <= 1 ? 'disabled' : ''}>← Anterior</button>
+            <span>Página ${pagina} de ${dados.totalPaginas || 1}</span>
+            <button class="btn btn-sm btn-secondary" onclick="carregarClientes(${pagina + 1})" ${pagina >= (dados.totalPaginas || 1) ? 'disabled' : ''}>Próxima →</button>
+          </div>
+        </div>
+      `
+    }
   } catch {
     document.getElementById('tabela-clientes').innerHTML = `
       <tr><td colspan="6" style="text-align:center; color:red; padding:30px;">Erro ao conectar com o servidor</td></tr>
     `
   }
-}
-
-window.filtrarClientes = function () {
-  const q = (document.getElementById('filtro-cliente')?.value || '').trim().toLowerCase()
-  if (!q) return renderizarTabelaClientes(clientesCache)
-
-  const filtrados = clientesCache.filter(c =>
-    c.nome.toLowerCase().includes(q) || c.cpfCnpj.includes(q.replace(/\D/g, ''))
-  )
-  renderizarTabelaClientes(filtrados)
 }
 
 function renderizarTabelaClientes(clientes) {
@@ -242,7 +254,7 @@ export function inicializarContratos() {
     <div style="display:flex; gap:16px; margin: 16px 0; max-width:280px;">
       <div style="flex:1;">
         <label style="font-size:12px;">Status</label>
-        <select id="filtro-status-contrato" class="form-control" onchange="carregarContratos()">
+        <select id="filtro-status-contrato" class="form-control" onchange="carregarContratos(1)">
           <option value="">Todos</option>
           <option value="ativo">Ativo</option>
           <option value="encerrado">Encerrado</option>
@@ -268,19 +280,38 @@ export function inicializarContratos() {
         <tr><td colspan="8" style="text-align:center; color:#999; padding:30px;">Carregando...</td></tr>
       </tbody>
     </table>
+    <div id="contador-contratos" style="margin-top:12px;"></div>
   `
 
   carregarContratos()
 }
 
-window.carregarContratos = async function () {
+let paginaAtualContratos = 1
+
+window.carregarContratos = async function (pagina = 1) {
+  paginaAtualContratos = pagina
   const status = document.getElementById('filtro-status-contrato')?.value || ''
   const params = new URLSearchParams()
   if (status) params.append('status', status)
+  params.append('pagina', pagina)
 
   try {
-    const contratos = await apiFetch(`${API}/contratos?${params}`).then(r => r.json())
-    renderizarTabelaContratos(contratos)
+    const dados = await apiFetch(`${API}/contratos?${params}`).then(r => r.json())
+    renderizarTabelaContratos(dados.contratos || [])
+
+    const contador = document.getElementById('contador-contratos')
+    if (contador) {
+      contador.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <span>${dados.total || 0} contratos encontrados</span>
+          <div style="display:flex; gap:8px; align-items:center;">
+            <button class="btn btn-sm btn-secondary" onclick="carregarContratos(${pagina - 1})" ${pagina <= 1 ? 'disabled' : ''}>← Anterior</button>
+            <span>Página ${pagina} de ${dados.totalPaginas || 1}</span>
+            <button class="btn btn-sm btn-secondary" onclick="carregarContratos(${pagina + 1})" ${pagina >= (dados.totalPaginas || 1) ? 'disabled' : ''}>Próxima →</button>
+          </div>
+        </div>
+      `
+    }
   } catch {
     document.getElementById('tabela-contratos').innerHTML = `
       <tr><td colspan="8" style="text-align:center; color:red; padding:30px;">Erro ao conectar com o servidor</td></tr>
@@ -326,14 +357,14 @@ function renderizarTabelaContratos(contratos) {
 window.encerrarContrato = async function (id) {
   if (!confirm('Encerrar este contrato? As balsas vinculadas voltarão a ficar disponíveis.')) return
   const res = await apiJson(`${API}/contratos/${id}`, { method: 'PUT', body: JSON.stringify({ status: 'encerrado' }) })
-  if (res.ok) carregarContratos()
+  if (res.ok) carregarContratos(paginaAtualContratos)
   else alert('Erro ao encerrar contrato')
 }
 
 window.cancelarContrato = async function (id) {
   if (!confirm('Cancelar este contrato? As balsas vinculadas voltarão a ficar disponíveis.')) return
   const res = await apiJson(`${API}/contratos/${id}`, { method: 'PUT', body: JSON.stringify({ status: 'cancelado' }) })
-  if (res.ok) carregarContratos()
+  if (res.ok) carregarContratos(paginaAtualContratos)
   else alert('Erro ao cancelar contrato')
 }
 

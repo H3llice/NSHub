@@ -4,10 +4,22 @@ import { autenticar, exigirPerfil } from '../middleware/auth.js'
 
 const router = Router()
 
-// ─── Listar serviços ────────────────────────────────────────────────────────────
+// ─── Listar serviços (paginado) ─────────────────────────────────────────────────
 router.get('/', autenticar, async (req, res) => {
-  const servicos = await prisma.servico.findMany({ orderBy: { nome: 'asc' } })
-  res.json(servicos)
+  const { pagina = 1 } = req.query
+  const porPagina = 50
+  const paginaNum = parseInt(pagina)
+
+  const [servicos, total] = await Promise.all([
+    prisma.servico.findMany({
+      orderBy: { nome: 'asc' },
+      take: porPagina,
+      skip: (paginaNum - 1) * porPagina
+    }),
+    prisma.servico.count()
+  ])
+
+  res.json({ servicos, total, pagina: paginaNum, totalPaginas: Math.ceil(total / porPagina) })
 })
 
 // ─── Buscar um serviço ──────────────────────────────────────────────────────────
