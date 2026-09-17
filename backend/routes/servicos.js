@@ -54,4 +54,16 @@ router.put('/:id', autenticar, exigirPerfil('admin', 'gerente'), async (req, res
   }
 })
 
+// ─── Excluir serviço (só admin) ─────────────────────────────────────────────────
+router.delete('/:id', autenticar, exigirPerfil('admin'), async (req, res) => {
+  const id = Number(req.params.id)
+
+  try {
+    await prisma.servico.delete({ where: { id } })
+    res.json({ ok: true })
+  } catch {
+    res.status(404).json({ erro: 'Serviço não encontrado' })
+  }
+})
+
 export default router

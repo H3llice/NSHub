@@ -42,6 +42,7 @@ async function apiJson(url, options = {}) {
 const usuarioAtual = JSON.parse(localStorage.getItem('ns_usuario') || 'null')
 const perfil = usuarioAtual?.perfil || 'usuario'
 const podeGerenciar = perfil === 'admin' || perfil === 'gerente'
+const isAdminAlmox = perfil === 'admin'
 
 function formatarMoedaAlmox(v) {
   return (v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -144,7 +145,10 @@ function renderizarTabelaProdutosAlmox(produtos) {
             <td>${formatarMoedaAlmox(p.valor)}</td>
             <td><strong>${p.quantidade}</strong>${estoqueCriticoAlmox(p) ? ' ⚠️' : ''}</td>
             <td>${p.quantidadeCritica ?? 0}</td>
-            ${podeGerenciar ? `<td><button class="btn btn-sm btn-info" onclick="editarProdutoAlmox(${p.id})">Editar</button></td>` : ''}
+            ${podeGerenciar ? `<td>
+              <button class="btn btn-sm btn-info" onclick="editarProdutoAlmox(${p.id})">Editar</button>
+              ${isAdminAlmox ? `<button class="btn btn-sm btn-danger" style="margin-left:6px;" onclick="excluirProdutoAlmox(${p.id})">Excluir</button>` : ''}
+            </td>` : ''}
           </tr>
         `).join('')}
       </tbody>
@@ -260,6 +264,18 @@ window.atualizarProdutoAlmox = async function (id) {
   } else {
     const err = await res.json()
     alert('Erro ao atualizar produto: ' + (err.erro || ''))
+  }
+}
+
+window.excluirProdutoAlmox = async function (id) {
+  if (!confirm('Excluir este produto? Essa ação não pode ser desfeita.')) return
+
+  const res = await apiJson(`${API}/almoxarifado/produtos/${id}`, { method: 'DELETE' })
+  if (res.ok) {
+    inicializarAlmoxarifadoWrapper()
+  } else {
+    const err = await res.json()
+    alert('Erro ao excluir produto: ' + (err.erro || ''))
   }
 }
 

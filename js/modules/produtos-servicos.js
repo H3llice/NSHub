@@ -42,6 +42,7 @@ async function apiJson(url, options = {}) {
 const usuarioAtual = JSON.parse(localStorage.getItem('ns_usuario') || 'null')
 const perfil = usuarioAtual?.perfil || 'usuario'
 const podeGerenciar = perfil === 'admin' || perfil === 'gerente'
+const isAdminProdServ = perfil === 'admin'
 
 function formatarMoedaProdServ(v) {
   return (v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -65,14 +66,18 @@ export function inicializarProdutosServicos() {
 
     <h5 style="margin: 20px 0 10px;">Produtos</h5>
     <p style="color:#999; font-size:13px; margin-bottom:10px;">
-      Estoque e cadastro de produtos ficam em Estoque → Almoxarifado. Aqui é só a referência de preço.
+      Estoque de produtos fica em Estoque → Almoxarifado. Aqui também é possível cadastrar novos produtos.
     </p>
-    <table class="table-certificados">
+    ${podeGerenciar ? `<button class="btn btn-success" onclick="abrirFormularioProdutoCatalogo()">+ Novo Produto</button>` : ''}
+    <table class="table-certificados" style="margin-top:16px;">
       <thead>
-        <tr><th>Código</th><th>Material</th><th>Unidade</th><th>Valor</th></tr>
+        <tr>
+          <th>Código</th><th>Material</th><th>Unidade</th><th>Valor</th>
+          ${isAdminProdServ ? '<th>Ações</th>' : ''}
+        </tr>
       </thead>
       <tbody id="tabela-produtos-catalogo">
-        <tr><td colspan="4" style="text-align:center; color:#999; padding:30px;">Carregando...</td></tr>
+        <tr><td colspan="${isAdminProdServ ? 5 : 4}" style="text-align:center; color:#999; padding:30px;">Carregando...</td></tr>
       </tbody>
     </table>
 
@@ -100,14 +105,15 @@ export function inicializarProdutosServicos() {
 // Exposta em window para funcionar em onclick inline (ex: botão "← Voltar")
 window.inicializarProdutosServicos = inicializarProdutosServicos
 
-// ===== PRODUTOS (referência de preço, somente leitura) =========================
+// ===== PRODUTOS ==================================================================
 async function carregarProdutosCatalogo() {
   const tabela = document.getElementById('tabela-produtos-catalogo')
+  const colspan = isAdminProdServ ? 5 : 4
   try {
     const produtos = await apiFetch(`${API}/almoxarifado/produtos`).then(r => r.json())
 
     if (produtos.length === 0) {
-      tabela.innerHTML = `<tr><td colspan="4" style="text-align:center; color:#999; padding:30px;">Nenhum produto cadastrado ainda</td></tr>`
+      tabela.innerHTML = `<tr><td colspan="${colspan}" style="text-align:center; color:#999; padding:30px;">Nenhum produto cadastrado ainda</td></tr>`
       return
     }
 
@@ -117,10 +123,72 @@ async function carregarProdutosCatalogo() {
         <td>${p.nome}</td>
         <td>${p.unidade}</td>
         <td>${formatarMoedaProdServ(p.valor)}</td>
+        ${isAdminProdServ ? `<td><button class="btn btn-sm btn-danger" onclick="excluirProdutoCatalogo(${p.id})">Excluir</button></td>` : ''}
       </tr>
     `).join('')
   } catch {
-    tabela.innerHTML = `<tr><td colspan="4" style="text-align:center; color:red; padding:30px;">Erro ao conectar com o servidor</td></tr>`
+    tabela.innerHTML = `<tr><td colspan="${colspan}" style="text-align:center; color:red; padding:30px;">Erro ao conectar com o servidor</td></tr>`
+  }
+}
+
+window.abrirFormularioProdutoCatalogo = function () {
+  document.getElementById('produtosServicos').innerHTML = `
+    <div style="margin-top:20px; max-width:600px;">
+      <button class="btn btn-secondary" onclick="inicializarProdutosServicos()">← Voltar</button>
+      <h3 style="margin:20px 0;">Novo Produto</h3>
+
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+        <div><label>Código *</label><input type="text" id="prod-codigo" class="form-control"></div>
+        <div><label>Material *</label><input type="text" id="prod-nome" class="form-control"></div>
+        <div><label>Unidade de medida *</label><input type="text" id="prod-unidade" class="form-control" placeholder="Ex: unidade, kit, kg..."></div>
+        <div><label>Valor (R$)</label><input type="number" step="0.01" id="prod-valor" class="form-control"></div>
+        <div><label>Quantidade inicial</label><input type="number" step="0.01" id="prod-quantidade" class="form-control" value="0"></div>
+        <div>
+          <label>Quantidade crítica</label>
+          <input type="number" step="0.01" id="prod-quantidade-critica" class="form-control" value="0">
+          <small style="color:#999;">Gera alerta quando a qtd. disponível ficar igual ou menor que esse número</small>
+        </div>
+      </div>
+
+      <button type="button" class="btn btn-success" style="margin-top:20px;" onclick="salvarProdutoCatalogo()">Salvar Produto</button>
+    </div>
+  `
+}
+
+window.salvarProdutoCatalogo = async function () {
+  const body = {
+    codigo: document.getElementById('prod-codigo').value.trim(),
+    nome: document.getElementById('prod-nome').value.trim(),
+    unidade: document.getElementById('prod-unidade').value.trim(),
+    valor: document.getElementById('prod-valor').value,
+    quantidade: document.getElementById('prod-quantidade').value,
+    quantidadeCritica: document.getElementById('prod-quantidade-critica').value,
+  }
+
+  if (!body.codigo || !body.nome || !body.unidade) {
+    alert('Preencha código, material e unidade!')
+    return
+  }
+
+  const res = await apiJson(`${API}/almoxarifado/produtos`, { method: 'POST', body: JSON.stringify(body) })
+  if (res.ok) {
+    alert('Produto cadastrado com sucesso!')
+    inicializarProdutosServicos()
+  } else {
+    const err = await res.json()
+    alert('Erro ao cadastrar produto: ' + (err.erro || ''))
+  }
+}
+
+window.excluirProdutoCatalogo = async function (id) {
+  if (!confirm('Excluir este produto? Essa ação não pode ser desfeita.')) return
+
+  const res = await apiJson(`${API}/almoxarifado/produtos/${id}`, { method: 'DELETE' })
+  if (res.ok) {
+    inicializarProdutosServicos()
+  } else {
+    const err = await res.json()
+    alert('Erro ao excluir produto: ' + (err.erro || ''))
   }
 }
 
@@ -151,7 +219,10 @@ function renderizarTabelaServicos(servicos) {
       <td>${s.nome}</td>
       <td>${s.descricao || '-'}</td>
       <td>${formatarMoedaProdServ(s.valor)}</td>
-      ${podeGerenciar ? `<td><button class="btn btn-sm btn-info" onclick="editarServico(${s.id})">Editar</button></td>` : ''}
+      ${podeGerenciar ? `<td>
+        <button class="btn btn-sm btn-info" onclick="editarServico(${s.id})">Editar</button>
+        ${isAdminProdServ ? `<button class="btn btn-sm btn-danger" style="margin-left:6px;" onclick="excluirServico(${s.id})">Excluir</button>` : ''}
+      </td>` : ''}
     </tr>
   `).join('')
 }
@@ -222,5 +293,17 @@ window.atualizarServico = async function (id) {
   } else {
     const err = await res.json()
     alert('Erro ao atualizar serviço: ' + (err.erro || ''))
+  }
+}
+
+window.excluirServico = async function (id) {
+  if (!confirm('Excluir este serviço? Essa ação não pode ser desfeita.')) return
+
+  const res = await apiJson(`${API}/servicos/${id}`, { method: 'DELETE' })
+  if (res.ok) {
+    inicializarProdutosServicos()
+  } else {
+    const err = await res.json()
+    alert('Erro ao excluir serviço: ' + (err.erro || ''))
   }
 }

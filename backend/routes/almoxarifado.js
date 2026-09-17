@@ -76,6 +76,23 @@ router.put('/produtos/:id', autenticar, exigirPerfil('admin', 'gerente'), async 
   }
 })
 
+// ─── Excluir produto (só admin) ────────────────────────────────────────────────
+router.delete('/produtos/:id', autenticar, exigirPerfil('admin'), async (req, res) => {
+  const id = Number(req.params.id)
+
+  const emUso = await prisma.itemPedidoAlmoxarifado.findFirst({ where: { produtoId: id } })
+  if (emUso) {
+    return res.status(400).json({ erro: 'Produto já foi usado em pedidos — não pode ser excluído' })
+  }
+
+  try {
+    await prisma.produto.delete({ where: { id } })
+    res.json({ ok: true })
+  } catch {
+    res.status(404).json({ erro: 'Produto não encontrado' })
+  }
+})
+
 // ─── Alerta de estoque crítico — produtos com quantidade <= quantidadeCritica ──
 // (só admin, gerente e técnico — mesmos perfis que veem o aviso no dashboard)
 router.get('/alertas', autenticar, exigirPerfil('admin', 'gerente', 'tecnico'), async (req, res) => {
