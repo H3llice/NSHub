@@ -6,6 +6,7 @@ import { inicializarContasReceber, renderizarDashboardInicio } from './modules/p
 import { inicializarFornecedores } from './modules/fornecedores.js'
 import { inicializarSolicitacoes } from './modules/solicitacoes.js'
 import { inicializarAlmoxarifado, renderizarDashboardAlmoxarifado } from './modules/almoxarifado.js'
+import { inicializarProdutosServicos } from './modules/produtos-servicos.js'
 import { inicializarEmbarcacoes } from './modules/embarcacoes.js'
 import { inicializarRelatorios } from './modules/relatorios.js'
 import { inicializarOrdensServico } from './modules/ordens-servico.js'
@@ -131,6 +132,10 @@ window.abrirPagina = function (event, id) {
 
     if (id === 'almoxarifado') {
         inicializarAlmoxarifado()
+    }
+
+    if (id === 'produtosServicos') {
+        inicializarProdutosServicos()
     }
 
     if (id === 'embarcacoes') {

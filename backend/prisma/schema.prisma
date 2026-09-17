@@ -433,6 +433,18 @@ model Produto {
   itensPedido ItemPedidoAlmoxarifado[]
 }
 
+// Catálogo de serviços precificáveis (ex.: pintura de casulo, inspeção em balsa)
+// — cadastro em Cadastros → Produtos e Serviços. Separado de Produto porque não
+// tem estoque (quantidade/quantidadeCritica não fazem sentido pra serviço).
+model Servico {
+  id           Int      @id @default(autoincrement())
+  nome         String
+  descricao    String?
+  valor        Float?
+  criadoEm     DateTime @default(now())
+  atualizadoEm DateTime @updatedAt
+}
+
 model PedidoAlmoxarifado {
   id            Int      @id @default(autoincrement())
   numero        Int
