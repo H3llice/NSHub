@@ -139,6 +139,8 @@ function renderizarTabelaFornecedores(fornecedores) {
   `).join('')
 }
 
+const TIPOS_CONTA_FORNECEDOR = { corrente: 'Conta Corrente', poupanca: 'Poupança' }
+
 function formularioFornecedorHtml(f = {}) {
   return `
     <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
@@ -149,6 +151,16 @@ function formularioFornecedorHtml(f = {}) {
       <div><label>Cidade</label><input type="text" id="fornecedor-cidade" class="form-control" value="${f.cidade || ''}"></div>
       <div><label>CEP</label><input type="text" id="fornecedor-cep" class="form-control" value="${f.cep || ''}"></div>
       <div><label>Telefone</label><input type="text" id="fornecedor-telefone" class="form-control" value="${f.telefone || ''}"></div>
+      <div><label>Chave PIX</label><input type="text" id="fornecedor-chavePix" class="form-control" value="${f.chavePix || ''}"></div>
+      <div>
+        <label>Tipo de Conta</label>
+        <select id="fornecedor-tipoConta" class="form-control">
+          <option value="">Selecione...</option>
+          ${Object.entries(TIPOS_CONTA_FORNECEDOR).map(([valor, label]) => `<option value="${valor}" ${f.tipoConta === valor ? 'selected' : ''}>${label}</option>`).join('')}
+        </select>
+      </div>
+      <div><label>Agência</label><input type="text" id="fornecedor-agencia" class="form-control" value="${f.agencia || ''}"></div>
+      <div><label>Número da Conta</label><input type="text" id="fornecedor-contaNumero" class="form-control" value="${f.contaNumero || ''}"></div>
     </div>
   `
 }
@@ -162,6 +174,10 @@ function lerFormularioFornecedor() {
     cidade: document.getElementById('fornecedor-cidade').value.trim(),
     cep: document.getElementById('fornecedor-cep').value.trim(),
     telefone: document.getElementById('fornecedor-telefone').value.trim(),
+    chavePix: document.getElementById('fornecedor-chavePix').value.trim(),
+    tipoConta: document.getElementById('fornecedor-tipoConta').value,
+    agencia: document.getElementById('fornecedor-agencia').value.trim(),
+    contaNumero: document.getElementById('fornecedor-contaNumero').value.trim(),
   }
 }
 
