@@ -316,7 +316,10 @@ function renderizarTabelaPedidosAlmox(pedidos) {
             <td>${new Date(p.criadoEm).toLocaleDateString('pt-BR')}</td>
             <td>${p.solicitante?.nome || '-'}</td>
             <td>${p.itens.length}</td>
-            <td><button class="btn btn-sm btn-info" onclick="verPedidoAlmox(${p.id})">Ver detalhes</button></td>
+            <td>
+              <button class="btn btn-sm btn-info" onclick="verPedidoAlmox(${p.id})">Ver detalhes</button>
+              ${podeGerenciar ? `<button class="btn btn-sm btn-danger" style="margin-left:6px;" onclick="cancelarPedidoAlmox(${p.id})">Cancelar</button>` : ''}
+            </td>
           </tr>
         `).join('')}
       </tbody>
@@ -432,6 +435,7 @@ window.verPedidoAlmox = async function (id) {
 
       <div style="display:flex; align-items:center; gap:12px; margin:20px 0;">
         <h3 style="margin:0;">Pedido de Almoxarifado ${p.numero}.${p.ano}</h3>
+        ${podeGerenciar ? `<button class="btn btn-sm btn-danger" onclick="cancelarPedidoAlmox(${p.id})">Cancelar Pedido</button>` : ''}
       </div>
 
       <div style="background:white; border-radius:6px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06); margin-bottom:16px;">
@@ -470,6 +474,18 @@ window.verPedidoAlmox = async function (id) {
       ` : ''}
     </div>
   `
+}
+
+window.cancelarPedidoAlmox = async function (id) {
+  if (!confirm('Cancelar este pedido? As quantidades pedidas voltam para o estoque. Essa ação não pode ser desfeita.')) return
+
+  const res = await apiJson(`${API}/almoxarifado/pedidos/${id}`, { method: 'DELETE' })
+  if (res.ok) {
+    inicializarAlmoxarifadoWrapper()
+  } else {
+    const err = await res.json()
+    alert('Erro ao cancelar pedido: ' + (err.erro || ''))
+  }
 }
 
 // ══════════════════════════════════════════════════════════════════════════

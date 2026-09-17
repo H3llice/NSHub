@@ -218,4 +218,28 @@ class EstoqueInsuficiente extends Error {
   }
 }
 
+// ─── Cancelar/excluir pedido — devolve as quantidades ao estoque (só admin e gerente) ─
+router.delete('/pedidos/:id', autenticar, exigirPerfil('admin', 'gerente'), async (req, res) => {
+  const id = Number(req.params.id)
+
+  const pedido = await prisma.pedidoAlmoxarifado.findUnique({
+    where: { id },
+    include: { itens: true }
+  })
+  if (!pedido) return res.status(404).json({ erro: 'Pedido não encontrado' })
+
+  await prisma.$transaction(async (tx) => {
+    for (const item of pedido.itens) {
+      await tx.produto.update({
+        where: { id: item.produtoId },
+        data: { quantidade: { increment: item.quantidade } }
+      })
+    }
+    await tx.itemPedidoAlmoxarifado.deleteMany({ where: { pedidoId: id } })
+    await tx.pedidoAlmoxarifado.delete({ where: { id } })
+  })
+
+  res.json({ ok: true })
+})
+
 export default router
