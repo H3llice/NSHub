@@ -43,6 +43,9 @@ async function apiJson(url, options = {}) {
 // EMBARCAÇÕES (aba Cadastros → Embarcações)
 // ══════════════════════════════════════════════════════════════════════════
 
+const usuarioAtual = JSON.parse(localStorage.getItem('ns_usuario') || 'null')
+const podeExcluirEmbarcacao = ['gerente', 'admin'].includes(usuarioAtual?.perfil || 'usuario')
+
 export function inicializarEmbarcacoes() {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'))
   document.getElementById('embarcacoes').classList.add('active')
@@ -128,7 +131,10 @@ function renderizarTabelaEmbarcacoes(embarcacoes) {
       <td>${e.armador?.nome || '-'}</td>
       <td>${e.portoRegistro || '-'}</td>
       <td>${e.telefone || '-'}</td>
-      <td><button class="btn btn-sm btn-info" onclick="editarEmbarcacao(${e.id})">Editar</button></td>
+      <td>
+        <button class="btn btn-sm btn-info" onclick="editarEmbarcacao(${e.id})">Editar</button>
+        ${podeExcluirEmbarcacao ? `<button class="btn btn-sm btn-danger" onclick="excluirEmbarcacao(${e.id})">Excluir</button>` : ''}
+      </td>
     </tr>
   `).join('')
 }
@@ -261,6 +267,19 @@ window.atualizarEmbarcacao = async function (id) {
   } else {
     const err = await res.json()
     alert('Erro: ' + (err.erro || 'Falha ao atualizar'))
+  }
+}
+
+window.excluirEmbarcacao = async function (id) {
+  if (!confirm('Excluir esta embarcação? Essa ação não pode ser desfeita.')) return
+
+  const res = await apiJson(`${API}/embarcacoes/${id}`, { method: 'DELETE' })
+  if (res.ok) {
+    alert('Embarcação excluída.')
+    inicializarEmbarcacoes()
+  } else {
+    const err = await res.json()
+    alert('Erro ao excluir: ' + (err.erro || 'falha'))
   }
 }
 

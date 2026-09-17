@@ -1,6 +1,6 @@
 import { Router } from 'express'
 import { prisma } from '../server.js'
-import { autenticar } from '../middleware/auth.js'
+import { autenticar, exigirPerfil } from '../middleware/auth.js'
 
 const router = Router()
 
@@ -86,6 +86,31 @@ router.put('/:id', autenticar, async (req, res) => {
   } catch {
     res.status(404).json({ erro: 'Embarcação não encontrada' })
   }
+})
+
+// ─── Excluir embarcação (só gerente/admin) ─────────────────────────────────────
+// Bloqueia se existir OS/Relatório/Certificado vinculado — cadastro não pode
+// levar histórico operacional junto sem o usuário decidir isso explicitamente
+// (ver Ordens de Serviço/Relatórios/Certificados dessa embarcação primeiro).
+router.delete('/:id', autenticar, exigirPerfil('gerente', 'admin'), async (req, res) => {
+  const id = Number(req.params.id)
+  const embarcacao = await prisma.embarcacao.findUnique({ where: { id } })
+  if (!embarcacao) return res.status(404).json({ erro: 'Embarcação não encontrada' })
+
+  const [qtdOS, qtdRelatorios, qtdCertificados] = await Promise.all([
+    prisma.ordemServico.count({ where: { embarcacaoId: id } }),
+    prisma.relatorio.count({ where: { embarcacaoId: id } }),
+    prisma.certificado.count({ where: { embarcacaoId: id } }),
+  ])
+
+  if (qtdOS || qtdRelatorios || qtdCertificados) {
+    return res.status(400).json({
+      erro: `Não é possível excluir: existem ${qtdOS} Ordem(ns) de Serviço, ${qtdRelatorios} Relatório(s) e ${qtdCertificados} Certificado(s) vinculados a esta embarcação.`
+    })
+  }
+
+  await prisma.embarcacao.delete({ where: { id } })
+  res.json({ ok: true })
 })
 
 export default router
