@@ -271,7 +271,9 @@ const KIT_ITENS_ORDEM = [
   'foguetes', 'fachos', 'fumigeno', 'pilhas', 'racoesSolidas', 'racoesLiquidas',
   'medicamentos', 'pesca', 'reparos', 'enjoo', 'bateriaResgate'
 ]
-const KIT_LINHA_Y0 = 31.1
+// +1mm em 2026-09-18 — usuário reportou que os valores do kit/componentes/
+// testes/cilindro saíam um pouco acima da linha certa no PDF.
+const KIT_LINHA_Y0 = 32.1
 const KIT_LINHA_PASSO = 4.46
 // Centro horizontal de cada coluna (não a borda) — usadas com centro:true.
 const KIT_COL_QTD_X = 17.0
@@ -287,21 +289,21 @@ const COMPONENTES_COLUNAS = [
   { x: 70.0, chaves: ['aroFlutuante', 'jarrosAgua', 'documentacao', 'lanternaEstanque', 'apito', 'protecaoTermica'] },
   { x: 127.8, chaves: ['esponja', 'refletorRadar', 'abridorLatas', 'foleManual'] },
 ]
-const COMPONENTES_LINHA_Y0 = 93.2
+const COMPONENTES_LINHA_Y0 = 94.2
 const COMPONENTES_LINHA_PASSO = 4.46
 
 // 5 testes de flutuador, mesma ordem do TESTES_FLUTUADOR do frontend
 const TESTES_FLUTUADOR_ORDEM = ['nap', 'wp', 'gi', 'fs', 'ol']
-const TESTES_LINHA_Y0 = 129.1
+const TESTES_LINHA_Y0 = 130.1
 const TESTES_LINHA_PASSO = 4.375
 const TESTES_COL_X = 103.0
-const TEST_VALOR_POS = { x: 142.7, y: 132.6 }
-const TEMP_VALOR_POS = { x: 142.9, y: 141.1 }
+const TEST_VALOR_POS = { x: 142.7, y: 133.6 }
+const TEMP_VALOR_POS = { x: 142.9, y: 142.1 }
 
 // Cilindro — grade de 4 linhas x 2 colunas (múltiplos cilindros: valores juntados com " / ")
 const CILINDRO_COL_ESQUERDA_X = 47.4
 const CILINDRO_COL_DIREITA_X = 142.9
-const CILINDRO_LINHAS_Y = [154.1, 159.1, 164.4, 169.3]
+const CILINDRO_LINHAS_Y = [155.1, 160.1, 165.4, 170.3]
 
 // Casulo (Glass Fiber Container) — logo abaixo do Cilindro. Coordenadas
 // conferidas renderizando a página contra o fundo real (certificado 4057 -

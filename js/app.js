@@ -477,7 +477,8 @@ async function atualizarTabelaCertificados(pagina = 1) {
     const linhasReais = reais.map(cert => {
         const dataEmissao = cert.dataEmissao ? new Date(cert.dataEmissao).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : '-'
         const armador = cert.armador || cert.embarcacao?.armador?.nome || '-'
-        const tecnico = cert.relatorio?.criadoPor?.nome || cert.criadoPor?.nome || '-'
+        const tecnico = (cert.relatorio ? cert.relatorio.tecnicoNome : cert.dadosTecnicos?.tecnicoNome)
+            || (cert.relatorio?.criadoPor?.nome || cert.criadoPor?.nome) || '-'
         return `
             <tr>
                 <td>${cert.numero}</td>

@@ -110,7 +110,8 @@ window.abrirNovoCertificadoAvulso = async function () {
 // filtros: { navio, armador, tecnico, numero, ano, pagina } — repassados direto
 // pro backend (GET /certificados), que já sabe cair no cadastro de Embarcacao/
 // Armador quando o texto livre do Certificado não bate, e resolver o técnico
-// pelo Relatorio.criadoPor (ou pelo criadoPor do próprio Certificado no avulso).
+// pelo Relatorio.tecnicoNome (ou dadosTecnicos.tecnicoNome no avulso) — o
+// campo "Técnico responsável" atribuído na tela, não quem criou o registro.
 // Devolve a resposta paginada inteira ({ certificados, total, pagina, totalPaginas }),
 // não só o array — quem chama precisa do total/totalPaginas pra montar os botões.
 export async function listarCertificadosBalsa(filtros = {}) {

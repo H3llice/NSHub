@@ -53,10 +53,12 @@ const INCLUDE_LISTAGEM = {
 // ─── Listar certificados ────────────────────────────────────────────────────────
 // navio/armador filtram tanto o texto livre do próprio Certificado quanto o
 // cadastro de Embarcacao (cobre os dois jeitos de o dado ter chegado lá — ver
-// comentário em valoresCertificado). técnico é sempre o Usuario que preencheu
-// o Relatorio de origem (Relatorio.criadoPor) — no avulso, que não tem
-// Relatorio, cai pro criadoPor do próprio Certificado (mesmo fallback usado
-// no rodapé da página 2 do PDF, ver dadosPagina2 mais abaixo).
+// comentário em valoresCertificado). técnico é o Relatorio.tecnicoNome (campo
+// "Técnico responsável", atribuído/editável na tela — nasce igual a quem
+// criou, mas pode ter sido outra pessoa em campo) — no avulso, que não tem
+// Relatorio, vem de dadosTecnicos.tecnicoNome (mesmo campo, salvo à parte).
+// Só cai pro criadoPor em certificados antigos que nunca tiveram tecnicoNome
+// preenchido.
 router.get('/', autenticar, async (req, res) => {
   const { busca, empresa, status, navio, armador, tecnico, ano, pagina = 1 } = req.query
   const porPagina = 50
@@ -80,7 +82,8 @@ router.get('/', autenticar, async (req, res) => {
       if (navio && !contemNormalizado(c.navio || c.embarcacao?.nome, navio)) return false
       if (armador && !contemNormalizado(c.armador || c.embarcacao?.armador?.nome, armador)) return false
       if (tecnico) {
-        const nomeTecnico = c.relatorio ? c.relatorio.criadoPor?.nome : c.criadoPor?.nome
+        const nomeTecnico = (c.relatorio ? c.relatorio.tecnicoNome : c.dadosTecnicos?.tecnicoNome)
+          || (c.relatorio ? c.relatorio.criadoPor?.nome : c.criadoPor?.nome)
         if (!contemNormalizado(nomeTecnico, tecnico)) return false
       }
       return true
