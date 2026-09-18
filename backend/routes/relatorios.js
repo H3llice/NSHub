@@ -453,15 +453,181 @@ export async function desenharPaginaRelatorio(pdfDoc, relatorio) {
 }
 
 // ─── PDF do próprio Relatório — modelo "Relatório de Serviços de Balsas" ──────
-// Diferente de desenharPaginaRelatorio (acima), que é só a "Lista de
-// Verificação" usada como 2ª página do CERTIFICADO — isso aqui é o PDF que sai
-// de GET /relatorios/:id/pdf. Gerado como documento HTML/CSS de verdade,
-// renderizado com Puppeteer (mesma técnica de backend/routes/pdf.js pras OCs/
-// Solicitações) — não é imagem de fundo com texto por cima (essa técnica é só
-// do Certificado, que precisa bater com um modelo impresso pré-existente). O
-// conteúdo/campos vêm do modelo original (backend/migracao/RELATÓRIO E TESTES
-// DE BALSAS.docx): identificação + checklist na pág. 1, Testes IMO A.761(18)
-// na pág. 2.
+// Pág. 1 (identificação + checklist) usa a MESMA técnica de
+// desenharPaginaRelatorio acima: imagem de fundo real do modelo em papel
+// (assets/relatorio-servico-fundo.jpeg, montada a partir das imagens
+// incorporadas no backend/migracao/RELATÓRIO E TESTES DE BALSAS.docx) +
+// valores desenhados nas coordenadas do modelo original. Uma 1ª versão desta
+// página tinha sido feita em HTML/CSS puro (tentando redesenhar as caixas do
+// papel do zero) e nunca batia exatamente com o documento enviado — daí a
+// troca pra imagem de fundo, igual ao Certificado. Pág. 2 (Testes IMO
+// A.761(18)) continua em HTML/Puppeteer porque no .docx original ela já é
+// tabela nativa do Word, não imagem escaneada.
+const MM2 = 2.83465
+const PAG1_MARGEM_ESQUERDA_MM = 10
+const PAG1_MARGEM_TOPO_MM = 12.7
+const PAG1_IMG_LARGURA_MM = 180
+const PAG1_IMG_ALTURA_MM = 190.1
+
+// Coordenadas medidas sobre o fundo (assets/relatorio-servico-fundo.jpeg) com
+// grade de referência a cada 5mm — não são um levantamento exato do XML do
+// .docx (as caixas de texto originais não mapeiam 1:1 pra cada campo), então
+// pequenos ajustes de 1-2mm após conferir uma impressão real são esperados
+// (mesmo processo já usado em desenharPaginaRelatorio).
+const PAG1_EXECUTANTE_POS = { x: 70, y: 15.5 }
+const PAG1_DATA_POS = { x: 125, y: 15.5, size: 8.5 }
+const PAG1_NUMERO_POS = { x: 164, y: 15.5 }
+
+const PAG1_NAVIO_POS = { x: 18, y: 25 }
+const PAG1_PORTO_REG_POS = { x: 120, y: 25 }
+const PAG1_ARMADOR_POS = { x: 26, y: 30 }
+const PAG1_TIPO_POS = { x: 17, y: 35 }
+const PAG1_SERIE_POS = { x: 100, y: 35 }
+const PAG1_ANO_FAB_POS = { x: 134, y: 35 }
+const PAG1_BALSA_MARCA_POS = { x: 36, y: 40 }
+const PAG1_CAPACIDADE_POS = { x: 132, y: 40 }
+const PAG1_APROVACAO_POS = { x: 46, y: 45 }
+
+// Checklist de componentes — mesma ordem/agrupamento de COMPONENTES_COLUNAS
+// (6/6/4), só que nas colunas x da caixa azul deste modelo.
+const PAG1_COMPONENTES_COLUNAS_X = [4, 80, 153]
+const PAG1_COMPONENTES_Y0 = 65
+const PAG1_COMPONENTES_PASSO = 4.3
+
+// Teste dos flutuadores — cada linha marca um X na caixa SIM ou NÃO (não
+// escreve S/N solto — o papel tem checkbox de verdade pra cada opção).
+const PAG1_TESTES_SIM_X = 90
+const PAG1_TESTES_NAO_X = 125
+const PAG1_TESTES_Y0 = 101
+const PAG1_TESTES_PASSO = 4.3
+const PAG1_TEMP_POS = { x: 163, y: 106 }
+
+const PAG1_CILINDRO_COL_ESQUERDA_X = 48
+const PAG1_CILINDRO_COL_DIREITA_X = 143
+const PAG1_CILINDRO_LINHAS_Y = [126, 131, 136, 141]
+
+const PAG1_CASULO_VALVULA_NUMERO_POS = { x: 90, y: 150 }
+const PAG1_CASULO_VALVULA_FABRICANTE_POS = { x: 143, y: 150 }
+const PAG1_CASULO_VALVULA_VALIDADE_POS = { x: 46, y: 156 }
+
+const PAG1_OBS_POS = { x: 167, y: 171, larguraMm: 11 }
+
+const PAG1_REVISAO_SIM_POS = { x: 56, y: 183 }
+const PAG1_REVISAO_NAO_POS = { x: 76, y: 183 }
+
+function quebrarLinhasSimples(texto, fonte, size, larguraMm) {
+  const larguraMaxPt = larguraMm * MM2
+  const palavras = texto.split(' ')
+  const linhas = []
+  let linhaAtual = ''
+  for (const palavra of palavras) {
+    const tentativa = linhaAtual ? `${linhaAtual} ${palavra}` : palavra
+    if (!linhaAtual || fonte.widthOfTextAtSize(tentativa, size) <= larguraMaxPt) {
+      linhaAtual = tentativa
+    } else {
+      linhas.push(linhaAtual)
+      linhaAtual = palavra
+    }
+  }
+  if (linhaAtual) linhas.push(linhaAtual)
+  return linhas
+}
+
+// Desenha a página 1 (identificação + checklist) do PDF do Relatório, usada
+// só por GET /relatorios/:id/pdf (o Certificado tem seu próprio modelo,
+// desenharPaginaRelatorio, que não inclui identificação — essa já vem da
+// pág. 1 do Certificado).
+async function desenharPaginaServicoBalsa(pdfDoc, relatorio) {
+  const page = pdfDoc.addPage([595.28, 841.89])
+  const alturaPagina = page.getHeight()
+
+  const fundoBytes = fs.readFileSync(path.resolve('assets/relatorio-servico-fundo.jpeg'))
+  const fundoImg = await pdfDoc.embedJpg(fundoBytes)
+  page.drawImage(fundoImg, {
+    x: PAG1_MARGEM_ESQUERDA_MM * MM2,
+    y: alturaPagina - (PAG1_MARGEM_TOPO_MM + PAG1_IMG_ALTURA_MM) * MM2,
+    width: PAG1_IMG_LARGURA_MM * MM2,
+    height: PAG1_IMG_ALTURA_MM * MM2,
+  })
+
+  const fonte = await pdfDoc.embedFont(StandardFonts.HelveticaBold)
+  const preto = rgb(0.1, 0.1, 0.1)
+
+  function texto(valor, xMm, yMm, size = 9) {
+    if (valor === null || valor === undefined || valor === '') return
+    const yTopoPt = alturaPagina - (PAG1_MARGEM_TOPO_MM + yMm) * MM2
+    const xPt = (PAG1_MARGEM_ESQUERDA_MM + xMm) * MM2
+    page.drawText(String(valor), { x: xPt, y: yTopoPt - size, size, font: fonte, color: preto })
+  }
+
+  function marcarSimNao(valor, xSim, xNao, y) {
+    if (valor === true) texto('X', xSim, y)
+    else if (valor === false) texto('X', xNao, y)
+  }
+
+  const e = relatorio.embarcacao
+  const a = e?.armador
+  const capacidade = relatorio.equipCapacidade ? `${relatorio.equipCapacidade} PAX` : ''
+  const executanteNome = relatorio.tecnicoNome || relatorio.criadoPor?.nome || ''
+  const dataFormatada = relatorio.data ? new Date(relatorio.data).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : ''
+
+  texto(executanteNome, PAG1_EXECUTANTE_POS.x, PAG1_EXECUTANTE_POS.y)
+  texto(dataFormatada, PAG1_DATA_POS.x, PAG1_DATA_POS.y, PAG1_DATA_POS.size)
+  texto(relatorio.numero ? `${relatorio.numero}/${relatorio.ano}` : '', PAG1_NUMERO_POS.x, PAG1_NUMERO_POS.y)
+
+  texto(e?.nome, PAG1_NAVIO_POS.x, PAG1_NAVIO_POS.y)
+  texto(e?.portoRegistro, PAG1_PORTO_REG_POS.x, PAG1_PORTO_REG_POS.y)
+  texto(a?.nome, PAG1_ARMADOR_POS.x, PAG1_ARMADOR_POS.y)
+  texto(relatorio.equipTipo, PAG1_TIPO_POS.x, PAG1_TIPO_POS.y)
+  texto(relatorio.equipNumeroSerie, PAG1_SERIE_POS.x, PAG1_SERIE_POS.y)
+  texto(relatorio.equipAnoFabricacao, PAG1_ANO_FAB_POS.x, PAG1_ANO_FAB_POS.y)
+  texto(relatorio.equipFabricante, PAG1_BALSA_MARCA_POS.x, PAG1_BALSA_MARCA_POS.y)
+  texto(capacidade, PAG1_CAPACIDADE_POS.x, PAG1_CAPACIDADE_POS.y)
+  texto(relatorio.certRevisaoNumero, PAG1_APROVACAO_POS.x, PAG1_APROVACAO_POS.y)
+
+  // ─── Checklist de componentes ─────────────────────────────────────────────
+  COMPONENTES_COLUNAS.forEach((coluna, colIdx) => {
+    const x = PAG1_COMPONENTES_COLUNAS_X[colIdx]
+    coluna.chaves.forEach((chave, i) => {
+      const y = PAG1_COMPONENTES_Y0 + i * PAG1_COMPONENTES_PASSO
+      if (relatorio[chave]) texto('X', x, y)
+    })
+  })
+
+  // ─── Teste dos flutuadores ────────────────────────────────────────────────
+  TESTES_FLUTUADOR_ORDEM.forEach((chave, i) => {
+    const y = PAG1_TESTES_Y0 + i * PAG1_TESTES_PASSO
+    marcarSimNao(relatorio[`${chave}Realizado`], PAG1_TESTES_SIM_X, PAG1_TESTES_NAO_X, y)
+  })
+  texto(relatorio.temperatura, PAG1_TEMP_POS.x, PAG1_TEMP_POS.y)
+
+  // ─── Cilindro(s) ──────────────────────────────────────────────────────────
+  const cilindros = relatorio.cilindros
+  texto(juntarCilindros(cilindros, 'numero'), PAG1_CILINDRO_COL_ESQUERDA_X, PAG1_CILINDRO_LINHAS_Y[0])
+  texto(juntarCilindros(cilindros, 'valvulaNumero'), PAG1_CILINDRO_COL_DIREITA_X, PAG1_CILINDRO_LINHAS_Y[0])
+  texto(juntarCilindros(cilindros, 'teste'), PAG1_CILINDRO_COL_ESQUERDA_X, PAG1_CILINDRO_LINHAS_Y[1])
+  texto(juntarCilindros(cilindros, 'carga', formatarKg), PAG1_CILINDRO_COL_DIREITA_X, PAG1_CILINDRO_LINHAS_Y[1])
+  texto(juntarCilindros(cilindros, 'cargaCO2', formatarKg), PAG1_CILINDRO_COL_ESQUERDA_X, PAG1_CILINDRO_LINHAS_Y[2])
+  texto(juntarCilindros(cilindros, 'cargaN2', formatarKg), PAG1_CILINDRO_COL_DIREITA_X, PAG1_CILINDRO_LINHAS_Y[2])
+  texto(juntarCilindros(cilindros, 'fabricante'), PAG1_CILINDRO_COL_ESQUERDA_X, PAG1_CILINDRO_LINHAS_Y[3])
+  texto(juntarCilindros(cilindros, 'anoFabricacao'), PAG1_CILINDRO_COL_DIREITA_X, PAG1_CILINDRO_LINHAS_Y[3])
+
+  // ─── Válvula de liberação (casulo) ────────────────────────────────────────
+  texto(relatorio.casuloValvulaNumero, PAG1_CASULO_VALVULA_NUMERO_POS.x, PAG1_CASULO_VALVULA_NUMERO_POS.y)
+  texto(relatorio.casuloValvulaFabricante, PAG1_CASULO_VALVULA_FABRICANTE_POS.x, PAG1_CASULO_VALVULA_FABRICANTE_POS.y)
+  texto(relatorio.casuloValvulaValidade, PAG1_CASULO_VALVULA_VALIDADE_POS.x, PAG1_CASULO_VALVULA_VALIDADE_POS.y)
+
+  // ─── Observações ──────────────────────────────────────────────────────────
+  if (relatorio.observacoes) {
+    const linhas = quebrarLinhasSimples(relatorio.observacoes, fonte, 7, PAG1_OBS_POS.larguraMm)
+    linhas.slice(0, 4).forEach((linha, i) => texto(linha, PAG1_OBS_POS.x, PAG1_OBS_POS.y + i * 3.6, 7))
+  }
+
+  // ─── Revisão anual ────────────────────────────────────────────────────────
+  marcarSimNao(relatorio.revisaoAnualOk, PAG1_REVISAO_SIM_POS.x, PAG1_REVISAO_NAO_POS.x, PAG1_REVISAO_SIM_POS.y)
+
+  return page
+}
 function escapeHtmlRelatorio(valor) {
   if (valor === null || valor === undefined) return ''
   return String(valor)
@@ -476,61 +642,17 @@ function caixaMarcada(marcado) {
   return marcado ? '☑' : '☐'
 }
 
-const KIT_LABELS = {
-  foguetes: 'Foguetes paraquedas / Parachute signals',
-  fachos: 'Fachos luminosos manuais / Hand flares signals',
-  fumigeno: 'Fumígeno laranja flutuante / Buoyant yellow smoke',
-  pilhas: 'Pilhas sobressalentes / Spare batteries',
-  racoesSolidas: 'Rações sólidas / Ration food',
-  racoesLiquidas: 'Rações líquidas / Drinking water',
-  medicamentos: 'Estojo de medicamentos / First aid kit',
-  pesca: 'Estojo de pesca / Fishing kit',
-  reparos: 'Estojo de reparos / Repairs kit',
-  enjoo: 'Comprimidos p/ enjoo / Tablet for nausea',
-  bateriaResgate: 'Bateria de Resgate / Rescue Battery',
-}
-
-const COMPONENTES_LABELS = {
-  ancoraFlutuante: 'Âncora flutuante sobressalente / Drogue with line',
-  remos: 'Remo / Paddles',
-  quadroSinais: 'Quadro de sinais / Table of life save sign',
-  facaCaboFlutuante: 'Faca com cabo flutuante / Buoyant safety knife',
-  espelhoSinalizacao: 'Espelho de sinalização / Signalizing mirror',
-  copoGraduado: 'Copo graduado / Graduated glass',
-  aroFlutuante: 'Aro flutuante / Lifebuoy with line (30m)',
-  jarrosAgua: "Jarros d'água / Drinking vessel",
-  documentacao: 'Documentação / Instruction for survival',
-  lanternaEstanque: 'Lanterna estanque / Flashlight waterproof',
-  apito: 'Apito / Whistle',
-  protecaoTermica: 'Proteção térmica conf. Regra 34 / Thermic protection Norm 34',
-  esponja: 'Esponja / Sponge',
-  refletorRadar: 'Refletor radar / Radar reflector',
-  abridorLatas: 'Abridor de latas / Can opener',
-  foleManual: 'Fole manual / Hand bellows',
-}
-
-const TESTES_LABELS = {
-  nap: 'Pressão adicional necessária / Necessary additional pressure (NAP)',
-  wp: 'Pressão de trabalho / Working pressure (WP)',
-  gi: 'Enchimento com gás / Gas inflation (GI)',
-  fs: 'Costuras, piso e flutuadores / Sewing, floor, buoyant (FS)',
-  ol: 'Teste de Sobrecarga / Load Test (Davit)',
-}
-
 function linhaSimNao(valor) {
   if (valor === null || valor === undefined) return `${caixaMarcada(false)} SIM/YES &nbsp; ${caixaMarcada(false)} NÃO/NO`
   return `${caixaMarcada(valor === true)} SIM/YES &nbsp; ${caixaMarcada(valor === false)} NÃO/NO`
 }
 
-function gerarHtmlRelatorioServico(relatorio) {
+// Página 2 (Testes IMO A.761(18)) — só existe quando há TesteImo vinculado.
+// No .docm original essa página já é tabela nativa do Word (não imagem
+// escaneada), então continua sendo gerada via HTML/Puppeteer normalmente.
+function gerarHtmlTestesImo(relatorio) {
   const esc = escapeHtmlRelatorio
-  const e = relatorio.embarcacao
-  const a = e?.armador
-  const cilindros = relatorio.cilindros
   const testeImo = relatorio.testeImo
-  const executanteNome = relatorio.tecnicoNome || relatorio.criadoPor?.nome || ''
-  const dataFormatada = relatorio.data ? new Date(relatorio.data).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : ''
-  const capacidade = relatorio.equipCapacidade ? `${relatorio.equipCapacidade} PAX` : ''
 
   const logoPath = path.resolve('assets/logo.png')
   const logoBase64 = fs.existsSync(logoPath)
@@ -542,113 +664,30 @@ function gerarHtmlRelatorioServico(relatorio) {
     body { font-family: Arial, sans-serif; font-size: 9.5px; padding: 16px; }
     .header { margin-bottom: 10px; }
     .header img { width: 100%; height: auto; }
-    h1 { text-align: center; font-size: 16px; margin: 8px 0 4px; }
     h2 { text-align: center; font-size: 13px; margin: 6px 0; }
-    .subtitulo { text-align: center; font-size: 10px; margin-bottom: 10px; }
-    .subtitulo b { margin-right: 18px; }
     .caixa { border: 1px solid #000; padding: 6px 8px; margin-bottom: 8px; }
-    .titulo-secao { text-align: center; font-weight: bold; font-size: 10.5px; margin-bottom: 4px; }
-    .titulo-secao small { display: block; font-weight: normal; font-size: 9px; }
     .linha { margin-bottom: 3px; }
     .linha span { color: #444; margin-right: 4px; }
     .linha b { margin-right: 16px; }
-    table.tabela-kit, table.tabela-testes, table.tabela-imo { width: 100%; border-collapse: collapse; margin-bottom: 8px; }
-    table.tabela-kit th, table.tabela-kit td,
-    table.tabela-imo th, table.tabela-imo td { border: 1px solid #000; padding: 3px 5px; text-align: center; font-size: 9px; }
-    table.tabela-kit td:nth-child(2) { text-align: left; }
-    table.tabela-kit th { background: #f0f0f0; }
-    .componentes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px 10px; }
-    .item-check { font-size: 9px; padding: 1px 0; }
-    table.tabela-testes td { padding: 2px 4px; font-size: 9px; white-space: nowrap; }
-    table.tabela-testes td:first-child { width: 55%; }
-    .flex-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-    .rodape-form { display: flex; justify-content: space-between; align-items: center; }
-    .pagina2 { page-break-before: always; padding-top: 16px; }
-    .teste-titulo { font-weight: bold; font-size: 10.5px; margin-bottom: 4px; display: flex; justify-content: space-between; }
+    table.tabela-imo { width: 100%; border-collapse: collapse; margin-bottom: 8px; }
+    table.tabela-imo th, table.tabela-imo td { border: 1px solid #000; padding: 3px 5px; text-align: center; }
     table.tabela-imo th { background: #f0f0f0; font-size: 8.5px; }
     table.tabela-imo td { font-size: 8.5px; }
+    .teste-titulo { font-weight: bold; font-size: 10.5px; margin-bottom: 4px; display: flex; justify-content: space-between; }
   `
 
-  const linhaIdentificacao = `
-    <div class="caixa">
-      <div class="linha"><span>NAVIO</span><b>${esc(e?.nome)}</b><span>PORTO REG.</span><b>${esc(e?.portoRegistro)}</b></div>
-      <div class="linha"><span>ARMADOR</span><b>${esc(a?.nome)}</b></div>
-      <div class="linha"><span>TIPO</span><b>${esc(relatorio.equipTipo)}</b><span>Nº DE SÉRIE</span><b>${esc(relatorio.equipNumeroSerie)}</b><span>ANO DE FABRICAÇÃO</span><b>${esc(relatorio.equipAnoFabricacao)}</b></div>
-      <div class="linha"><span>BALSA MARCA</span><b>${esc(relatorio.equipFabricante)}</b><span>CAPACIDADE</span><b>${esc(capacidade)}</b></div>
-      <div class="linha"><span>Nº DE APROVAÇÃO</span><b>${esc(relatorio.certRevisaoNumero)}</b></div>
-    </div>
-  `
-
-  const linhaKit = `
-    <table class="tabela-kit">
-      <thead><tr><th style="width:12%;">QUANTIDADE<br>QUANTITY</th><th>EQUIPAMENTO / EQUIPMENT</th><th style="width:15%;">SUBSTITUÍDO<br>REPLACED</th><th style="width:15%;">VALIDADE<br>VALIDITY</th></tr></thead>
-      <tbody>
-        ${KIT_ITENS_ORDEM.map(chave => `
-          <tr>
-            <td>${relatorio[`${chave}Qtd`] ?? ''}</td>
-            <td>${KIT_LABELS[chave]}</td>
-            <td>${relatorio[`${chave}Substituido`] ? 'S' : ''}</td>
-            <td>${esc(relatorio[`${chave}Validade`])}</td>
-          </tr>
-        `).join('')}
-      </tbody>
-    </table>
-  `
-
-  const linhaComponentes = `
-    <div class="caixa componentes">
-      ${COMPONENTES_COLUNAS.map(coluna => `
-        <div>
-          ${coluna.chaves.map(chave => `<div class="item-check">${caixaMarcada(relatorio[chave])} ${COMPONENTES_LABELS[chave]}</div>`).join('')}
-        </div>
-      `).join('')}
-    </div>
-  `
-
-  const linhaTestesFlutuadores = `
-    <div class="caixa">
-      <div class="titulo-secao">TESTE DOS FLUTUADORES / BUOYANT TEST</div>
-      <table class="tabela-testes">
-        ${TESTES_FLUTUADOR_ORDEM.map(chave => `
-          <tr><td>${TESTES_LABELS[chave]}</td><td>${linhaSimNao(relatorio[`${chave}Realizado`])}</td></tr>
-        `).join('')}
-      </table>
-      <div class="linha"><span>TEMP.</span><b>${esc(relatorio.temperatura)} °C</b></div>
-    </div>
-  `
-
-  const linhaCilindro = `
-    <div class="caixa">
-      <div class="linha"><span>CILINDRO/CYLINDER</span><b>${esc(juntarCilindros(cilindros, 'numero'))}</b><span>VALV. Nº</span><b>${esc(juntarCilindros(cilindros, 'valvulaNumero'))}</b></div>
-      <div class="linha"><span>TESTE CILINDRO/CYL. TEST</span><b>${esc(juntarCilindros(cilindros, 'teste'))}</b><span>CARGA/CHARGE</span><b>${esc(juntarCilindros(cilindros, 'carga', formatarKg))} KG.</b></div>
-      <div class="linha"><span>CARGA DE CO2/CO2 CHARGE</span><b>${esc(juntarCilindros(cilindros, 'cargaCO2', formatarKg))} KG.</b><span>KG. CARGA N2/N2 CHARGE</span><b>${esc(juntarCilindros(cilindros, 'cargaN2', formatarKg))} KG.</b></div>
-      <div class="linha"><span>FABRICANTE/MANUFACTURER</span><b>${esc(juntarCilindros(cilindros, 'fabricante'))}</b><span>ANO FABRICAÇÃO/MANUF. DATE</span><b>${esc(juntarCilindros(cilindros, 'anoFabricacao'))}</b></div>
-    </div>
-  `
-
-  const linhaValvula = `
-    <div class="caixa">
-      <div class="linha"><span>Val. de Liberação / Release Valve Nº</span><b>${esc(relatorio.casuloValvulaNumero)}</b><span>Fabricante/Maker</span><b>${esc(relatorio.casuloValvulaFabricante)}</b></div>
-      <div class="linha"><span>Validade / Exp. Date</span><b>${esc(relatorio.casuloValvulaValidade)}</b></div>
-    </div>
-  `
-
-  const linhaObsRevisao = `
-    <div class="caixa flex-2col">
-      <div>OBS:<br>${esc(relatorio.observacoes)}</div>
-      <div>
-        <div>REVISÃO ANUAL: ${caixaMarcada(relatorio.revisaoAnualOk === true)} SIM &nbsp; ${caixaMarcada(relatorio.revisaoAnualOk === false)} NÃO</div>
-        <div style="margin-top:14px;">ASSINATURA: ____________________________</div>
-      </div>
-    </div>
-  `
-
-  const linhasTecnico = testeImo ? `
+  const linhasTecnico = `
     <div class="linha"><span>TÉCNICO NATAL SAFETY:</span><b>${esc(testeImo.tecnicoNome)}</b><span>Controlado por / Controlled by:</span><b>${esc(testeImo.controladoPorNome)}</b></div>
-  ` : ''
+  `
 
-  const paginaTestesImo = testeImo ? `
-    <div class="pagina2">
+  return `
+    <!DOCTYPE html>
+    <html lang="pt-br">
+    <head>
+      <meta charset="UTF-8">
+      <style>${estilos}</style>
+    </head>
+    <body>
       <div class="header">${logoBase64 ? `<img src="${logoBase64}" />` : ''}</div>
       <h2>Testes de acordo a Resolução IMO A.761 (18) / IMO Resolution A.761(18)</h2>
 
@@ -698,40 +737,6 @@ function gerarHtmlRelatorioServico(relatorio) {
         </div>
         <div class="linha"><span>Observações/Remarks:</span><b>${esc(testeImo.olObservacoes)}</b></div>
       </div>
-    </div>
-  ` : ''
-
-  return `
-    <!DOCTYPE html>
-    <html lang="pt-br">
-    <head>
-      <meta charset="UTF-8">
-      <style>${estilos}</style>
-    </head>
-    <body>
-      <div class="header">${logoBase64 ? `<img src="${logoBase64}" />` : ''}</div>
-      <h1>RELATÓRIO DE SERVIÇOS DE BALSAS</h1>
-      <div class="subtitulo">
-        <b>Executante: ${esc(executanteNome)}</b>
-        <b>Data: ${esc(dataFormatada)}</b>
-        <b>Nº: ${relatorio.numero}/${relatorio.ano}</b>
-      </div>
-
-      ${linhaIdentificacao}
-
-      <div class="caixa titulo-secao">
-        LISTA DE VERIFICAÇÃO E REPAROS DE BALSAS
-        <small>LIFERAFT CHECKING LIST AND REPAIRS</small>
-      </div>
-
-      ${linhaKit}
-      ${linhaComponentes}
-      ${linhaTestesFlutuadores}
-      ${linhaCilindro}
-      ${linhaValvula}
-      ${linhaObsRevisao}
-
-      ${paginaTestesImo}
     </body>
     </html>
   `
@@ -752,15 +757,26 @@ router.get('/:id/pdf', autenticar, async (req, res) => {
   })
   if (!relatorio) return res.status(404).json({ erro: 'Relatório não encontrado' })
 
-  const html = gerarHtmlRelatorioServico(relatorio)
+  const pdfDoc = await PDFDocument.create()
+  await desenharPaginaServicoBalsa(pdfDoc, relatorio)
 
-  const browser = await puppeteer.launch({ args: ['--no-sandbox'] })
-  const page = await browser.newPage()
-  await page.setJavaScriptEnabled(false)
-  await page.setContent(html, { waitUntil: 'networkidle0' })
-  const pdfBytes = await page.pdf({ format: 'A4', printBackground: true })
-  await browser.close()
+  // Testes IMO (pág. 2) só existem quando há TesteImo vinculado — gerados à
+  // parte em HTML/Puppeteer (tabela nativa, não imagem) e mesclados aqui.
+  if (relatorio.testeImo) {
+    const html = gerarHtmlTestesImo(relatorio)
+    const browser = await puppeteer.launch({ args: ['--no-sandbox'] })
+    const page = await browser.newPage()
+    await page.setJavaScriptEnabled(false)
+    await page.setContent(html, { waitUntil: 'networkidle0' })
+    const imoPdfBytes = await page.pdf({ format: 'A4', printBackground: true })
+    await browser.close()
 
+    const imoPdf = await PDFDocument.load(imoPdfBytes)
+    const imoPages = await pdfDoc.copyPages(imoPdf, imoPdf.getPageIndices())
+    imoPages.forEach(p => pdfDoc.addPage(p))
+  }
+
+  const pdfBytes = await pdfDoc.save()
   const nomeArquivo = `Relatorio ${relatorio.numero}.${relatorio.ano}.pdf`
 
   res.setHeader('Content-Type', 'application/pdf')
