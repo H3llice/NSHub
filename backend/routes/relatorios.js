@@ -1,5 +1,6 @@
 import { Router } from 'express'
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib'
+import puppeteer from 'puppeteer'
 import fs from 'fs'
 import path from 'path'
 import { prisma } from '../server.js'
@@ -454,285 +455,286 @@ export async function desenharPaginaRelatorio(pdfDoc, relatorio) {
 // ─── PDF do próprio Relatório — modelo "Relatório de Serviços de Balsas" ──────
 // Diferente de desenharPaginaRelatorio (acima), que é só a "Lista de
 // Verificação" usada como 2ª página do CERTIFICADO — isso aqui é o PDF que sai
-// de GET /relatorios/:id/pdf, no modelo de papel de verdade que a empresa usa
-// (backend/migracao/RELATÓRIO E TESTES DE BALSAS.docx: "RELATÓRIO DE SERVIÇOS
-// DE BALSAS" com identificação + checklist na pág. 1, "Testes de acordo a
-// Resolução IMO A.761(18)" na pág. 2). Fundo de cada página = o próprio modelo
-// renderizado (LibreOffice) em 210x297mm cheios (sem margem de impressão, já
-// que aqui a gente GERA a página inteira, não sobrepõe em papel pré-impresso
-// como faz o Certificado). Coordenadas medidas com grid de mm sobre o fundo
-// renderizado — 1ª passada, pode precisar ajuste fino depois de ver impresso.
-const REL_SERVICO_LARGURA_MM = 210
-const REL_SERVICO_ALTURA_MM = 297
+// de GET /relatorios/:id/pdf. Gerado como documento HTML/CSS de verdade,
+// renderizado com Puppeteer (mesma técnica de backend/routes/pdf.js pras OCs/
+// Solicitações) — não é imagem de fundo com texto por cima (essa técnica é só
+// do Certificado, que precisa bater com um modelo impresso pré-existente). O
+// conteúdo/campos vêm do modelo original (backend/migracao/RELATÓRIO E TESTES
+// DE BALSAS.docx): identificação + checklist na pág. 1, Testes IMO A.761(18)
+// na pág. 2.
+function escapeHtmlRelatorio(valor) {
+  if (valor === null || valor === undefined) return ''
+  return String(valor)
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;')
+}
 
-const REL_P1_KIT_Y0 = 95
-const REL_P1_KIT_PASSO = 5.0
-const REL_P1_KIT_QTD_X = 35
-const REL_P1_KIT_QTD_LARGURA = 20
-const REL_P1_KIT_SUBSTITUIDO_X = 192
-const REL_P1_KIT_SUBSTITUIDO_LARGURA = 16
-const REL_P1_KIT_VALIDADE_X = 213
-const REL_P1_KIT_VALIDADE_LARGURA = 20
+function caixaMarcada(marcado) {
+  return marcado ? '☑' : '☐'
+}
 
-// Componentes tem checkbox de verdade no fundo (☐), diferente da Lista de
-// Verificação do Certificado (que só tinha "S"/"N" em texto) — por isso marca
-// com "X" dentro do quadrado, não com a letra.
-const REL_P1_COMPONENTES_COLUNAS = [
-  { x: 52, chaves: COMPONENTES_COLUNAS[0].chaves },
-  { x: 122, chaves: COMPONENTES_COLUNAS[1].chaves },
-  { x: 195, chaves: COMPONENTES_COLUNAS[2].chaves },
-]
-const REL_P1_COMPONENTES_Y0 = 155
-const REL_P1_COMPONENTES_PASSO = 5.0
+const KIT_LABELS = {
+  foguetes: 'Foguetes paraquedas / Parachute signals',
+  fachos: 'Fachos luminosos manuais / Hand flares signals',
+  fumigeno: 'Fumígeno laranja flutuante / Buoyant yellow smoke',
+  pilhas: 'Pilhas sobressalentes / Spare batteries',
+  racoesSolidas: 'Rações sólidas / Ration food',
+  racoesLiquidas: 'Rações líquidas / Drinking water',
+  medicamentos: 'Estojo de medicamentos / First aid kit',
+  pesca: 'Estojo de pesca / Fishing kit',
+  reparos: 'Estojo de reparos / Repairs kit',
+  enjoo: 'Comprimidos p/ enjoo / Tablet for nausea',
+  bateriaResgate: 'Bateria de Resgate / Rescue Battery',
+}
 
-const REL_P1_TESTES_Y0 = 194
-const REL_P1_TESTES_PASSO = 5.0
-const REL_P1_TESTES_SIM_X = 146
-const REL_P1_TESTES_NAO_X = 179
-const REL_P1_TEMP_POS = { x: 199, y: 204 }
+const COMPONENTES_LABELS = {
+  ancoraFlutuante: 'Âncora flutuante sobressalente / Drogue with line',
+  remos: 'Remo / Paddles',
+  quadroSinais: 'Quadro de sinais / Table of life save sign',
+  facaCaboFlutuante: 'Faca com cabo flutuante / Buoyant safety knife',
+  espelhoSinalizacao: 'Espelho de sinalização / Signalizing mirror',
+  copoGraduado: 'Copo graduado / Graduated glass',
+  aroFlutuante: 'Aro flutuante / Lifebuoy with line (30m)',
+  jarrosAgua: "Jarros d'água / Drinking vessel",
+  documentacao: 'Documentação / Instruction for survival',
+  lanternaEstanque: 'Lanterna estanque / Flashlight waterproof',
+  apito: 'Apito / Whistle',
+  protecaoTermica: 'Proteção térmica conf. Regra 34 / Thermic protection Norm 34',
+  esponja: 'Esponja / Sponge',
+  refletorRadar: 'Refletor radar / Radar reflector',
+  abridorLatas: 'Abridor de latas / Can opener',
+  foleManual: 'Fole manual / Hand bellows',
+}
 
-const REL_P1_CILINDRO_COL_ESQ_X = 48
-const REL_P1_CILINDRO_COL_DIR_X = 155
-const REL_P1_CILINDRO_LINHAS_Y = [219, 224, 229, 234]
+const TESTES_LABELS = {
+  nap: 'Pressão adicional necessária / Necessary additional pressure (NAP)',
+  wp: 'Pressão de trabalho / Working pressure (WP)',
+  gi: 'Enchimento com gás / Gas inflation (GI)',
+  fs: 'Costuras, piso e flutuadores / Sewing, floor, buoyant (FS)',
+  ol: 'Teste de Sobrecarga / Load Test (Davit)',
+}
 
-const REL_P1_VALVULA_NUMERO_POS = { x: 95, y: 243 }
-const REL_P1_VALVULA_FABRICANTE_POS = { x: 155, y: 243 }
-const REL_P1_VALVULA_VALIDADE_POS = { x: 58, y: 248 }
+function linhaSimNao(valor) {
+  if (valor === null || valor === undefined) return `${caixaMarcada(false)} SIM/YES &nbsp; ${caixaMarcada(false)} NÃO/NO`
+  return `${caixaMarcada(valor === true)} SIM/YES &nbsp; ${caixaMarcada(valor === false)} NÃO/NO`
+}
 
-const REL_P1_OBS_POS = { x: 147, y: 258, larguraMm: 55 }
-const REL_P1_REVISAO_SIM_POS = { x: 57, y: 278 }
-const REL_P1_REVISAO_NAO_POS = { x: 76, y: 278 }
-
-const REL_P1_CAMPOS = [
-  { campo: 'executante', x: 60, y: 36 },
-  { campo: 'dataFormatada', x: 110, y: 36 },
-  { campo: 'numeroAno', x: 158, y: 36 },
-  { campo: 'navio', x: 40, y: 47, larguraMm: 85 },
-  { campo: 'portoRegistro', x: 128, y: 47, larguraMm: 70 },
-  { campo: 'armador', x: 33, y: 52, larguraMm: 165 },
-  { campo: 'tipo', x: 23, y: 57, larguraMm: 47 },
-  { campo: 'numeroSerie', x: 100, y: 57, larguraMm: 38 },
-  { campo: 'anoFabricacao', x: 175, y: 57, larguraMm: 23 },
-  { campo: 'balsaMarca', x: 45, y: 62, larguraMm: 73 },
-  { campo: 'capacidade', x: 145, y: 62, larguraMm: 53 },
-  { campo: 'numeroAprovacao', x: 48, y: 70, larguraMm: 45 },
-]
-
-function valoresRelatorioServico(r) {
-  const e = r.embarcacao
+function gerarHtmlRelatorioServico(relatorio) {
+  const esc = escapeHtmlRelatorio
+  const e = relatorio.embarcacao
   const a = e?.armador
-  return {
-    executante: r.tecnicoNome || r.criadoPor?.nome || '',
-    dataFormatada: r.data ? new Date(r.data).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : '',
-    numeroAno: `${r.numero}/${r.ano}`,
-    navio: e?.nome || '',
-    portoRegistro: e?.portoRegistro || '',
-    armador: a?.nome || '',
-    tipo: r.equipTipo || '',
-    numeroSerie: r.equipNumeroSerie || '',
-    anoFabricacao: r.equipAnoFabricacao || '',
-    balsaMarca: r.equipFabricante || '',
-    capacidade: r.equipCapacidade ? `${r.equipCapacidade} PAX` : '',
-    numeroAprovacao: r.certRevisaoNumero || '',
-  }
-}
-
-async function desenharRelatorioServicoPagina1(pdfDoc, relatorio) {
-  const page = pdfDoc.addPage([595.28, 841.89])
-  const alturaPagina = page.getHeight()
-
-  const fundoBytes = fs.readFileSync(path.resolve('assets/relatorio-servico-pagina1-fundo.jpeg'))
-  const fundoImg = await pdfDoc.embedJpg(fundoBytes)
-  page.drawImage(fundoImg, { x: 0, y: 0, width: REL_SERVICO_LARGURA_MM * MM, height: REL_SERVICO_ALTURA_MM * MM })
-
-  const fonteNegrito = await pdfDoc.embedFont(StandardFonts.HelveticaBold)
-  const preto = rgb(0.1, 0.1, 0.1)
-
-  function texto(valor, xMm, yMm, size = 9, centro = false, larguraColunaMm = null) {
-    if (valor === null || valor === undefined || valor === '') return
-    const yTopoPt = alturaPagina - yMm * MM
-    const larguraTextoPt = fonteNegrito.widthOfTextAtSize(String(valor), size)
-    let xPt = xMm * MM
-    if (centro) {
-      xPt -= larguraTextoPt / 2
-      if (larguraColunaMm) {
-        const minXPt = (xMm - larguraColunaMm / 2) * MM
-        const maxXPt = (xMm + larguraColunaMm / 2) * MM - larguraTextoPt
-        xPt = Math.max(minXPt, Math.min(xPt, maxXPt))
-      }
-    }
-    page.drawText(String(valor), { x: xPt, y: yTopoPt - size, size, font: fonteNegrito, color: preto })
-  }
-  const marcarX = (xMm, yMm) => texto('X', xMm, yMm, 9, true)
-
-  const valores = valoresRelatorioServico(relatorio)
-  REL_P1_CAMPOS.forEach(c => texto(valores[c.campo], c.x, c.y, 9, false, c.larguraMm))
-
-  KIT_ITENS_ORDEM.forEach((chave, i) => {
-    const y = REL_P1_KIT_Y0 + i * REL_P1_KIT_PASSO
-    texto(relatorio[`${chave}Qtd`], REL_P1_KIT_QTD_X, y, 9, true, REL_P1_KIT_QTD_LARGURA)
-    texto(relatorio[`${chave}Substituido`] ? 'S' : '', REL_P1_KIT_SUBSTITUIDO_X, y, 9, true, REL_P1_KIT_SUBSTITUIDO_LARGURA)
-    texto(relatorio[`${chave}Validade`], REL_P1_KIT_VALIDADE_X, y, 9, true, REL_P1_KIT_VALIDADE_LARGURA)
-  })
-
-  REL_P1_COMPONENTES_COLUNAS.forEach(coluna => {
-    coluna.chaves.forEach((chave, i) => {
-      if (!relatorio[chave]) return
-      marcarX(coluna.x, REL_P1_COMPONENTES_Y0 + i * REL_P1_COMPONENTES_PASSO)
-    })
-  })
-
-  TESTES_FLUTUADOR_ORDEM.forEach((chave, i) => {
-    const realizado = relatorio[`${chave}Realizado`]
-    if (realizado === null || realizado === undefined) return
-    const y = REL_P1_TESTES_Y0 + i * REL_P1_TESTES_PASSO
-    marcarX(realizado ? REL_P1_TESTES_SIM_X : REL_P1_TESTES_NAO_X, y)
-  })
-  texto(relatorio.temperatura, REL_P1_TEMP_POS.x, REL_P1_TEMP_POS.y, 9, true)
-
   const cilindros = relatorio.cilindros
-  texto(juntarCilindros(cilindros, 'numero'), REL_P1_CILINDRO_COL_ESQ_X, REL_P1_CILINDRO_LINHAS_Y[0])
-  texto(juntarCilindros(cilindros, 'valvulaNumero'), REL_P1_CILINDRO_COL_DIR_X, REL_P1_CILINDRO_LINHAS_Y[0])
-  texto(juntarCilindros(cilindros, 'teste'), REL_P1_CILINDRO_COL_ESQ_X, REL_P1_CILINDRO_LINHAS_Y[1])
-  texto(juntarCilindros(cilindros, 'carga', formatarKg), REL_P1_CILINDRO_COL_DIR_X, REL_P1_CILINDRO_LINHAS_Y[1])
-  texto(juntarCilindros(cilindros, 'cargaCO2', formatarKg), REL_P1_CILINDRO_COL_ESQ_X, REL_P1_CILINDRO_LINHAS_Y[2])
-  texto(juntarCilindros(cilindros, 'cargaN2', formatarKg), REL_P1_CILINDRO_COL_DIR_X, REL_P1_CILINDRO_LINHAS_Y[2])
-  texto(juntarCilindros(cilindros, 'fabricante'), REL_P1_CILINDRO_COL_ESQ_X, REL_P1_CILINDRO_LINHAS_Y[3])
-  texto(juntarCilindros(cilindros, 'anoFabricacao'), REL_P1_CILINDRO_COL_DIR_X, REL_P1_CILINDRO_LINHAS_Y[3])
+  const testeImo = relatorio.testeImo
+  const executanteNome = relatorio.tecnicoNome || relatorio.criadoPor?.nome || ''
+  const dataFormatada = relatorio.data ? new Date(relatorio.data).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : ''
+  const capacidade = relatorio.equipCapacidade ? `${relatorio.equipCapacidade} PAX` : ''
 
-  texto(relatorio.casuloValvulaNumero, REL_P1_VALVULA_NUMERO_POS.x, REL_P1_VALVULA_NUMERO_POS.y)
-  texto(relatorio.casuloValvulaFabricante, REL_P1_VALVULA_FABRICANTE_POS.x, REL_P1_VALVULA_FABRICANTE_POS.y)
-  texto(relatorio.casuloValvulaValidade, REL_P1_VALVULA_VALIDADE_POS.x, REL_P1_VALVULA_VALIDADE_POS.y)
+  const logoPath = path.resolve('assets/logo.png')
+  const logoBase64 = fs.existsSync(logoPath)
+    ? `data:image/png;base64,${fs.readFileSync(logoPath).toString('base64')}`
+    : ''
 
-  if (relatorio.observacoes) {
-    quebrarLinhasRelatorio(relatorio.observacoes, fonteNegrito, 8, REL_P1_OBS_POS.larguraMm).forEach((linha, i) => {
-      texto(linha, REL_P1_OBS_POS.x, REL_P1_OBS_POS.y + i * 4, 8)
-    })
-  }
+  const estilos = `
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: Arial, sans-serif; font-size: 9.5px; padding: 16px; }
+    .header { margin-bottom: 10px; }
+    .header img { width: 100%; height: auto; }
+    h1 { text-align: center; font-size: 16px; margin: 8px 0 4px; }
+    h2 { text-align: center; font-size: 13px; margin: 6px 0; }
+    .subtitulo { text-align: center; font-size: 10px; margin-bottom: 10px; }
+    .subtitulo b { margin-right: 18px; }
+    .caixa { border: 1px solid #000; padding: 6px 8px; margin-bottom: 8px; }
+    .titulo-secao { text-align: center; font-weight: bold; font-size: 10.5px; margin-bottom: 4px; }
+    .titulo-secao small { display: block; font-weight: normal; font-size: 9px; }
+    .linha { margin-bottom: 3px; }
+    .linha span { color: #444; margin-right: 4px; }
+    .linha b { margin-right: 16px; }
+    table.tabela-kit, table.tabela-testes, table.tabela-imo { width: 100%; border-collapse: collapse; margin-bottom: 8px; }
+    table.tabela-kit th, table.tabela-kit td,
+    table.tabela-imo th, table.tabela-imo td { border: 1px solid #000; padding: 3px 5px; text-align: center; font-size: 9px; }
+    table.tabela-kit td:nth-child(2) { text-align: left; }
+    table.tabela-kit th { background: #f0f0f0; }
+    .componentes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px 10px; }
+    .item-check { font-size: 9px; padding: 1px 0; }
+    table.tabela-testes td { padding: 2px 4px; font-size: 9px; white-space: nowrap; }
+    table.tabela-testes td:first-child { width: 55%; }
+    .flex-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .rodape-form { display: flex; justify-content: space-between; align-items: center; }
+    .pagina2 { page-break-before: always; padding-top: 16px; }
+    .teste-titulo { font-weight: bold; font-size: 10.5px; margin-bottom: 4px; display: flex; justify-content: space-between; }
+    table.tabela-imo th { background: #f0f0f0; font-size: 8.5px; }
+    table.tabela-imo td { font-size: 8.5px; }
+  `
 
-  if (relatorio.revisaoAnualOk !== null && relatorio.revisaoAnualOk !== undefined) {
-    marcarX(relatorio.revisaoAnualOk ? REL_P1_REVISAO_SIM_POS.x : REL_P1_REVISAO_NAO_POS.x, relatorio.revisaoAnualOk ? REL_P1_REVISAO_SIM_POS.y : REL_P1_REVISAO_NAO_POS.y)
-  }
+  const linhaIdentificacao = `
+    <div class="caixa">
+      <div class="linha"><span>NAVIO</span><b>${esc(e?.nome)}</b><span>PORTO REG.</span><b>${esc(e?.portoRegistro)}</b></div>
+      <div class="linha"><span>ARMADOR</span><b>${esc(a?.nome)}</b></div>
+      <div class="linha"><span>TIPO</span><b>${esc(relatorio.equipTipo)}</b><span>Nº DE SÉRIE</span><b>${esc(relatorio.equipNumeroSerie)}</b><span>ANO DE FABRICAÇÃO</span><b>${esc(relatorio.equipAnoFabricacao)}</b></div>
+      <div class="linha"><span>BALSA MARCA</span><b>${esc(relatorio.equipFabricante)}</b><span>CAPACIDADE</span><b>${esc(capacidade)}</b></div>
+      <div class="linha"><span>Nº DE APROVAÇÃO</span><b>${esc(relatorio.certRevisaoNumero)}</b></div>
+    </div>
+  `
 
-  return page
-}
+  const linhaKit = `
+    <table class="tabela-kit">
+      <thead><tr><th style="width:12%;">QUANTIDADE<br>QUANTITY</th><th>EQUIPAMENTO / EQUIPMENT</th><th style="width:15%;">SUBSTITUÍDO<br>REPLACED</th><th style="width:15%;">VALIDADE<br>VALIDITY</th></tr></thead>
+      <tbody>
+        ${KIT_ITENS_ORDEM.map(chave => `
+          <tr>
+            <td>${relatorio[`${chave}Qtd`] ?? ''}</td>
+            <td>${KIT_LABELS[chave]}</td>
+            <td>${relatorio[`${chave}Substituido`] ? 'S' : ''}</td>
+            <td>${esc(relatorio[`${chave}Validade`])}</td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `
 
-// Quebra de linha simples pra caixas de observação (mesma ideia de
-// quebrarLinhas em routes/certificados.js, duplicada aqui pra não criar
-// import cruzado entre os dois arquivos de rota).
-function quebrarLinhasRelatorio(texto, fonte, size, larguraMm) {
-  const larguraMaxPt = larguraMm * MM
-  const palavras = String(texto).split(' ')
-  const linhas = []
-  let linhaAtual = ''
-  for (const palavra of palavras) {
-    const tentativa = linhaAtual ? `${linhaAtual} ${palavra}` : palavra
-    if (!linhaAtual || fonte.widthOfTextAtSize(tentativa, size) <= larguraMaxPt) {
-      linhaAtual = tentativa
-    } else {
-      linhas.push(linhaAtual)
-      linhaAtual = palavra
-    }
-  }
-  if (linhaAtual) linhas.push(linhaAtual)
-  return linhas
-}
+  const linhaComponentes = `
+    <div class="caixa componentes">
+      ${COMPONENTES_COLUNAS.map(coluna => `
+        <div>
+          ${coluna.chaves.map(chave => `<div class="item-check">${caixaMarcada(relatorio[chave])} ${COMPONENTES_LABELS[chave]}</div>`).join('')}
+        </div>
+      `).join('')}
+    </div>
+  `
 
-// Página 2 — Testes de acordo a Resolução IMO A.761(18) (model TesteImo).
-// TÉCNICO NATAL SAFETY / Controlado por se repetem depois de cada teste no
-// papel original — mesmo tecnicoNome/controladoPorNome impresso 4 vezes.
-async function desenharRelatorioServicoPagina2(pdfDoc, testeImo) {
-  const page = pdfDoc.addPage([595.28, 841.89])
-  const alturaPagina = page.getHeight()
+  const linhaTestesFlutuadores = `
+    <div class="caixa">
+      <div class="titulo-secao">TESTE DOS FLUTUADORES / BUOYANT TEST</div>
+      <table class="tabela-testes">
+        ${TESTES_FLUTUADOR_ORDEM.map(chave => `
+          <tr><td>${TESTES_LABELS[chave]}</td><td>${linhaSimNao(relatorio[`${chave}Realizado`])}</td></tr>
+        `).join('')}
+      </table>
+      <div class="linha"><span>TEMP.</span><b>${esc(relatorio.temperatura)} °C</b></div>
+    </div>
+  `
 
-  const fundoBytes = fs.readFileSync(path.resolve('assets/relatorio-servico-pagina2-fundo.jpeg'))
-  const fundoImg = await pdfDoc.embedJpg(fundoBytes)
-  page.drawImage(fundoImg, { x: 0, y: 0, width: REL_SERVICO_LARGURA_MM * MM, height: REL_SERVICO_ALTURA_MM * MM })
+  const linhaCilindro = `
+    <div class="caixa">
+      <div class="linha"><span>CILINDRO/CYLINDER</span><b>${esc(juntarCilindros(cilindros, 'numero'))}</b><span>VALV. Nº</span><b>${esc(juntarCilindros(cilindros, 'valvulaNumero'))}</b></div>
+      <div class="linha"><span>TESTE CILINDRO/CYL. TEST</span><b>${esc(juntarCilindros(cilindros, 'teste'))}</b><span>CARGA/CHARGE</span><b>${esc(juntarCilindros(cilindros, 'carga', formatarKg))} KG.</b></div>
+      <div class="linha"><span>CARGA DE CO2/CO2 CHARGE</span><b>${esc(juntarCilindros(cilindros, 'cargaCO2', formatarKg))} KG.</b><span>KG. CARGA N2/N2 CHARGE</span><b>${esc(juntarCilindros(cilindros, 'cargaN2', formatarKg))} KG.</b></div>
+      <div class="linha"><span>FABRICANTE/MANUFACTURER</span><b>${esc(juntarCilindros(cilindros, 'fabricante'))}</b><span>ANO FABRICAÇÃO/MANUF. DATE</span><b>${esc(juntarCilindros(cilindros, 'anoFabricacao'))}</b></div>
+    </div>
+  `
 
-  const fonteNegrito = await pdfDoc.embedFont(StandardFonts.HelveticaBold)
-  const preto = rgb(0.1, 0.1, 0.1)
+  const linhaValvula = `
+    <div class="caixa">
+      <div class="linha"><span>Val. de Liberação / Release Valve Nº</span><b>${esc(relatorio.casuloValvulaNumero)}</b><span>Fabricante/Maker</span><b>${esc(relatorio.casuloValvulaFabricante)}</b></div>
+      <div class="linha"><span>Validade / Exp. Date</span><b>${esc(relatorio.casuloValvulaValidade)}</b></div>
+    </div>
+  `
 
-  function texto(valor, xMm, yMm, size = 8, centro = false) {
-    if (valor === null || valor === undefined || valor === '') return
-    const yTopoPt = alturaPagina - yMm * MM
-    let xPt = xMm * MM
-    if (centro) xPt -= fonteNegrito.widthOfTextAtSize(String(valor), size) / 2
-    page.drawText(String(valor), { x: xPt, y: yTopoPt - size, size, font: fonteNegrito, color: preto })
-  }
-  const marcarX = (xMm, yMm) => texto('X', xMm, yMm, 8, true)
-  const simNao = (valor, xSim, xNao, y) => {
-    if (valor === null || valor === undefined) return
-    marcarX(valor ? xSim : xNao, y)
-  }
+  const linhaObsRevisao = `
+    <div class="caixa flex-2col">
+      <div>OBS:<br>${esc(relatorio.observacoes)}</div>
+      <div>
+        <div>REVISÃO ANUAL: ${caixaMarcada(relatorio.revisaoAnualOk === true)} SIM &nbsp; ${caixaMarcada(relatorio.revisaoAnualOk === false)} NÃO</div>
+        <div style="margin-top:14px;">ASSINATURA: ____________________________</div>
+      </div>
+    </div>
+  `
 
-  // TÉCNICO/CONTROLADO se repete 4x (WP, GI, NAP, FS) nas mesmas colunas
-  const TECNICO_X = 50
-  const CONTROLADO_X = 150
-  const linhasTecnico = [78, 113, 177, 206]
-  linhasTecnico.forEach(y => {
-    texto(testeImo.tecnicoNome, TECNICO_X, y)
-    texto(testeImo.controladoPorNome, CONTROLADO_X, y)
-  })
+  const linhasTecnico = testeImo ? `
+    <div class="linha"><span>TÉCNICO NATAL SAFETY:</span><b>${esc(testeImo.tecnicoNome)}</b><span>Controlado por / Controlled by:</span><b>${esc(testeImo.controladoPorNome)}</b></div>
+  ` : ''
 
-  // WP test
-  simNao(testeImo.wpRealizado, 15, 68, 50)
-  const wpX = { inicioTemp: 100, inicioPressao: 133, terminoTemp: 161, terminoPressao: 189, diff: 201, diffPct: 208 }
-  texto(testeImo.wpSupInicioTemp, wpX.inicioTemp, 64, 7)
-  texto(testeImo.wpSupInicioPressao, wpX.inicioPressao, 64, 7)
-  texto(testeImo.wpSupTerminoTemp, wpX.terminoTemp, 64, 7)
-  texto(testeImo.wpSupTerminoPressao, wpX.terminoPressao, 64, 7)
-  texto(testeImo.wpSupDiff, wpX.diff, 64, 7)
-  texto(testeImo.wpSupDiffPct, wpX.diffPct, 64, 7)
-  texto(testeImo.wpInfInicioTemp, wpX.inicioTemp, 72, 7)
-  texto(testeImo.wpInfInicioPressao, wpX.inicioPressao, 72, 7)
-  texto(testeImo.wpInfTerminoTemp, wpX.terminoTemp, 72, 7)
-  texto(testeImo.wpInfTerminoPressao, wpX.terminoPressao, 72, 7)
-  texto(testeImo.wpInfDiff, wpX.diff, 72, 7)
-  texto(testeImo.wpInfDiffPct, wpX.diffPct, 72, 7)
+  const paginaTestesImo = testeImo ? `
+    <div class="pagina2">
+      <div class="header">${logoBase64 ? `<img src="${logoBase64}" />` : ''}</div>
+      <h2>Testes de acordo a Resolução IMO A.761 (18) / IMO Resolution A.761(18)</h2>
 
-  // GI test
-  simNao(testeImo.giRealizado, 178, 205, 83)
-  texto(testeImo.giPressaoMaxSuperior, 145, 87, 8)
-  texto(testeImo.giPressaoMaxInferior, 208, 87, 8)
-  if (testeImo.giTuboSuperiorOk !== null && testeImo.giTuboSuperiorOk !== undefined && testeImo.giTuboSuperiorOk) marcarX(170, 101)
-  if (testeImo.giTuboInferiorOk !== null && testeImo.giTuboInferiorOk !== undefined && testeImo.giTuboInferiorOk) marcarX(170, 109)
+      <div class="caixa">
+        <div class="teste-titulo"><span>WP test - Teste de pressão de trabalho / Working pressure test</span><span>${linhaSimNao(testeImo.wpRealizado)}</span></div>
+        <table class="tabela-imo">
+          <tr><th></th><th>Início/Start Temp</th><th>Início/Start mmHg</th><th>Término/Stop Temp</th><th>Término/Stop mmHg</th><th>Diff.</th><th>Diff.%</th></tr>
+          <tr><td>Tubo superior / Upper tube</td><td>${esc(testeImo.wpSupInicioTemp)}</td><td>${esc(testeImo.wpSupInicioPressao)}</td><td>${esc(testeImo.wpSupTerminoTemp)}</td><td>${esc(testeImo.wpSupTerminoPressao)}</td><td>${esc(testeImo.wpSupDiff)}</td><td>${esc(testeImo.wpSupDiffPct)}</td></tr>
+          <tr><td>Tubo inferior / Lower tube</td><td>${esc(testeImo.wpInfInicioTemp)}</td><td>${esc(testeImo.wpInfInicioPressao)}</td><td>${esc(testeImo.wpInfTerminoTemp)}</td><td>${esc(testeImo.wpInfTerminoPressao)}</td><td>${esc(testeImo.wpInfDiff)}</td><td>${esc(testeImo.wpInfDiffPct)}</td></tr>
+        </table>
+        ${linhasTecnico}
+      </div>
 
-  // NAP test
-  simNao(testeImo.napRealizado, 178, 205, 124)
-  const napX = { inicio: 100, termino: 163, diff: 195, diffPct: 207 }
-  texto(testeImo.napSupInicio, napX.inicio, 142, 7)
-  texto(testeImo.napSupTermino, napX.termino, 142, 7)
-  texto(testeImo.napSupDiff, napX.diff, 142, 7)
-  texto(testeImo.napSupDiffPct, napX.diffPct, 142, 7)
-  texto(testeImo.napInfInicio, napX.inicio, 150, 7)
-  texto(testeImo.napInfTermino, napX.termino, 150, 7)
-  texto(testeImo.napInfDiff, napX.diff, 150, 7)
-  texto(testeImo.napInfDiffPct, napX.diffPct, 150, 7)
-  simNao(testeImo.napRachaduras, 129, 183, 159)
-  simNao(testeImo.napAberturaCostura, 129, 183, 167)
+      <div class="caixa">
+        <div class="teste-titulo"><span>GI test - Teste de enchimento com gás / Gas inflation test</span><span>${linhaSimNao(testeImo.giRealizado)}</span></div>
+        <div class="linha"><span>Pressão Máxima — Tubo superior/Upper tube:</span><b>${esc(testeImo.giPressaoMaxSuperior)} mmHg</b><span>Tubo inferior/Lower tube:</span><b>${esc(testeImo.giPressaoMaxInferior)} mmHg</b></div>
+        <div class="linha"><span>Tubo superior OK:</span><b>${caixaMarcada(testeImo.giTuboSuperiorOk)}</b><span>Tubo inferior OK:</span><b>${caixaMarcada(testeImo.giTuboInferiorOk)}</b></div>
+        ${linhasTecnico}
+      </div>
 
-  // FS test
-  simNao(testeImo.fsRealizado, 178, 205, 188)
-  simNao(testeImo.fsResultadoOk, 95, 115, 193)
-  if (testeImo.fsObservacoes) {
-    quebrarLinhasRelatorio(testeImo.fsObservacoes, fonteNegrito, 7, 60).slice(0, 3).forEach((linha, i) => {
-      texto(linha, 140, 192 + i * 3.5, 7)
-    })
-  }
+      <div class="caixa">
+        <div class="teste-titulo"><span>NAP test - Pressão adicional necessária / Necessary additional pressure test</span><span>${linhaSimNao(testeImo.napRealizado)}</span></div>
+        <table class="tabela-imo">
+          <tr><th></th><th>Início/Start mmHg</th><th>Término/Stop mmHg</th><th>Diff.</th><th>Diff.%</th></tr>
+          <tr><td>Tubos superior / Upper tube</td><td>${esc(testeImo.napSupInicio)}</td><td>${esc(testeImo.napSupTermino)}</td><td>${esc(testeImo.napSupDiff)}</td><td>${esc(testeImo.napSupDiffPct)}</td></tr>
+          <tr><td>Tubos inferior / Lower tube</td><td>${esc(testeImo.napInfInicio)}</td><td>${esc(testeImo.napInfTermino)}</td><td>${esc(testeImo.napInfDiff)}</td><td>${esc(testeImo.napInfDiffPct)}</td></tr>
+        </table>
+        <div class="linha"><span>Rachaduras/Cracks:</span><b>${linhaSimNao(testeImo.napRachaduras)}</b></div>
+        <div class="linha"><span>Abertura da costura/Seam slippage:</span><b>${linhaSimNao(testeImo.napAberturaCostura)}</b></div>
+        ${linhasTecnico}
+      </div>
 
-  // OL test
-  simNao(testeImo.olRealizado, 178, 205, 221)
-  texto(testeImo.olPessoasNr, 95, 238, 8)
-  texto(testeImo.olPesoPessoas, 178, 238, 8)
-  texto(testeImo.olPesoBalsa, 110, 238, 8)
-  texto(testeImo.olPesoTotal, 163, 238, 8)
-  if (testeImo.olObservacoes) {
-    quebrarLinhasRelatorio(testeImo.olObservacoes, fonteNegrito, 7, 140).slice(0, 2).forEach((linha, i) => {
-      texto(linha, 45, 249 + i * 3.5, 7)
-    })
-  }
+      <div class="caixa">
+        <div class="teste-titulo"><span>FS test - Teste de piso e costura / Floor seam test</span><span>${linhaSimNao(testeImo.fsRealizado)}</span></div>
+        <div class="linha"><span>Resultado satisfatório:</span><b>${linhaSimNao(testeImo.fsResultadoOk)}</b></div>
+        <div class="linha"><span>Observações/Remarks:</span><b>${esc(testeImo.fsObservacoes)}</b></div>
+        ${linhasTecnico}
+      </div>
 
-  return page
+      <div class="caixa">
+        <div class="teste-titulo"><span>OL test - Teste de sobrecarga / Load test</span><span>${linhaSimNao(testeImo.olRealizado)}</span></div>
+        <div class="linha">
+          <span>Pessoas nº:</span><b>${esc(testeImo.olPessoasNr)}</b>
+          <span>Peso pessoas (+10%):</span><b>${esc(testeImo.olPesoPessoas)}</b>
+          <span>+ Peso Balsa:</span><b>${esc(testeImo.olPesoBalsa)}</b>
+          <span>Peso total:</span><b>${esc(testeImo.olPesoTotal)}</b>
+        </div>
+        <div class="linha"><span>Observações/Remarks:</span><b>${esc(testeImo.olObservacoes)}</b></div>
+      </div>
+    </div>
+  ` : ''
+
+  return `
+    <!DOCTYPE html>
+    <html lang="pt-br">
+    <head>
+      <meta charset="UTF-8">
+      <style>${estilos}</style>
+    </head>
+    <body>
+      <div class="header">${logoBase64 ? `<img src="${logoBase64}" />` : ''}</div>
+      <h1>RELATÓRIO DE SERVIÇOS DE BALSAS</h1>
+      <div class="subtitulo">
+        <b>Executante: ${esc(executanteNome)}</b>
+        <b>Data: ${esc(dataFormatada)}</b>
+        <b>Nº: ${relatorio.numero}/${relatorio.ano}</b>
+      </div>
+
+      ${linhaIdentificacao}
+
+      <div class="caixa titulo-secao">
+        LISTA DE VERIFICAÇÃO E REPAROS DE BALSAS
+        <small>LIFERAFT CHECKING LIST AND REPAIRS</small>
+      </div>
+
+      ${linhaKit}
+      ${linhaComponentes}
+      ${linhaTestesFlutuadores}
+      ${linhaCilindro}
+      ${linhaValvula}
+      ${linhaObsRevisao}
+
+      ${paginaTestesImo}
+    </body>
+    </html>
+  `
 }
 
 const INCLUDE_PDF_RELATORIO = {
@@ -750,13 +752,15 @@ router.get('/:id/pdf', autenticar, async (req, res) => {
   })
   if (!relatorio) return res.status(404).json({ erro: 'Relatório não encontrado' })
 
-  const pdfDoc = await PDFDocument.create()
-  await desenharRelatorioServicoPagina1(pdfDoc, relatorio)
-  if (relatorio.testeImo) {
-    await desenharRelatorioServicoPagina2(pdfDoc, relatorio.testeImo)
-  }
+  const html = gerarHtmlRelatorioServico(relatorio)
 
-  const pdfBytes = await pdfDoc.save()
+  const browser = await puppeteer.launch({ args: ['--no-sandbox'] })
+  const page = await browser.newPage()
+  await page.setJavaScriptEnabled(false)
+  await page.setContent(html, { waitUntil: 'networkidle0' })
+  const pdfBytes = await page.pdf({ format: 'A4', printBackground: true })
+  await browser.close()
+
   const nomeArquivo = `Relatorio ${relatorio.numero}.${relatorio.ano}.pdf`
 
   res.setHeader('Content-Type', 'application/pdf')
