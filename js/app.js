@@ -2,6 +2,8 @@ import { inicializarOCs, renderizarDashboardOCs, inicializarContasAPagar } from 
 import { inicializarEstoque, renderizarDashboardEstoque } from './modules/estoque.js'
 import { inicializarClientes, inicializarContratos, renderizarDashboardContratos } from './modules/contratos.js'
 import { inicializarVendas } from './modules/vendas.js'
+import { inicializarOrcamentos } from './modules/orcamentos.js'
+import { inicializarVendasOrcamento } from './modules/vendas-orcamento.js'
 import { inicializarContasReceber, renderizarDashboardInicio } from './modules/pagamentos.js'
 import { inicializarFornecedores } from './modules/fornecedores.js'
 import { inicializarSolicitacoes } from './modules/solicitacoes.js'
@@ -112,6 +114,14 @@ window.abrirPagina = function (event, id) {
 
     if (id === 'vendas') {
         inicializarVendas()
+    }
+
+    if (id === 'orcamentos') {
+        inicializarOrcamentos()
+    }
+
+    if (id === 'vendasOrcamento') {
+        inicializarVendasOrcamento()
     }
 
     if (id === 'contasReceber') {

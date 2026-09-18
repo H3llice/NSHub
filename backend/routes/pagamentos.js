@@ -25,6 +25,7 @@ router.get('/', autenticar, async (req, res) => {
             { referencia: { contains: busca, mode: 'insensitive' } },
             { contrato: { cliente: { nome: { contains: busca, mode: 'insensitive' } } } },
             { venda: { cliente: { nome: { contains: busca, mode: 'insensitive' } } } },
+            { vendaOrcamento: { cliente: { nome: { contains: busca, mode: 'insensitive' } } } },
         ]
     }
 
@@ -33,7 +34,8 @@ router.get('/', autenticar, async (req, res) => {
             where,
             include: {
                 contrato: { include: { cliente: true, balsas: { include: { balsa: true } } } },
-                venda: { include: { cliente: true, balsas: { include: { balsa: true } } } }
+                venda: { include: { cliente: true, balsas: { include: { balsa: true } } } },
+                vendaOrcamento: { include: { cliente: true } }
             },
             orderBy: { dataVencimento: 'asc' },
             take: porPagina,
@@ -71,11 +73,11 @@ router.get('/dashboard', autenticar, exigirPerfil('admin', 'financeiro'), async 
     const [pendentes, atrasados, pagos30dias] = await Promise.all([
         prisma.pagamento.findMany({
             where: { status: 'pendente' },
-            include: { contrato: { include: { cliente: true } }, venda: { include: { cliente: true } } }
+            include: { contrato: { include: { cliente: true } }, venda: { include: { cliente: true } }, vendaOrcamento: { include: { cliente: true } } }
         }),
         prisma.pagamento.findMany({
             where: { status: 'atrasado' },
-            include: { contrato: { include: { cliente: true } }, venda: { include: { cliente: true } } }
+            include: { contrato: { include: { cliente: true } }, venda: { include: { cliente: true } }, vendaOrcamento: { include: { cliente: true } } }
         }),
         prisma.pagamento.findMany({
             where: {

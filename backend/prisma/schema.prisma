@@ -79,6 +79,12 @@ model Usuario {
   vendasComoVendedor Venda[] @relation("VendaVendedor")
   vendasCriadas      Venda[] @relation("VendaCriadoPor")
 
+  orcamentosComoVendedor Orcamento[] @relation("OrcamentoVendedor")
+  orcamentosCriados      Orcamento[] @relation("OrcamentoCriadoPor")
+
+  vendasOrcamentoComoVendedor VendaOrcamento[] @relation("VendaOrcamentoVendedor")
+  vendasOrcamentoCriadas      VendaOrcamento[] @relation("VendaOrcamentoCriadoPor")
+
   pedidosAlmoxarifado PedidoAlmoxarifado[]
 
   relatorios    Relatorio[]
@@ -280,10 +286,12 @@ model Cliente {
   cidade   String?
   criadoEm DateTime @default(now())
 
-  contratos     Contrato[]
-  vendas        Venda[]
-  embarcacoes   Embarcacao[]
-  ordensServico OrdemServico[]
+  contratos       Contrato[]
+  vendas          Venda[]
+  embarcacoes     Embarcacao[]
+  ordensServico   OrdemServico[]
+  orcamentos      Orcamento[]
+  vendasOrcamento VendaOrcamento[]
 }
 
 model Embarcacao {
@@ -387,21 +395,23 @@ model VendaBalsa {
 }
 
 model Pagamento {
-  id             Int       @id @default(autoincrement())
-  contrato       Contrato? @relation(fields: [contratoId], references: [id])
-  contratoId     Int?
-  venda          Venda?    @relation(fields: [vendaId], references: [id])
-  vendaId        Int?
-  clienteNome    String? // usado quando não há contrato/venda vinculado (conta avulsa)
-  descricao      String? // usado quando não há contrato/venda vinculado (conta avulsa)
-  referencia     String?
-  valor          Float
-  dataVencimento DateTime
-  dataPagamento  DateTime?
-  status         String    @default("pendente")
+  id               Int             @id @default(autoincrement())
+  contrato         Contrato?       @relation(fields: [contratoId], references: [id])
+  contratoId       Int?
+  venda            Venda?          @relation(fields: [vendaId], references: [id])
+  vendaId          Int?
+  vendaOrcamento   VendaOrcamento? @relation(fields: [vendaOrcamentoId], references: [id])
+  vendaOrcamentoId Int?
+  clienteNome      String? // usado quando não há contrato/venda vinculado (conta avulsa)
+  descricao        String? // usado quando não há contrato/venda vinculado (conta avulsa)
+  referencia       String?
+  valor            Float
+  dataVencimento   DateTime
+  dataPagamento    DateTime?
+  status           String          @default("pendente")
   // status: pendente | pago | atrasado
-  alertaEnviado  Boolean   @default(false)
-  criadoEm       DateTime  @default(now())
+  alertaEnviado    Boolean         @default(false)
+  criadoEm         DateTime        @default(now())
 }
 
 model ContaPagar {
@@ -430,7 +440,8 @@ model Produto {
   criadoEm          DateTime @default(now())
   atualizadoEm      DateTime @updatedAt
 
-  itensPedido ItemPedidoAlmoxarifado[]
+  itensPedido    ItemPedidoAlmoxarifado[]
+  itensOrcamento ItemOrcamento[]
 }
 
 // Catálogo de serviços precificáveis (ex.: pintura de casulo, inspeção em balsa)
@@ -443,6 +454,125 @@ model Servico {
   valor        Float?
   criadoEm     DateTime @default(now())
   atualizadoEm DateTime @updatedAt
+
+  itensOrcamento ItemOrcamento[]
+}
+
+// ─── Orçamento (proposta comercial genérica — produtos e/ou serviços do
+// catálogo, ex.: inspeção de extintores, transporte) ───────────────────────────
+// Diferente de Venda (que é só venda de balsa, com VendaBalsa) — este cobre
+// qualquer combinação de Produto/Servico. email/telefone são cópias próprias
+// do orçamento (autopreenchidas ao selecionar o Cliente, mas editáveis por
+// orçamento), mesmo padrão usado em Certificado/Venda.
+// descontoModo define se o desconto é único (campos abaixo, sobre o total)
+// ou por item (cada ItemOrcamento tem os próprios descontoTipo/descontoValor)
+// — são mutuamente exclusivos, nunca os dois ao mesmo tempo.
+model Orcamento {
+  id     Int @id @default(autoincrement())
+  numero Int
+  ano    Int
+
+  cliente   Cliente @relation(fields: [clienteId], references: [id])
+  clienteId Int
+  email     String?
+  telefone  String?
+
+  vendedor   Usuario? @relation("OrcamentoVendedor", fields: [vendedorId], references: [id])
+  vendedorId Int?
+
+  dataOrcamento   DateTime  @default(now())
+  validade        DateTime?
+  previsaoEntrega DateTime?
+
+  descricao   String?
+  observacoes String?
+
+  descontoModo  String  @default("conjunto")
+  // descontoModo: conjunto | item
+  descontoTipo  String?
+  descontoValor Float?
+  // descontoTipo: percentual | fixo — só usado quando descontoModo = conjunto
+
+  status      String @default("em_andamento")
+  // status: em_andamento | aprovado | recusado | expirado | convertido
+  statusEnvio String @default("nao_enviado")
+  // statusEnvio: nao_enviado | enviado (marcado manualmente, sem envio de e-mail de verdade por enquanto)
+
+  criadoPor   Usuario? @relation("OrcamentoCriadoPor", fields: [criadoPorId], references: [id])
+  criadoPorId Int?
+
+  criadoEm     DateTime @default(now())
+  atualizadoEm DateTime @updatedAt
+
+  itens          ItemOrcamento[]
+  VendaOrcamento VendaOrcamento?
+}
+
+// Cada item guarda cópia própria de nome/valorUnitario (sobrevive a
+// alteração/exclusão do Produto/Servico de origem no catálogo, igual ao
+// padrão de Certificado/Relatorio) — produtoId/servicoId só ficam pra
+// rastrear a origem, nunca são a fonte de verdade depois de criado o item.
+model ItemOrcamento {
+  id          Int       @id @default(autoincrement())
+  orcamento   Orcamento @relation(fields: [orcamentoId], references: [id])
+  orcamentoId Int
+
+  tipo      String
+  // tipo: produto | servico
+  produto   Produto? @relation(fields: [produtoId], references: [id])
+  produtoId Int?
+  servico   Servico? @relation(fields: [servicoId], references: [id])
+  servicoId Int?
+
+  nome          String
+  detalhes      String?
+  quantidade    Float   @default(1)
+  valorUnitario Float
+
+  descontoTipo  String?
+  descontoValor Float?
+  // descontoTipo/descontoValor só usados quando Orcamento.descontoModo = item
+}
+
+// ─── Venda (gerada ao aprovar um Orçamento — "Criar Venda") ───────────────────
+// Não confundir com Venda (venda de balsa, com VendaBalsa) — essa aqui nasce
+// sempre de um Orcamento aprovado, 1:1 (orcamentoId é @unique: um orçamento só
+// vira venda uma vez — ao criar, o Orcamento.status vira "convertido").
+// valorTotal é o total líquido do Orçamento no momento da conversão (cópia —
+// se o Orçamento for editado depois, a Venda não muda). Cada parcela gera uma
+// linha própria em Pagamento (contas a receber), com o valor correspondente.
+model VendaOrcamento {
+  id Int @id @default(autoincrement())
+
+  numero Int
+  ano    Int
+
+  orcamento   Orcamento @relation(fields: [orcamentoId], references: [id])
+  orcamentoId Int       @unique
+
+  cliente   Cliente @relation(fields: [clienteId], references: [id])
+  clienteId Int
+
+  vendedor   Usuario? @relation("VendaOrcamentoVendedor", fields: [vendedorId], references: [id])
+  vendedorId Int?
+
+  dataVenda      DateTime @default(now())
+  valorTotal     Float
+  formaPagamento String
+  // formaPagamento: avista | parcelado
+  numeroParcelas Int      @default(1)
+
+  observacoes String?
+  status      String  @default("ativo")
+  // status: ativo | cancelado
+
+  criadoPor   Usuario? @relation("VendaOrcamentoCriadoPor", fields: [criadoPorId], references: [id])
+  criadoPorId Int?
+
+  criadoEm     DateTime @default(now())
+  atualizadoEm DateTime @updatedAt
+
+  pagamentos Pagamento[]
 }
 
 model PedidoAlmoxarifado {
@@ -636,8 +766,8 @@ model Relatorio {
   // criou o relatório (criadoPor), mas é editável (pode ter sido outra pessoa
   // em campo). Diferente do TesteImo.tecnicoNome, que é só quem fez os
   // testes IMO especificamente.
-  tecnicoNome String?
-  status      String   @default("preenchendo")
+  tecnicoNome    String?
+  status         String   @default("preenchendo")
 
   criadoEm     DateTime @default(now())
   atualizadoEm DateTime @updatedAt
@@ -743,7 +873,7 @@ model TesteImo {
 // status: pendente | emitido | cancelado (cancelado fica no banco e não libera
 // o número; excluir de vez — sem status próprio — libera o número pro próximo)
 model Certificado {
-  id           Int        @id @default(autoincrement())
+  id           Int         @id @default(autoincrement())
   numero       Int
   ano          Int
   empresa      Empresa     @relation(fields: [empresaId], references: [id])

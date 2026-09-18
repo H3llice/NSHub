@@ -44,6 +44,10 @@
                     <button class="star-btn" onclick="toggleFavorito(event, 'orcamentos', 'Orçamentos')">☆</button>
                 </div>
                 <div class="menu-item">
+                    <a href="#" onclick="abrirPagina(event,'vendasOrcamento')" style="flex: 1;">Vendas</a>
+                    <button class="star-btn" onclick="toggleFavorito(event, 'vendasOrcamento', 'Vendas')">☆</button>
+                </div>
+                <div class="menu-item">
                     <a href="#" onclick="abrirPagina(event,'vendas')" style="flex: 1;">Vendas de Balsa</a>
                     <button class="star-btn" onclick="toggleFavorito(event, 'vendas', 'Vendas de Balsa')">☆</button>
                 </div>
@@ -182,10 +186,9 @@
             </ul>
         </div>
 
-        <div id="orcamentos" class="page">
-            <div class="tab">Orçamentos de produtos</div>
-            <button class="btn btn-success">Novo orçamento</button>
-        </div>
+        <div id="orcamentos" class="page"></div>
+
+        <div id="vendasOrcamento" class="page"></div>
 
         <div id="vendas" class="page"></div>
 

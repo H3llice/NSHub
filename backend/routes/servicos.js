@@ -5,7 +5,14 @@ import { autenticar, exigirPerfil } from '../middleware/auth.js'
 const router = Router()
 
 // ─── Listar serviços (paginado) ─────────────────────────────────────────────────
+// ?todas=1 devolve tudo sem paginar — mesmo uso do /almoxarifado/produtos?todas=1,
+// pro select de item do Orçamento, que precisa do catálogo inteiro pra buscar/escolher.
 router.get('/', autenticar, async (req, res) => {
+  if (req.query.todas) {
+    const servicos = await prisma.servico.findMany({ orderBy: { nome: 'asc' } })
+    return res.json(servicos)
+  }
+
   const { pagina = 1 } = req.query
   const porPagina = 50
   const paginaNum = parseInt(pagina)

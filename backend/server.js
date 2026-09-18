@@ -21,6 +21,8 @@ import certificadosRouter from './routes/certificados.js'
 import ordensServicoRouter from './routes/ordens-servico.js'
 import contratosRouter from './routes/contratos.js'
 import vendasRouter from './routes/vendas.js'
+import orcamentosRouter from './routes/orcamentos.js'
+import vendasOrcamentoRouter from './routes/vendas-orcamento.js'
 import pagamentosRouter from './routes/pagamentos.js'
 import contasPagarRouter from './routes/contas-pagar.js'
 import almoxarifadoRouter from './routes/almoxarifado.js'
@@ -88,6 +90,8 @@ app.use('/certificados', certificadosRouter)
 app.use('/ordens-servico', ordensServicoRouter)
 app.use('/contratos', contratosRouter)
 app.use('/vendas', vendasRouter)
+app.use('/orcamentos', orcamentosRouter)
+app.use('/vendas-orcamento', vendasOrcamentoRouter)
 app.use('/pagamentos', pagamentosRouter)
 app.use('/contas-pagar', contasPagarRouter)
 app.use('/almoxarifado', almoxarifadoRouter)

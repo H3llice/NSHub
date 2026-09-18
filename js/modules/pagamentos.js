@@ -197,11 +197,13 @@ function renderizarTabelaPagamentos(pagamentos) {
   tabela.innerHTML = pagamentos.map(p => {
     const c = p.contrato
     const v = p.venda
+    const vo = p.vendaOrcamento
     const venc = new Date(p.dataVencimento).toLocaleDateString('pt-BR')
-    const cliente = c?.cliente?.nome || v?.cliente?.nome || p.clienteNome || '-'
+    const cliente = c?.cliente?.nome || v?.cliente?.nome || vo?.cliente?.nome || p.clienteNome || '-'
     const contratoTxt = c
       ? `${c.numero}.${c.ano}`
-      : v ? `Venda ${v.numero}.${v.ano}` : '<span style="color:#999;">Avulsa</span>'
+      : v ? `Venda ${v.numero}.${v.ano}`
+      : vo ? `Venda ${vo.numero}.${vo.ano}` : '<span style="color:#999;">Avulsa</span>'
     const refTxt = p.referencia || p.descricao || '-'
 
     const acoes = p.status === 'pago'
