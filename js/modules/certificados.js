@@ -396,7 +396,10 @@ window.cancelarCertificado = async function (id) {
 
   if (res.ok) {
     alert('Certificado cancelado.')
-    window.abrirCertificado(id)
+    // Chamado tanto da lista (Serviços → Certificados, ver js/app.js) quanto
+    // de dentro do certificado aberto — atualiza o que estiver na tela.
+    if (document.getElementById('tabela-certificados')) window.atualizarTabelaCertificados()
+    else window.abrirCertificado(id)
   } else {
     const err = await res.json()
     alert('Erro ao cancelar certificado: ' + (err.erro || 'falha'))

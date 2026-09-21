@@ -501,6 +501,10 @@ async function atualizarTabelaCertificados(pagina = 1) {
                 <td style="white-space:nowrap;">
                     <button class="btn btn-sm btn-info" onclick="abrirCertificado(${cert.id})">Editar</button>
                     <a class="btn btn-sm btn-secondary" href="${urlPdfCertificado(cert.id)}" target="_blank">PDF</a>
+                    ${(perfilLogado === 'admin' || perfilLogado === 'gerente') ? `
+                        ${cert.status !== 'cancelado' ? `<button class="btn btn-sm btn-warning" onclick="cancelarCertificado(${cert.id})">Cancelar</button>` : ''}
+                        <button class="btn btn-sm btn-danger" onclick="excluirCertificado(${cert.id})">Excluir</button>
+                    ` : ''}
                 </td>
             </tr>
         `;

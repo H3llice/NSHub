@@ -230,6 +230,10 @@ window.carregarRelatorios = async function (pagina = 1) {
         <td style="white-space:nowrap;">
           <button class="btn btn-sm btn-info" onclick="editarRelatorio(${r.id})">${r.status === 'preenchendo' ? 'Editar' : 'Ver'}</button>
           <a class="btn btn-sm btn-secondary" href="${API}/relatorios/${r.id}/pdf?token=${encodeURIComponent(tokenAtual)}" target="_blank">PDF</a>
+          ${podeCancelarOuExcluirRelatorio && !r.certificado ? `
+            ${r.status !== 'cancelado' ? `<button class="btn btn-sm btn-warning" onclick="cancelarRelatorio(${r.id})">Cancelar</button>` : ''}
+            <button class="btn btn-sm btn-danger" onclick="excluirRelatorio(${r.id})">Excluir</button>
+          ` : ''}
         </td>
       </tr>
     `).join('')
@@ -920,7 +924,11 @@ window.cancelarRelatorio = async function (id) {
 
   if (res.ok) {
     alert('Relatório cancelado.')
-    editarRelatorio(id)
+    // Chamado tanto da lista (tabela-relatorios visível) quanto de dentro do
+    // relatório aberto — atualiza o que estiver na tela em vez de sempre
+    // pular pra dentro do relatório.
+    if (document.getElementById('tabela-relatorios')) carregarRelatorios(paginaAtualRelatorios)
+    else editarRelatorio(id)
   } else {
     const err = await res.json()
     alert('Erro ao cancelar relatório: ' + (err.erro || 'falha'))
