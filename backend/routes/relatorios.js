@@ -495,6 +495,24 @@ const TESTES_FLUTUADOR_LABELS = {
   ol: 'Teste de Sobrecarga / Load Test (Davit)',
 }
 
+// Mesma ordem de KIT_ITENS_ORDEM (ver acima) — tabela "Lista de Verificação e
+// Reparos de Balsas" (Quantidade/Equipamento/Substituído/Validade), que na
+// 1ª versão desta página tinha ficado de fora por engano (ela é uma tabela
+// nativa do .docx, não faz parte das imagens escaneadas image1/image2).
+const KIT_ITENS_LABELS = {
+  foguetes: 'Foguetes paraquedas / Parachute signals',
+  fachos: 'Fachos luminosos manuais / Hand flares signals',
+  fumigeno: 'Fumígeno laranja flutuante / Buoyant yellow smoke',
+  pilhas: 'Pilhas sobressalentes / Spare batteries',
+  racoesSolidas: 'Rações sólidas / Ration food',
+  racoesLiquidas: 'Rações líquidas / Drinking water',
+  medicamentos: 'Estojo de medicamentos / First aid kit',
+  pesca: 'Estojo de pesca / Fishing kit',
+  reparos: 'Estojo de reparos / Repairs kit',
+  enjoo: 'Comprimidos p/ enjôo / Tablet for nausea',
+  bateriaResgate: 'Bateria de Resgate / Rescue Battery',
+}
+
 // Gera a pág. 1 (identificação + checklist) do PDF do Relatório, usada só por
 // GET /relatorios/:id/pdf — o Certificado tem seu próprio modelo
 // (desenharPaginaRelatorio, acima), que não inclui identificação.
@@ -517,6 +535,24 @@ function gerarHtmlServicoBalsa(relatorio) {
     : ''
 
   const assinaturaTecnico = relatorio.assinaturas?.find(as => as.etapa === 'tecnico')
+
+  const kitHtml = KIT_ITENS_ORDEM.map(chave => {
+    let equipamento = KIT_ITENS_LABELS[chave]
+    if (chave === 'racoesSolidas' && relatorio.racoesSolidasPesoGramas !== null && relatorio.racoesSolidasPesoGramas !== undefined) {
+      equipamento += ` &nbsp; ${esc(relatorio.racoesSolidasPesoGramas)} grs.`
+    }
+    if (chave === 'racoesLiquidas' && relatorio.racoesLiquidasVolumeMl !== null && relatorio.racoesLiquidasVolumeMl !== undefined) {
+      equipamento += ` &nbsp; ${esc(relatorio.racoesLiquidasVolumeMl)} ml.`
+    }
+    return `
+      <tr>
+        <td class="rs-kit-qtd">${esc(relatorio[`${chave}Qtd`])}</td>
+        <td class="rs-kit-equip">${equipamento}</td>
+        <td class="rs-kit-check">${caixaMarcada(!!relatorio[`${chave}Substituido`])}</td>
+        <td class="rs-kit-val">${esc(relatorio[`${chave}Validade`])}</td>
+      </tr>
+    `
+  }).join('')
 
   const componentesHtml = COMPONENTES_COLUNAS.map(coluna => `
     <div class="rs-col">
@@ -544,9 +580,9 @@ function gerarHtmlServicoBalsa(relatorio) {
       <meta charset="UTF-8">
       <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: Arial, sans-serif; font-size: 10.5px; color: #000; padding: 18px; }
+        body { font-family: Arial, sans-serif; font-size: 10.5px; color: #000; padding: 14px; }
 
-        .rs-topo { display: flex; gap: 8px; margin-bottom: 8px; }
+        .rs-topo { display: flex; gap: 8px; margin-bottom: 6px; }
         .rs-logo { width: 150px; height: 104px; border: 2px solid #000; border-radius: 14px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
         .rs-logo img { max-width: 88%; max-height: 88%; }
         .rs-titulo-caixa { flex: 1; border: 2px solid #000; border-radius: 14px; padding: 10px 18px; display: flex; flex-direction: column; justify-content: center; gap: 10px; }
@@ -554,30 +590,38 @@ function gerarHtmlServicoBalsa(relatorio) {
         .rs-linha-topo { display: flex; gap: 20px; font-size: 12px; font-weight: bold; }
         .rs-linha-topo .val { border-bottom: 1px solid #000; padding: 0 4px; min-width: 40px; display: inline-block; font-weight: normal; }
 
-        .rs-caixa { border: 2px solid #000; border-radius: 14px; padding: 8px 16px; margin-bottom: 8px; }
-        .rs-linha-id { display: flex; gap: 20px; font-weight: bold; font-size: 11px; margin-bottom: 7px; }
+        .rs-caixa { border: 2px solid #000; border-radius: 14px; padding: 6px 16px; margin-bottom: 6px; }
+        .rs-linha-id { display: flex; gap: 20px; font-weight: bold; font-size: 11px; margin-bottom: 5px; }
         .rs-linha-id:last-child { margin-bottom: 0; }
         .campo { display: flex; align-items: flex-end; gap: 4px; flex: 1; white-space: nowrap; }
         .campo .val { flex: 1; border-bottom: 1px solid #000; min-height: 13px; font-weight: normal; padding-left: 4px; white-space: normal; }
 
         .rs-barra { text-align: center; font-weight: bold; font-size: 12.5px; line-height: 1.5; }
 
+        .rs-kit-table { width: 100%; border-collapse: collapse; font-size: 9.5px; margin-bottom: 6px; }
+        .rs-kit-table th, .rs-kit-table td { border: 1px solid #000; padding: 2.5px 6px; }
+        .rs-kit-table th { font-size: 9px; text-align: center; }
+        .rs-kit-qtd { width: 12%; text-align: center; }
+        .rs-kit-equip { font-weight: bold; }
+        .rs-kit-check { width: 12%; text-align: center; }
+        .rs-kit-val { width: 15%; }
+
         .rs-caixa-comp { display: grid; grid-template-columns: 1.35fr 1.3fr 1fr; gap: 6px 14px; }
-        .rs-comp-item { display: flex; align-items: flex-start; gap: 6px; margin-bottom: 6px; font-size: 9.5px; }
+        .rs-comp-item { display: flex; align-items: flex-start; gap: 6px; margin-bottom: 4px; font-size: 9.5px; }
         .rs-comp-item:last-child { margin-bottom: 0; }
 
-        .rs-testes-titulo { text-align: center; font-weight: bold; font-size: 12.5px; margin-bottom: 8px; }
+        .rs-testes-titulo { text-align: center; font-weight: bold; font-size: 12.5px; margin-bottom: 6px; }
         .rs-testes-corpo { display: flex; gap: 16px; align-items: center; }
         .rs-testes-lista { flex: 1; }
-        .rs-linha-teste { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; font-size: 10px; gap: 12px; }
+        .rs-linha-teste { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; font-size: 10px; gap: 12px; }
         .rs-linha-teste:last-child { margin-bottom: 0; }
         .rs-check-pair { font-weight: bold; white-space: nowrap; }
         .rs-caixa-temp { border: 2px solid #000; border-radius: 10px; padding: 10px 12px; text-align: center; font-weight: bold; font-size: 10.5px; }
         .rs-caixa-temp .val { display: inline-block; border: 1px solid #000; border-radius: 4px; min-width: 46px; padding: 2px 6px; margin: 0 4px; font-weight: normal; }
 
-        .rs-linha-dupla { display: flex; gap: 8px; margin-bottom: 8px; }
+        .rs-linha-dupla { display: flex; gap: 8px; margin-bottom: 6px; }
         .rs-caixa-cabo { flex: 1.3; }
-        .rs-caixa-cabo div { margin-bottom: 6px; font-weight: bold; }
+        .rs-caixa-cabo div { margin-bottom: 4px; font-weight: bold; }
         .rs-caixa-cabo div:last-child { margin-bottom: 0; }
         .rs-caixa-cabo .val { border-bottom: 1px solid #000; padding: 0 6px; font-weight: normal; }
         .rs-caixa-obs { flex: 1; }
@@ -631,6 +675,20 @@ function gerarHtmlServicoBalsa(relatorio) {
         LISTA DE VERIFICAÇÃO E REPAROS DE BALSAS<br>LIFERAFT CHECKING LIST AND REPAIRS
       </div>
 
+      <table class="rs-kit-table">
+        <thead>
+          <tr>
+            <th>QUANTIDADE<br>QUANTITY</th>
+            <th>EQUIPAMENTO / EQUIPMENT</th>
+            <th>SUBSTITUÍDO<br>REPLACED</th>
+            <th>VALIDADE<br>VALIDITY</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${kitHtml}
+        </tbody>
+      </table>
+
       <div class="rs-caixa rs-caixa-comp">
         ${componentesHtml}
       </div>
@@ -645,7 +703,7 @@ function gerarHtmlServicoBalsa(relatorio) {
 
       <div class="rs-caixa">
         <div class="rs-linha-id">
-          ${campo('CILINDRO/CYLINDER Nº', juntarCilindros(cilindros, 'numero'))}
+          ${campo('CILINDRO/CYLINDER', juntarCilindros(cilindros, 'numero'))}
           ${campo('VALV. Nº', juntarCilindros(cilindros, 'valvulaNumero'))}
         </div>
         <div class="rs-linha-id">
