@@ -869,8 +869,15 @@ function gerarHtmlTestesImo(relatorio) {
           <span>+ Peso Balsa:</span><b>${esc(testeImo.olPesoBalsa)}</b>
           <span>Peso total:</span><b>${esc(testeImo.olPesoTotal)}</b>
         </div>
+        <div class="linha"><span>Observações/Remarks:</span><b>${esc(testeImo.olObservacoes)}</b></div>
+      </div>
+
+      <!-- No modelo original esse bloco de fechamento (Técnico/Observações/Controlado)
+      é uma tabela separada da caixa do OL test, não mais uma linha dela — por
+      isso fica em outra .caixa aqui também. -->
+      <div class="caixa">
         <div class="linha"><span>TÉCNICO NATAL SAFETY:</span><b>${esc(testeImo.tecnicoNome)}</b></div>
-        <div class="linha obs-bloco"><span>Observações/Remarks:</span><div class="obs-texto">${esc(testeImo.olObservacoes)}</div></div>
+        <div class="linha obs-bloco"><span>Observações/Remarks:</span><div class="obs-texto"></div></div>
         <div class="linha"><span>Controlado por / Controlled by:</span><b>${esc(testeImo.controladoPorNome)}</b></div>
       </div>
     </body>
