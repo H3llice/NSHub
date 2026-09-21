@@ -237,17 +237,17 @@
                     <input type="text" id="filtro-cert-armador" class="form-control" placeholder="Filtrar por armador..." style="max-width:220px;" oninput="atualizarTabelaCertificados()">
                     <input type="text" id="filtro-cert-tecnico" class="form-control" placeholder="Filtrar por técnico..." style="max-width:220px;" oninput="atualizarTabelaCertificados()">
                 </div>
-                <table class="table-certificados">
+                <table class="table-certificados" style="table-layout:fixed;">
                     <thead>
                         <tr>
-                            <th>Número</th>
+                            <th style="width:80px;">Número</th>
                             <th>Navio</th>
                             <th>Armador</th>
                             <th>Técnico</th>
-                            <th>Tipo</th>
-                            <th>Status</th>
-                            <th>Data Emissão</th>
-                            <th>Ações</th>
+                            <th style="width:80px;">Tipo</th>
+                            <th style="width:130px;">Status</th>
+                            <th style="width:110px;">Data Emissão</th>
+                            <th style="width:220px;">Ações</th>
                         </tr>
                     </thead>
                     <tbody id="tabela-certificados">

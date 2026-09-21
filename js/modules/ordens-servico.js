@@ -71,15 +71,15 @@ export function inicializarOrdensServico() {
     <div class="tab">Ordens de Serviço</div>
     ${podeGerenciarOS ? `<button class="btn btn-success" onclick="abrirFormularioOS()">+ Nova OS</button>` : ''}
 
-    <table class="table-certificados" style="margin-top:16px;">
+    <table class="table-certificados" style="margin-top:16px; table-layout:fixed;">
       <thead>
         <tr>
-          <th>Nº</th>
+          <th style="width:90px;">Nº</th>
           <th>Navio</th>
           <th>Cliente</th>
-          <th>Emissão</th>
-          <th>Status</th>
-          <th>Ações</th>
+          <th style="width:100px;">Emissão</th>
+          <th style="width:110px;">Status</th>
+          <th style="width:300px;">Ações</th>
         </tr>
       </thead>
       <tbody id="tabela-os">

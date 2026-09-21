@@ -172,15 +172,15 @@ export function inicializarRelatorios() {
     depois (botão + criarRelatorioTeste, abaixo). -->
     <button class="btn btn-secondary" onclick="criarRelatorioTeste()">+ Novo Relatório (teste)</button>
 
-    <table class="table-certificados" style="margin-top:16px;">
+    <table class="table-certificados" style="margin-top:16px; table-layout:fixed;">
       <thead>
         <tr>
-          <th>Nº</th>
+          <th style="width:90px;">Nº</th>
           <th>Navio</th>
           <th>Armador</th>
-          <th>Data</th>
-          <th>Status</th>
-          <th>Ações</th>
+          <th style="width:100px;">Data</th>
+          <th style="width:110px;">Status</th>
+          <th style="width:260px;">Ações</th>
         </tr>
       </thead>
       <tbody id="tabela-relatorios">
