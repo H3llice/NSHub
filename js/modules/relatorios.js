@@ -227,13 +227,15 @@ window.carregarRelatorios = async function (pagina = 1) {
         <td>${r.embarcacao?.armador?.nome || '-'}</td>
         <td>${new Date(r.data).toLocaleDateString('pt-BR', { timeZone: 'UTC' })}</td>
         <td>${badgeStatus(r.status)}</td>
-        <td style="white-space:nowrap;">
-          <button class="btn btn-sm btn-info" onclick="editarRelatorio(${r.id})">${r.status === 'preenchendo' ? 'Editar' : 'Ver'}</button>
-          <a class="btn btn-sm btn-secondary" href="${API}/relatorios/${r.id}/pdf?token=${encodeURIComponent(tokenAtual)}" target="_blank">PDF</a>
-          ${podeCancelarOuExcluirRelatorio && !r.certificado ? `
-            ${r.status !== 'cancelado' ? `<button class="btn btn-sm btn-warning" onclick="cancelarRelatorio(${r.id})">Cancelar</button>` : ''}
-            <button class="btn btn-sm btn-danger" onclick="excluirRelatorio(${r.id})">Excluir</button>
-          ` : ''}
+        <td>
+          <div style="display:flex; flex-wrap:wrap; gap:6px;">
+            <button class="btn btn-sm btn-info" onclick="editarRelatorio(${r.id})">${r.status === 'preenchendo' ? 'Editar' : 'Ver'}</button>
+            <a class="btn btn-sm btn-secondary" href="${API}/relatorios/${r.id}/pdf?token=${encodeURIComponent(tokenAtual)}" target="_blank">PDF</a>
+            ${podeCancelarOuExcluirRelatorio && !r.certificado ? `
+              ${r.status !== 'cancelado' ? `<button class="btn btn-sm btn-warning" onclick="cancelarRelatorio(${r.id})">Cancelar</button>` : ''}
+              <button class="btn btn-sm btn-danger" onclick="excluirRelatorio(${r.id})">Excluir</button>
+            ` : ''}
+          </div>
         </td>
       </tr>
     `).join('')

@@ -48,10 +48,14 @@ const perfil = usuarioAtual?.perfil || 'usuario'
 // Técnico só preenche relatório a partir de uma OS já aberta por outra pessoa —
 // não cria nem edita a OS em si (backend também bloqueia, ver rota ordens-servico).
 const podeGerenciarOS = perfil !== 'tecnico'
+// Cancelar/excluir é restrito a gerente/admin, mesma regra do
+// Certificado/Relatório (js/modules/certificados.js e relatorios.js).
+const podeCancelarOuExcluirOS = perfil === 'admin' || perfil === 'gerente'
 
 const STATUS_LABEL = {
   aberta: { texto: 'Aberta', cor: '#6c757d' },
   concluida: { texto: 'Concluída', cor: '#198754' },
+  cancelada: { texto: 'Cancelada', cor: '#dc3545' },
 }
 
 function badgeStatus(status) {
@@ -123,8 +127,14 @@ window.carregarOrdensServico = async function (pagina = 1) {
         <td>${new Date(os.dataEmissao).toLocaleDateString('pt-BR', { timeZone: 'UTC' })}</td>
         <td>${badgeStatus(os.status)}</td>
         <td>
-          <button class="btn btn-sm btn-info" onclick="editarOS(${os.id})">${os.status === 'aberta' && podeGerenciarOS ? 'Editar' : 'Ver'}</button>
-          ${!os.relatorio ? `<button class="btn btn-sm btn-warning" onclick="gerarRelatorioDeOS(${os.id})">Gerar Relatório</button>` : `<button class="btn btn-sm btn-secondary" onclick="editarRelatorio(${os.relatorio.id})">Ver Relatório</button>`}
+          <div style="display:flex; flex-wrap:wrap; gap:6px;">
+            <button class="btn btn-sm btn-info" onclick="editarOS(${os.id})">${os.status === 'aberta' && podeGerenciarOS ? 'Editar' : 'Ver'}</button>
+            ${!os.relatorio ? `<button class="btn btn-sm btn-warning" onclick="gerarRelatorioDeOS(${os.id})">Gerar Relatório</button>` : `<button class="btn btn-sm btn-secondary" onclick="editarRelatorio(${os.relatorio.id})">Ver Relatório</button>`}
+            ${podeCancelarOuExcluirOS && !os.relatorio ? `
+              ${os.status !== 'cancelada' ? `<button class="btn btn-sm btn-warning" onclick="cancelarOS(${os.id})">Cancelar</button>` : ''}
+              <button class="btn btn-sm btn-danger" onclick="excluirOS(${os.id})">Excluir</button>
+            ` : ''}
+          </div>
         </td>
       </tr>
     `).join('')
@@ -151,7 +161,8 @@ window.editarOS = async function (id) {
 }
 
 function renderFormularioOS(os, empresas) {
-  const somenteLeitura = os?.status === 'concluida' || !podeGerenciarOS
+  const cancelada = os?.status === 'cancelada'
+  const somenteLeitura = os?.status === 'concluida' || cancelada || !podeGerenciarOS
   const dis = somenteLeitura ? 'disabled' : ''
   const opcoesEmpresas = empresas.map(e =>
     `<option value="${e.id}" ${os?.empresaId === e.id ? 'selected' : ''}>${e.nome} (${e.sigla})</option>`
@@ -225,11 +236,29 @@ function renderFormularioOS(os, empresas) {
       </div>
 
       ${somenteLeitura ? '' : `
-        <div style="margin-top:20px; display:flex; gap:12px;">
-          <button type="button" class="btn btn-success" onclick="${os ? `atualizarOS(${os.id})` : 'salvarOS()'}">Salvar</button>
-          ${os ? `<button type="button" class="btn btn-warning" onclick="concluirOS(${os.id})">Concluir OS (retirada do equipamento)</button>` : ''}
+        <div style="margin-top:20px; display:flex; justify-content:space-between; align-items:center; gap:12px;">
+          <div style="display:flex; gap:12px;">
+            <button type="button" class="btn btn-success" onclick="${os ? `atualizarOS(${os.id})` : 'salvarOS()'}">Salvar</button>
+            ${os ? `<button type="button" class="btn btn-warning" onclick="concluirOS(${os.id})">Concluir OS (retirada do equipamento)</button>` : ''}
+          </div>
+          ${os?.id && podeCancelarOuExcluirOS && !os.relatorio ? `
+            <div style="display:flex; gap:12px;">
+              <button type="button" class="btn btn-warning" onclick="cancelarOS(${os.id})">Cancelar OS</button>
+              <button type="button" class="btn btn-danger" onclick="excluirOS(${os.id})">Excluir OS</button>
+            </div>
+          ` : ''}
         </div>
       `}
+
+      ${cancelada ? `
+        <p style="margin-top:20px; color:#dc3545; font-size:13px; font-weight:600;">Ordem de Serviço cancelada.</p>
+        ${podeCancelarOuExcluirOS ? `<button type="button" class="btn btn-danger" onclick="excluirOS(${os.id})">Excluir OS</button>` : ''}
+      ` : os?.status === 'concluida' && podeCancelarOuExcluirOS && !os.relatorio ? `
+        <div style="margin-top:20px; display:flex; gap:12px;">
+          <button type="button" class="btn btn-warning" onclick="cancelarOS(${os.id})">Cancelar OS</button>
+          <button type="button" class="btn btn-danger" onclick="excluirOS(${os.id})">Excluir OS</button>
+        </div>
+      ` : ''}
     </div>
   `
 }
@@ -474,6 +503,39 @@ window.concluirOS = async function (id) {
   } else {
     const err = await res.json()
     alert('Erro: ' + (err.erro || 'Falha ao concluir'))
+  }
+}
+
+// Cancelar: fica no banco com status "cancelada", NÃO libera o número — mesma
+// lógica do Certificado/Relatório (js/modules/certificados.js e relatorios.js).
+window.cancelarOS = async function (id) {
+  if (!confirm('Cancelar esta Ordem de Serviço? Ela continua no sistema (marcada como Cancelada), mas não pode mais ser editada, concluída ou gerar um Relatório — e o número não é reaproveitado.')) return
+
+  const res = await apiJson(`${API}/ordens-servico/${id}/cancelar`, { method: 'POST' })
+
+  if (res.ok) {
+    alert('Ordem de Serviço cancelada.')
+    if (document.getElementById('tabela-os')) carregarOrdensServico(paginaAtualOS)
+    else editarOS(id)
+  } else {
+    const err = await res.json()
+    alert('Erro ao cancelar Ordem de Serviço: ' + (err.erro || 'falha'))
+  }
+}
+
+// Excluir: some do banco de vez — libera o número pra próxima OS. Bloqueado
+// (no backend) se já tiver gerado um Relatório.
+window.excluirOS = async function (id) {
+  if (!confirm('Excluir esta Ordem de Serviço permanentemente? Essa ação não pode ser desfeita, e o número volta a ficar disponível.')) return
+
+  const res = await apiJson(`${API}/ordens-servico/${id}`, { method: 'DELETE' })
+
+  if (res.ok) {
+    alert('Ordem de Serviço excluída.')
+    inicializarOrdensServico()
+  } else {
+    const err = await res.json()
+    alert('Erro ao excluir Ordem de Serviço: ' + (err.erro || 'falha'))
   }
 }
 

@@ -498,13 +498,15 @@ async function atualizarTabelaCertificados(pagina = 1) {
                 <td>Balsa</td>
                 <td>${badgeStatusCertificado(cert.status)}</td>
                 <td>${dataEmissao}</td>
-                <td style="white-space:nowrap;">
-                    <button class="btn btn-sm btn-info" onclick="abrirCertificado(${cert.id})">Editar</button>
-                    <a class="btn btn-sm btn-secondary" href="${urlPdfCertificado(cert.id)}" target="_blank">PDF</a>
-                    ${(perfilLogado === 'admin' || perfilLogado === 'gerente') ? `
-                        ${cert.status !== 'cancelado' ? `<button class="btn btn-sm btn-warning" onclick="cancelarCertificado(${cert.id})">Cancelar</button>` : ''}
-                        <button class="btn btn-sm btn-danger" onclick="excluirCertificado(${cert.id})">Excluir</button>
-                    ` : ''}
+                <td>
+                    <div style="display:flex; flex-wrap:wrap; gap:6px;">
+                        <button class="btn btn-sm btn-info" onclick="abrirCertificado(${cert.id})">Editar</button>
+                        <a class="btn btn-sm btn-secondary" href="${urlPdfCertificado(cert.id)}" target="_blank">PDF</a>
+                        ${(perfilLogado === 'admin' || perfilLogado === 'gerente') ? `
+                            ${cert.status !== 'cancelado' ? `<button class="btn btn-sm btn-warning" onclick="cancelarCertificado(${cert.id})">Cancelar</button>` : ''}
+                            <button class="btn btn-sm btn-danger" onclick="excluirCertificado(${cert.id})">Excluir</button>
+                        ` : ''}
+                    </div>
                 </td>
             </tr>
         `;

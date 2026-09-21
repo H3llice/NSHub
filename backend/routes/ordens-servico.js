@@ -142,4 +142,47 @@ router.post('/:id/concluir', autenticar, exigirPerfil('usuario', 'gerente', 'adm
   res.json(atualizada)
 })
 
+// ─── Cancelar OS (só gerente/admin) ─────────────────────────────────────────────
+// Mesma lógica do Certificado/Relatório: fica no banco com status "cancelada"
+// e o número NÃO é reaproveitado. Bloqueado se já tiver gerado um Relatório —
+// nesse caso o Relatório (que tem sua própria opção de cancelar/excluir)
+// precisa ser resolvido primeiro.
+router.post('/:id/cancelar', autenticar, exigirPerfil('gerente', 'admin'), async (req, res) => {
+  const id = Number(req.params.id)
+  const os = await prisma.ordemServico.findUnique({ where: { id }, include: { relatorio: true } })
+  if (!os) return res.status(404).json({ erro: 'Ordem de Serviço não encontrada' })
+  if (os.status === 'cancelada') {
+    return res.status(400).json({ erro: 'Ordem de Serviço já está cancelada' })
+  }
+  if (os.relatorio) {
+    return res.status(400).json({ erro: 'Esta Ordem de Serviço já gerou um Relatório — cancele ou exclua o Relatório primeiro' })
+  }
+
+  const atualizada = await prisma.ordemServico.update({
+    where: { id },
+    data: { status: 'cancelada' },
+    include: { embarcacao: { include: { armador: true } }, cliente: true, empresa: true }
+  })
+
+  res.json(atualizada)
+})
+
+// ─── Excluir OS (só gerente/admin) ──────────────────────────────────────────────
+// Diferente de cancelar: apaga de vez do banco — libera o número pro próximo
+// (proximoNumero só olha o maior número já existente). Mesmo bloqueio de
+// Relatório vinculado do cancelamento acima (o FK de Relatorio.ordemServicoId
+// nem deixaria apagar mesmo se não bloqueássemos aqui).
+router.delete('/:id', autenticar, exigirPerfil('gerente', 'admin'), async (req, res) => {
+  const id = Number(req.params.id)
+  const os = await prisma.ordemServico.findUnique({ where: { id }, include: { relatorio: true } })
+  if (!os) return res.status(404).json({ erro: 'Ordem de Serviço não encontrada' })
+  if (os.relatorio) {
+    return res.status(400).json({ erro: 'Esta Ordem de Serviço já gerou um Relatório — exclua o Relatório primeiro' })
+  }
+
+  await prisma.ordemServico.delete({ where: { id } })
+
+  res.json({ ok: true })
+})
+
 export default router
