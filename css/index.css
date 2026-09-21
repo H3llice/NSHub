@@ -151,6 +151,12 @@ body {
     max-height: calc(100vh - 65px);
 }
 
+.topbar-actions {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
 .page {
     display: none;
 }
@@ -510,12 +516,55 @@ body {
 
     .topbar {
         margin-left: 0;
-        padding-left: 55px;
+        height: auto;
+        min-height: 65px;
+        padding: 10px 15px 10px 60px;
+    }
+
+    /* A busca e o grupo de ações (Novo registro/usuário/Sair) não cabem numa
+    linha só no celular — cada um vira sua própria linha dentro do topbar
+    (que cresce em altura, já que não é mais height:65px fixo), em vez de
+    espremer/cortar os elementos como acontecia antes. */
+    .topbar-row {
+        flex-wrap: wrap;
+        row-gap: 8px;
+    }
+
+    .topbar-search {
+        flex: 1 1 100%;
+    }
+
+    .topbar-search input {
+        width: 100% !important;
+    }
+
+    .topbar-actions {
+        flex: 1 1 100%;
+        flex-wrap: wrap;
+        justify-content: space-between;
+        row-gap: 8px;
+    }
+
+    #topbar-usuario {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 140px;
     }
 
     .content {
         margin-left: 0;
-        padding-top: 80px;
+        /* Antes tinha padding-top:80px pra "compensar" o topbar — mas o
+        topbar nunca foi position:fixed, ele já ocupa seu próprio espaço no
+        fluxo normal da página. Esse padding extra só empurrava todo o
+        conteúdo pra baixo à toa, piorando o aproveitamento da tela pequena. */
+        padding: 15px;
+        max-height: none;
+        /* Tabelas mais largas que a tela (várias colunas) rolam de lado em
+        vez de ficarem cortadas — body tem overflow-x:hidden, então sem isso
+        aqui o conteúdo que estoura a largura simplesmente sumia da tela. */
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
     }
 
     .tab {
@@ -537,6 +586,14 @@ body {
     .table-certificados,
     .dynamic-table {
         font-size: 14px;
+    }
+
+    /* Sem isso, table-layout:auto (a maioria das listas) simplesmente
+    espreme as colunas pra caber nos ~360-400px da tela em vez de rolar de
+    lado — com um mínimo aqui, o texto mantém um tamanho legível e quem
+    quiser ver as colunas de fora rola .content (overflow-x:auto acima). */
+    .table-certificados {
+        min-width: 560px;
     }
 
     .table-certificados th,
@@ -565,11 +622,11 @@ body {
     }
 
     .topbar {
-        padding: 0 15px;
+        padding: 10px 12px 10px 55px;
     }
 
     .content {
-        padding: 15px;
+        padding: 12px;
     }
 
     .tab {

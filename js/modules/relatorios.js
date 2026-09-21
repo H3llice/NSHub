@@ -176,8 +176,8 @@ export function inicializarRelatorios() {
       <thead>
         <tr>
           <th style="width:90px;">Nº</th>
-          <th>Navio</th>
-          <th>Armador</th>
+          <th style="width:180px;">Navio</th>
+          <th style="width:160px;">Armador</th>
           <th style="width:100px;">Data</th>
           <th style="width:110px;">Status</th>
           <th style="width:260px;">Ações</th>

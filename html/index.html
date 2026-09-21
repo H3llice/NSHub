@@ -145,11 +145,11 @@
 
     <!-- TOPBAR -->
     <div class="topbar">
-        <div class="main-container d-flex justify-content-between align-items-center w-100">
-            <div>
+        <div class="main-container topbar-row d-flex justify-content-between align-items-center w-100">
+            <div class="topbar-search">
                 🔎 <input class="form-control form-control-sm d-inline" style="width:200px" placeholder="Pesquisar">
             </div>
-            <div style="display:flex; align-items:center; gap:16px;">
+            <div class="topbar-actions">
                 <div class="novo-registro-menu">
                     <button class="btn btn-warning" onclick="toggleNovoRegistroMenu(event)">＋ Novo registro</button>
                     <div id="novo-registro-dropdown" class="novo-registro-dropdown">
@@ -241,9 +241,9 @@
                     <thead>
                         <tr>
                             <th style="width:80px;">Número</th>
-                            <th>Navio</th>
-                            <th>Armador</th>
-                            <th>Técnico</th>
+                            <th style="width:160px;">Navio</th>
+                            <th style="width:140px;">Armador</th>
+                            <th style="width:120px;">Técnico</th>
                             <th style="width:80px;">Tipo</th>
                             <th style="width:130px;">Status</th>
                             <th style="width:110px;">Data Emissão</th>

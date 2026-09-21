@@ -75,8 +75,8 @@ export function inicializarOrdensServico() {
       <thead>
         <tr>
           <th style="width:90px;">Nº</th>
-          <th>Navio</th>
-          <th>Cliente</th>
+          <th style="width:180px;">Navio</th>
+          <th style="width:160px;">Cliente</th>
           <th style="width:100px;">Emissão</th>
           <th style="width:110px;">Status</th>
           <th style="width:300px;">Ações</th>
