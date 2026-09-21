@@ -432,8 +432,8 @@ export function renderSecoesTecnicasRelatorio(r, somenteLeitura, opcoes = {}) {
 
       ${secao('Cilindros', `
         <div style="overflow-x:auto;">
-          <table class="table-certificados" style="min-width:900px;">
-            <thead><tr><th>Nº</th><th>Nº Válvula</th><th>Teste</th><th>Carga (kg)</th><th>Carga CO2 (kg)</th><th>Carga N2 (kg)</th><th>Fabricante</th><th>Ano Fab.</th>${somenteLeitura ? '' : '<th></th>'}</tr></thead>
+          <table class="table-certificados" style="min-width:1200px;">
+            <thead><tr><th>Nº</th><th>Nº Válvula</th><th>Teste</th><th>Carga (kg)</th><th>Carga CO2 (kg)</th><th>Carga N2 (kg)</th><th>Fabricante</th><th>Ano Fab.</th><th>Cabo Interno (m)</th><th>Cabo Externo (m)</th><th>Altura Máx. (m)</th>${somenteLeitura ? '' : '<th></th>'}</tr></thead>
             <tbody id="lista-cilindros"></tbody>
           </table>
         </div>
@@ -706,6 +706,9 @@ export function renderizarCilindros() {
       <td><input type="number" step="0.01" class="form-control form-control-sm" id="cil-cargaN2-${i}" value="${c.cargaN2 ?? ''}" ${dis}></td>
       <td><input type="text" class="form-control form-control-sm" id="cil-fabricante-${i}" value="${c.fabricante || ''}" ${dis}></td>
       <td><input type="text" class="form-control form-control-sm" id="cil-anoFabricacao-${i}" value="${c.anoFabricacao || ''}" ${dis}></td>
+      <td><input type="number" step="0.01" class="form-control form-control-sm" id="cil-caboInternoMetros-${i}" value="${c.caboInternoMetros ?? ''}" ${dis}></td>
+      <td><input type="number" step="0.01" class="form-control form-control-sm" id="cil-caboExternoMetros-${i}" value="${c.caboExternoMetros ?? ''}" ${dis}></td>
+      <td><input type="number" step="0.01" class="form-control form-control-sm" id="cil-alturaMaximaEstocagemMetros-${i}" value="${c.alturaMaximaEstocagemMetros ?? ''}" ${dis}></td>
       ${cilindrosSomenteLeitura ? '' : `<td><button class="btn btn-sm btn-danger" onclick="removerCilindro(${i})">✕</button></td>`}
     </tr>
   `).join('')
@@ -724,8 +727,8 @@ window.removerCilindro = function (i) {
 }
 
 function lerCilindrosDoForm() {
-  const campos = ['numero', 'valvulaNumero', 'teste', 'carga', 'cargaCO2', 'cargaN2', 'fabricante', 'anoFabricacao']
-  const numericos = ['carga', 'cargaCO2', 'cargaN2']
+  const campos = ['numero', 'valvulaNumero', 'teste', 'carga', 'cargaCO2', 'cargaN2', 'fabricante', 'anoFabricacao', 'caboInternoMetros', 'caboExternoMetros', 'alturaMaximaEstocagemMetros']
+  const numericos = ['carga', 'cargaCO2', 'cargaN2', 'caboInternoMetros', 'caboExternoMetros', 'alturaMaximaEstocagemMetros']
 
   return cilindrosEstado.map((_, i) => {
     const c = {}
