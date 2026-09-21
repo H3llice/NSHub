@@ -254,6 +254,54 @@ router.post('/:id/concluir', autenticar, exigirPerfil('usuario', 'gerente', 'adm
   res.json(atualizado)
 })
 
+// ─── Cancelar relatório (só gerente/admin) ─────────────────────────────────────
+// Mesma lógica do Certificado (backend/routes/certificados.js): fica no banco
+// com status "cancelado" e o número NÃO é reaproveitado — mantém rastro do
+// relatório. Bloqueado se já tiver gerado um Certificado, pra não deixar o
+// certificado com a "fonte" cancelada por baixo dos panos.
+router.post('/:id/cancelar', autenticar, exigirPerfil('gerente', 'admin'), async (req, res) => {
+  const id = Number(req.params.id)
+  const relatorio = await prisma.relatorio.findUnique({ where: { id }, include: { certificado: true } })
+  if (!relatorio) return res.status(404).json({ erro: 'Relatório não encontrado' })
+  if (relatorio.status === 'cancelado') {
+    return res.status(400).json({ erro: 'Relatório já está cancelado' })
+  }
+  if (relatorio.certificado) {
+    return res.status(400).json({ erro: 'Este relatório já gerou um Certificado — cancele o Certificado primeiro' })
+  }
+
+  const atualizado = await prisma.relatorio.update({
+    where: { id },
+    data: { status: 'cancelado' },
+    include: { embarcacao: { include: { armador: true } }, empresa: true, ordemServico: true, cilindros: true, testeImo: true }
+  })
+
+  res.json(atualizado)
+})
+
+// ─── Excluir relatório (só gerente/admin) ──────────────────────────────────────
+// Diferente de cancelar: apaga de vez do banco (cilindros, teste IMO e
+// assinaturas em cascata, igual ao Certificado) — libera a Ordem de Serviço de
+// origem pra gerar um relatório novo e o número volta a ficar disponível.
+// Mesmo bloqueio de Certificado vinculado do cancelamento acima.
+router.delete('/:id', autenticar, exigirPerfil('gerente', 'admin'), async (req, res) => {
+  const id = Number(req.params.id)
+  const relatorio = await prisma.relatorio.findUnique({ where: { id }, include: { certificado: true } })
+  if (!relatorio) return res.status(404).json({ erro: 'Relatório não encontrado' })
+  if (relatorio.certificado) {
+    return res.status(400).json({ erro: 'Este relatório já gerou um Certificado — exclua o Certificado primeiro' })
+  }
+
+  await prisma.$transaction([
+    prisma.assinatura.deleteMany({ where: { relatorioId: id } }),
+    prisma.cilindroRelatorio.deleteMany({ where: { relatorioId: id } }),
+    prisma.testeImo.deleteMany({ where: { relatorioId: id } }),
+    prisma.relatorio.delete({ where: { id } })
+  ])
+
+  res.json({ ok: true })
+})
+
 // ─── Geração do PDF do Relatório (Lista de Verificação e Reparos de Balsa) ─────
 // Mesma técnica do Certificado: imagem de fundo real do modelo em papel
 // (assets/relatorio-balsa-fundo.jpeg, extraída do .docm) + valores desenhados

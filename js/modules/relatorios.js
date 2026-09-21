@@ -52,10 +52,15 @@ export function hojeISO() {
 
 const tokenAtual = localStorage.getItem('ns_token')
 const usuarioAtual = JSON.parse(localStorage.getItem('ns_usuario') || 'null')
+const perfil = usuarioAtual?.perfil || 'usuario'
+// Cancelar/excluir é restrito a gerente/admin, mesma regra do Certificado
+// (js/modules/certificados.js).
+const podeCancelarOuExcluirRelatorio = perfil === 'admin' || perfil === 'gerente'
 
 const STATUS_LABEL = {
   preenchendo: { texto: 'Preenchendo', cor: '#6c757d' },
   concluido: { texto: 'Concluído', cor: '#198754' },
+  cancelado: { texto: 'Cancelado', cor: '#dc3545' },
 }
 const STATUS_CERTIFICADO_LABEL = {
   pendente: { texto: 'Certificado pendente', cor: '#fd7e14' },
@@ -223,7 +228,7 @@ window.carregarRelatorios = async function (pagina = 1) {
         <td>${new Date(r.data).toLocaleDateString('pt-BR', { timeZone: 'UTC' })}</td>
         <td>${badgeStatus(r.status)}</td>
         <td style="white-space:nowrap;">
-          <button class="btn btn-sm btn-info" onclick="editarRelatorio(${r.id})">${r.status === 'concluido' ? 'Ver' : 'Editar'}</button>
+          <button class="btn btn-sm btn-info" onclick="editarRelatorio(${r.id})">${r.status === 'preenchendo' ? 'Editar' : 'Ver'}</button>
           <a class="btn btn-sm btn-secondary" href="${API}/relatorios/${r.id}/pdf?token=${encodeURIComponent(tokenAtual)}" target="_blank">PDF</a>
         </td>
       </tr>
@@ -562,7 +567,9 @@ export function renderSecoesTecnicasRelatorio(r, somenteLeitura, opcoes = {}) {
 }
 
 function renderFormularioRelatorio(r, empresas) {
-  const somenteLeitura = r?.status === 'concluido'
+  const cancelado = r?.status === 'cancelado'
+  const concluido = r?.status === 'concluido'
+  const somenteLeitura = concluido || cancelado
   const dis = somenteLeitura ? 'disabled' : ''
   const opcoesEmpresas = empresas.map(e =>
     `<option value="${e.id}" ${r?.empresaId === e.id ? 'selected' : ''}>${e.nome} (${e.sigla})</option>`
@@ -617,18 +624,37 @@ function renderFormularioRelatorio(r, empresas) {
       ${renderSecoesTecnicasRelatorio(r, somenteLeitura, { nomeTecnicoDefault: r?.criadoPor?.nome || usuarioAtual?.nome || '' })}
 
       ${somenteLeitura ? '' : `
-        <div style="margin-bottom:16px; display:flex; gap:12px;">
-          <button type="button" class="btn btn-success" onclick="${r?.id ? `atualizarRelatorio(${r.id})` : 'salvarRelatorio()'}">Salvar</button>
-          ${r?.id ? `<button type="button" class="btn btn-warning" onclick="concluirRelatorio(${r.id})">Concluir e Assinar</button>` : ''}
+        <div style="margin-bottom:16px; display:flex; justify-content:space-between; align-items:center; gap:12px;">
+          <div style="display:flex; gap:12px;">
+            <button type="button" class="btn btn-success" onclick="${r?.id ? `atualizarRelatorio(${r.id})` : 'salvarRelatorio()'}">Salvar</button>
+            ${r?.id ? `<button type="button" class="btn btn-warning" onclick="concluirRelatorio(${r.id})">Concluir e Assinar</button>` : ''}
+          </div>
+          ${r?.id && podeCancelarOuExcluirRelatorio ? `
+            <div style="display:flex; gap:12px;">
+              <button type="button" class="btn btn-warning" onclick="cancelarRelatorio(${r.id})">Cancelar Relatório</button>
+              <button type="button" class="btn btn-danger" onclick="excluirRelatorio(${r.id})">Excluir Relatório</button>
+            </div>
+          ` : ''}
         </div>
       `}
 
-      ${somenteLeitura ? `
-        <div style="display:flex; align-items:center; gap:12px;">
-          ${!r.certificado
-            ? `<button type="button" class="btn btn-warning" onclick="gerarCertificadoDeRelatorio(${r.id})">Gerar Certificado</button>`
-            : `<button type="button" class="btn btn-secondary" onclick="abrirCertificado(${r.certificado.id})">Ver Certificado</button> ${badgeStatusCertificado(r.certificado.status)}`
-          }
+      ${cancelado ? `
+        <p style="margin-bottom:16px; color:#dc3545; font-size:13px; font-weight:600;">Relatório cancelado.</p>
+        ${podeCancelarOuExcluirRelatorio ? `<button type="button" class="btn btn-danger" onclick="excluirRelatorio(${r.id})">Excluir Relatório</button>` : ''}
+      ` : concluido ? `
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+          <div style="display:flex; align-items:center; gap:12px;">
+            ${!r.certificado
+              ? `<button type="button" class="btn btn-warning" onclick="gerarCertificadoDeRelatorio(${r.id})">Gerar Certificado</button>`
+              : `<button type="button" class="btn btn-secondary" onclick="abrirCertificado(${r.certificado.id})">Ver Certificado</button> ${badgeStatusCertificado(r.certificado.status)}`
+            }
+          </div>
+          ${podeCancelarOuExcluirRelatorio && !r.certificado ? `
+            <div style="display:flex; gap:12px;">
+              <button type="button" class="btn btn-warning" onclick="cancelarRelatorio(${r.id})">Cancelar Relatório</button>
+              <button type="button" class="btn btn-danger" onclick="excluirRelatorio(${r.id})">Excluir Relatório</button>
+            </div>
+          ` : ''}
         </div>
       ` : ''}
     </div>
@@ -882,6 +908,39 @@ window.concluirRelatorio = async function (id) {
   } else {
     const err = await res.json()
     alert('Erro: ' + (err.erro || 'Falha ao concluir'))
+  }
+}
+
+// Cancelar: fica no banco com status "cancelado", NÃO libera o número —
+// mesma lógica do Certificado (js/modules/certificados.js).
+window.cancelarRelatorio = async function (id) {
+  if (!confirm('Cancelar este relatório? Ele continua no sistema (marcado como Cancelado), mas não pode mais ser editado, concluído ou virar Certificado — e o número não é reaproveitado.')) return
+
+  const res = await apiJson(`${API}/relatorios/${id}/cancelar`, { method: 'POST' })
+
+  if (res.ok) {
+    alert('Relatório cancelado.')
+    editarRelatorio(id)
+  } else {
+    const err = await res.json()
+    alert('Erro ao cancelar relatório: ' + (err.erro || 'falha'))
+  }
+}
+
+// Excluir: some do banco de vez (cilindros/teste IMO/assinaturas em cascata) —
+// libera a Ordem de Serviço de origem pra gerar um relatório novo e o número
+// volta a ficar disponível.
+window.excluirRelatorio = async function (id) {
+  if (!confirm('Excluir este relatório permanentemente? Essa ação não pode ser desfeita, libera a Ordem de Serviço de origem pra um novo relatório, e o número volta a ficar disponível.')) return
+
+  const res = await apiJson(`${API}/relatorios/${id}`, { method: 'DELETE' })
+
+  if (res.ok) {
+    alert('Relatório excluído.')
+    inicializarRelatorios()
+  } else {
+    const err = await res.json()
+    alert('Erro ao excluir relatório: ' + (err.erro || 'falha'))
   }
 }
 
