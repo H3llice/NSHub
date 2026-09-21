@@ -806,6 +806,8 @@ function gerarHtmlTestesImo(relatorio) {
     table.tabela-imo th { background: #f0f0f0; font-size: 8.5px; }
     table.tabela-imo td { font-size: 8.5px; }
     .teste-titulo { font-weight: bold; font-size: 10.5px; margin-bottom: 4px; display: flex; justify-content: space-between; }
+    .obs-bloco { display: block; margin: 4px 0; }
+    .obs-texto { min-height: 24px; margin-top: 2px; font-weight: bold; white-space: pre-wrap; }
   `
 
   const linhasTecnico = `
@@ -867,8 +869,9 @@ function gerarHtmlTestesImo(relatorio) {
           <span>+ Peso Balsa:</span><b>${esc(testeImo.olPesoBalsa)}</b>
           <span>Peso total:</span><b>${esc(testeImo.olPesoTotal)}</b>
         </div>
-        <div class="linha"><span>Observações/Remarks:</span><b>${esc(testeImo.olObservacoes)}</b></div>
-        ${linhasTecnico}
+        <div class="linha"><span>TÉCNICO NATAL SAFETY:</span><b>${esc(testeImo.tecnicoNome)}</b></div>
+        <div class="linha obs-bloco"><span>Observações/Remarks:</span><div class="obs-texto">${esc(testeImo.olObservacoes)}</div></div>
+        <div class="linha"><span>Controlado por / Controlled by:</span><b>${esc(testeImo.controladoPorNome)}</b></div>
       </div>
     </body>
     </html>
