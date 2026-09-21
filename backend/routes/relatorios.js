@@ -824,7 +824,7 @@ function gerarHtmlTestesImo(relatorio) {
       <h2>Testes de acordo a Resolução IMO A.761 (18) / IMO Resolution A.761(18)</h2>
 
       <div class="caixa">
-        <div class="teste-titulo"><span>WP test - Teste de pressão de trabalho / Working pressure test</span><span>${linhaSimNao(testeImo.wpRealizado)}</span></div>
+        <div class="teste-titulo"><span>WP test - Teste de pressão de trabalho / Working pressure test</span><span>Teste anual / Annual test: ${caixaMarcada(testeImo.wpAnual)}</span><span>${linhaSimNao(testeImo.wpRealizado)}</span></div>
         <table class="tabela-imo">
           <tr><th></th><th>Início/Start Temp</th><th>Início/Start mmHg</th><th>Término/Stop Temp</th><th>Término/Stop mmHg</th><th>Diff.</th><th>Diff.%</th></tr>
           <tr><td>Tubo superior / Upper tube</td><td>${esc(testeImo.wpSupInicioTemp)}</td><td>${esc(testeImo.wpSupInicioPressao)}</td><td>${esc(testeImo.wpSupTerminoTemp)}</td><td>${esc(testeImo.wpSupTerminoPressao)}</td><td>${esc(testeImo.wpSupDiff)}</td><td>${esc(testeImo.wpSupDiffPct)}</td></tr>
@@ -868,6 +868,7 @@ function gerarHtmlTestesImo(relatorio) {
           <span>Peso total:</span><b>${esc(testeImo.olPesoTotal)}</b>
         </div>
         <div class="linha"><span>Observações/Remarks:</span><b>${esc(testeImo.olObservacoes)}</b></div>
+        ${linhasTecnico}
       </div>
     </body>
     </html>
