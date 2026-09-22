@@ -167,10 +167,19 @@ export function inicializarRelatorios() {
     <div class="tab">Relatórios de Serviço</div>
     <p style="color:#999; font-size:13px;">Todo relatório é gerado a partir de uma Ordem de Serviço — abra Serviços → Ordens de serviço.</p>
 
-    <!-- TEMPORÁRIO: botão de teste pra gerar relatório/certificado sem passar
-    pela OS de verdade, só pra conferir layout/impressão do PDF. Remover
-    depois (botão + criarRelatorioTeste, abaixo). -->
-    <button class="btn btn-secondary" onclick="criarRelatorioTeste()">+ Novo Relatório (teste)</button>
+    <div style="display:flex; gap:8px; align-items:center; margin-bottom: 8px; flex-wrap:wrap;">
+      <select id="rel-tipo-ativo" class="form-control" style="max-width:200px;" onchange="trocarTipoRelatorio()">
+        <option value="balsa">Balsa</option>
+        <option value="baleeira">Baleeira</option>
+        <option value="turco">Turco</option>
+        <option value="colete">Colete</option>
+      </select>
+      <!-- TEMPORÁRIO: pra Balsa, gera relatório de teste sem passar pela OS de
+      verdade, só pra conferir layout/impressão do PDF — remover depois (botão
+      + criarRelatorioTeste, abaixo). Baleeira/Turco/Colete ainda não têm
+      formulário nenhum (mesma limitação dos avulsos de Certificado). -->
+      <button class="btn btn-secondary" onclick="novoRelatorioTipoAtivo()">+ Novo Relatório</button>
+    </div>
 
     <div class="table-scroll">
       <table class="table-certificados" style="margin-top:16px; table-layout:fixed;">
@@ -197,10 +206,28 @@ export function inicializarRelatorios() {
 
 let paginaAtualRelatorios = 1
 
+const LABEL_TIPO_RELATORIO = { balsa: 'balsa', baleeira: 'baleeira', turco: 'turco', colete: 'colete' }
+
+// Cada tipo de equipamento (Balsa/Baleeira/Turco/Colete) tem sua própria
+// tabela — o select #rel-tipo-ativo escolhe qual, igual à tela de Certificados.
+window.trocarTipoRelatorio = function () {
+  carregarRelatorios(1)
+}
+
+window.novoRelatorioTipoAtivo = function () {
+  const tipo = document.getElementById('rel-tipo-ativo')?.value || 'balsa'
+  if (tipo === 'balsa') {
+    criarRelatorioTeste()
+  } else {
+    alert(`Formulário de Relatório de ${LABEL_TIPO_RELATORIO[tipo]} ainda não implementado.`)
+  }
+}
+
 window.carregarRelatorios = async function (pagina = 1) {
   paginaAtualRelatorios = pagina
+  const tipo = document.getElementById('rel-tipo-ativo')?.value || 'balsa'
   try {
-    const resp = await apiFetch(`${API}/relatorios?pagina=${pagina}`).then(r => r.json())
+    const resp = await apiFetch(`${API}/relatorios?pagina=${pagina}&tipo=${tipo}`).then(r => r.json())
     const tabela = document.getElementById('tabela-relatorios')
 
     const contador = document.getElementById('contador-relatorios')
@@ -218,7 +245,7 @@ window.carregarRelatorios = async function (pagina = 1) {
     }
 
     if (resp.relatorios.length === 0) {
-      tabela.innerHTML = `<tr><td colspan="6" style="text-align:center; color:#999; padding:30px;">Nenhum relatório cadastrado ainda</td></tr>`
+      tabela.innerHTML = `<tr><td colspan="6" style="text-align:center; color:#999; padding:30px;">Nenhum relatório de ${LABEL_TIPO_RELATORIO[tipo]} encontrado</td></tr>`
       return
     }
 

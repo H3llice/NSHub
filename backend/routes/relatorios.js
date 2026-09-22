@@ -87,13 +87,32 @@ function extrair(body, campos) {
 
 // ─── Listar relatórios ──────────────────────────────────────────────────────────
 router.get('/', autenticar, async (req, res) => {
-  const { busca, empresa, status, pagina = 1 } = req.query
+  const { busca, empresa, status, tipo, pagina = 1 } = req.query
   const porPagina = 50
 
   const where = {}
   if (status) where.status = status
   if (empresa) where.empresaId = parseInt(empresa)
   if (busca && !isNaN(busca)) where.numero = parseInt(busca)
+
+  // equipTipo é texto livre (não tem cadastro de tipos de equipamento) — a
+  // tela de Relatórios separa por tipo (Balsa/Baleeira/Turco/Colete) batendo
+  // nesse texto; "balsa" é o padrão/catch-all pra tudo que não bater nos outros 3.
+  if (tipo === 'baleeira' || tipo === 'turco' || tipo === 'colete') {
+    where.equipTipo = { contains: tipo, mode: 'insensitive' }
+  } else if (tipo === 'balsa') {
+    // equipTipo fica null até o técnico salvar o Relatório pela primeira vez
+    // (é preenchido só no formulário) — sem o "OR null" esses ainda cairiam
+    // fora do balde "balsa" e sumiriam da lista até a primeira edição.
+    where.OR = [
+      { equipTipo: null },
+      { NOT: [
+        { equipTipo: { contains: 'baleeira', mode: 'insensitive' } },
+        { equipTipo: { contains: 'turco', mode: 'insensitive' } },
+        { equipTipo: { contains: 'colete', mode: 'insensitive' } },
+      ] }
+    ]
+  }
 
   const [relatorios, total] = await Promise.all([
     prisma.relatorio.findMany({

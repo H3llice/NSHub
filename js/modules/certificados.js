@@ -100,13 +100,13 @@ window.gerarCertificadoDeRelatorio = async function (relatorioId) {
 // exigir Embarcação/Cliente já cadastrados. O botão "Criar" no lugar de
 // "Salvar"/"Emitir" é a única diferença.
 window.abrirNovoCertificadoAvulso = async function () {
-  document.getElementById('tipo-certificado-dropdown')?.classList.remove('show')
   const empresas = await apiFetch(`${API}/empresas`).then(r => r.json())
   exibirCertificado({}, empresas)
 }
 
-// Usada pela aba "Certificados" (Serviços → Certificados, ver js/app.js) pra
-// listar junto com os certificados avulsos antigos (baleeira/turco/colete).
+// Usada pela aba "Certificados" (Serviços → Certificados, ver js/app.js) na
+// tabela do tipo Balsa — os demais tipos (baleeira/turco/colete) têm sua
+// própria tabela, alimentada pelo avulso antigo em localStorage.
 // filtros: { navio, armador, tecnico, numero, ano, pagina } — repassados direto
 // pro backend (GET /certificados), que já sabe cair no cadastro de Embarcacao/
 // Armador quando o texto livre do Certificado não bate, e resolver o técnico

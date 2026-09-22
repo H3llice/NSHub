@@ -334,20 +334,28 @@ document.addEventListener('click', (event) => {
 
 // ===== FUNÇÕES DE CERTIFICADOS =====
 
-window.toggleTipoCertificadoMenu = function (event) {
-    event.preventDefault();
-    event.stopPropagation();
-    const dropdown = document.getElementById('tipo-certificado-dropdown');
-    dropdown.classList.toggle('show');
+// Cada tipo de certificado (Balsa/Baleeira/Turco/Colete) tem sua própria
+// tabela — o select de tipo ao lado do "Novo certificado" escolhe qual, e o
+// botão já cria o certificado do tipo selecionado direto, sem menu.
+window.trocarTipoCertificado = function () {
+    const tipo = document.getElementById('cert-tipo-ativo')?.value || 'balsa';
+    // Filtros de Ano/Armador/Técnico só existem no fluxo real (Balsa) — os
+    // outros tipos ainda são o formulário avulso antigo (ver comentário mais
+    // abaixo), sem esses dados pra filtrar.
+    document.querySelectorAll('.cert-filtro-balsa').forEach(el => {
+        el.style.display = tipo === 'balsa' ? '' : 'none';
+    });
+    atualizarTabelaCertificados(1);
 }
 
-document.addEventListener('click', (event) => {
-    const dropdown = document.getElementById('tipo-certificado-dropdown');
-    const btn = document.querySelector('.btn-type-selector');
-    if (btn && !btn.contains(event.target)) {
-        dropdown.classList.remove('show');
+window.novoCertificadoTipoAtivo = function () {
+    const tipo = document.getElementById('cert-tipo-ativo')?.value || 'balsa';
+    if (tipo === 'balsa') {
+        window.abrirNovoCertificadoAvulso();
+    } else {
+        window.carregarFormulario({ preventDefault() { } }, tipo);
     }
-}, true);
+}
 
 // Carregar formulário dinamicamente via AJAX
 window.carregarFormulario = function (event, tipo) {
@@ -355,7 +363,6 @@ window.carregarFormulario = function (event, tipo) {
 
     // Esconder lista
     document.getElementById('certificado-lista-container').style.display = 'none';
-    document.getElementById('tipo-certificado-dropdown').classList.remove('show');
 
     // Carregar formulário
     const container = document.getElementById('formulario-container');
@@ -447,11 +454,24 @@ window.salvarCertificado = function (event, tipo) {
 // Certificados de balsa gerados pelo fluxo real (OS → Relatório → Certificado,
 // ver js/modules/certificados.js) vêm do backend; os outros tipos (baleeira/
 // turco/colete) ainda são o formulário avulso antigo salvo em localStorage —
-// as duas listas são mescladas aqui pra aparecerem juntas na mesma aba.
+// cada tipo agora tem sua própria tabela (troca no select #cert-tipo-ativo),
+// em vez de aparecerem todos juntos numa lista só.
 let paginaAtualCertificados = 1;
 
 async function atualizarTabelaCertificados(pagina = 1) {
     paginaAtualCertificados = pagina;
+    const tipo = document.getElementById('cert-tipo-ativo')?.value || 'balsa';
+    if (tipo === 'balsa') {
+        await renderizarTabelaCertificadosBalsa(pagina);
+    } else {
+        renderizarTabelaCertificadosLegado(tipo);
+    }
+}
+// Exposta em window — os inputs de filtro (Navio/Armador/Técnico) chamam via
+// oninput inline no HTML, que roda no escopo global, não no do módulo.
+window.atualizarTabelaCertificados = atualizarTabelaCertificados;
+
+async function renderizarTabelaCertificadosBalsa(pagina) {
     const tabela = document.getElementById('tabela-certificados');
     const filtros = {
         numero: document.getElementById('filtro-cert-numero')?.value.trim() || '',
@@ -461,7 +481,6 @@ async function atualizarTabelaCertificados(pagina = 1) {
         tecnico: document.getElementById('filtro-cert-tecnico')?.value.trim() || '',
         pagina,
     };
-    const filtrando = filtros.numero || filtros.ano || filtros.navio || filtros.armador || filtros.tecnico;
     const { certificados: reais, total, totalPaginas } = await listarCertificadosBalsa(filtros);
 
     const contador = document.getElementById('contador-certificados');
@@ -478,14 +497,12 @@ async function atualizarTabelaCertificados(pagina = 1) {
         `;
     }
 
-    // Filtros só valem pro certificado de balsa (é o único com Embarcacao/Armador/
-    // Relatorio de verdade) — com filtro ativo, o legado (baleeira/turco/colete) some da lista.
-    if (reais.length === 0 && (filtrando || certificados.length === 0)) {
-        tabela.innerHTML = '<tr><td colspan="8" style="text-align: center; color: #999; padding: 30px;">Nenhum certificado encontrado</td></tr>';
+    if (reais.length === 0) {
+        tabela.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #999; padding: 30px;">Nenhum certificado de balsa encontrado</td></tr>';
         return;
     }
 
-    const linhasReais = reais.map(cert => {
+    tabela.innerHTML = reais.map(cert => {
         const dataEmissao = cert.dataEmissao ? new Date(cert.dataEmissao).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : '-'
         const armador = cert.armador || cert.embarcacao?.armador?.nome || '-'
         const tecnico = (cert.relatorio ? cert.relatorio.tecnicoNome : cert.dadosTecnicos?.tecnicoNome)
@@ -496,7 +513,6 @@ async function atualizarTabelaCertificados(pagina = 1) {
                 <td style="cursor:pointer;" onclick="abrirCertificado(${cert.id})">${cert.navio || cert.embarcacao?.nome || '-'}</td>
                 <td>${armador}</td>
                 <td>${tecnico}</td>
-                <td>Balsa</td>
                 <td>${badgeStatusCertificado(cert.status)}</td>
                 <td>${dataEmissao}</td>
                 <td class="col-acoes">
@@ -512,8 +528,30 @@ async function atualizarTabelaCertificados(pagina = 1) {
             </tr>
         `;
     }).join('');
+}
 
-    const linhasLegado = filtrando ? '' : certificados.map(cert => {
+const LABEL_TIPO_CERTIFICADO_LEGADO = { baleeira: 'baleeira', turco: 'turco', colete: 'colete' };
+
+// Baleeira/Turco/Colete: sem contador nem paginação (lista pequena, local no
+// navegador), com filtro simples client-side por número/navio.
+function renderizarTabelaCertificadosLegado(tipo) {
+    const tabela = document.getElementById('tabela-certificados');
+    const contador = document.getElementById('contador-certificados');
+    if (contador) contador.innerHTML = '';
+
+    const numero = (document.getElementById('filtro-cert-numero')?.value || '').trim().toLowerCase();
+    const navio = (document.getElementById('filtro-cert-navio')?.value || '').trim().toLowerCase();
+
+    let lista = certificados.filter(c => c.tipo === tipo);
+    if (numero) lista = lista.filter(c => (c.numero || '').toLowerCase().includes(numero));
+    if (navio) lista = lista.filter(c => (c.navio || '').toLowerCase().includes(navio));
+
+    if (lista.length === 0) {
+        tabela.innerHTML = `<tr><td colspan="7" style="text-align: center; color: #999; padding: 30px;">Nenhum certificado de ${LABEL_TIPO_CERTIFICADO_LEGADO[tipo] || tipo} encontrado</td></tr>`;
+        return;
+    }
+
+    tabela.innerHTML = lista.map(cert => {
         const dataEmissao = new Date(cert.dataEmissao).toLocaleDateString('pt-BR');
         return `
             <tr>
@@ -521,10 +559,9 @@ async function atualizarTabelaCertificados(pagina = 1) {
                 <td style="cursor:pointer;" onclick="editarCertificado(${cert.id})">${cert.navio}</td>
                 <td>-</td>
                 <td>-</td>
-                <td>${cert.tipo.charAt(0).toUpperCase() + cert.tipo.slice(1)}</td>
                 <td>-</td>
                 <td>${dataEmissao}</td>
-                <td>
+                <td class="col-acoes">
                     <div style="display:flex; flex-wrap:wrap; gap:6px;">
                         <button class="btn btn-sm btn-info" onclick="editarCertificado(${cert.id})">Editar</button>
                         <button class="btn btn-sm btn-danger" onclick="deletarCertificado(${cert.id})">Deletar</button>
@@ -533,12 +570,7 @@ async function atualizarTabelaCertificados(pagina = 1) {
             </tr>
         `;
     }).join('');
-
-    tabela.innerHTML = linhasReais + linhasLegado;
 }
-// Exposta em window — os inputs de filtro (Navio/Armador/Técnico) chamam via
-// oninput inline no HTML, que roda no escopo global, não no do módulo.
-window.atualizarTabelaCertificados = atualizarTabelaCertificados;
 
 window.editarCertificado = function (id) {
     alert('Função de edição em desenvolvimento');

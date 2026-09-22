@@ -61,10 +61,6 @@
                     <a href="#" onclick="abrirPagina(event,'contratos')" style="flex: 1;">Contratos locação</a>
                     <button class="star-btn" onclick="toggleFavorito(event, 'contratos', 'Contratos')">☆</button>
                 </div>
-                <div class="menu-item">
-                    <a href="#" onclick="abrirPagina(event,'notas')" style="flex: 1;">Notas fiscais</a>
-                    <button class="star-btn" onclick="toggleFavorito(event, 'notas', 'Notas fiscais')">☆</button>
-                </div>
             </div>
 
             <a href="#" onclick="toggleMenu(event,'servicos')" data-perm="admin,gerente,usuario,tecnico">🧰 Serviços</a>
@@ -206,11 +202,6 @@
             <button class="btn btn-success">Novo contrato</button>
         </div>
 
-        <div id="notas" class="page">
-            <div class="tab">Notas fiscais</div>
-            <button class="btn btn-success">Emitir nota</button>
-        </div>
-
         <div id="os" class="page">
             <div class="tab">Ordens de serviço</div>
             <button class="btn btn-success">Nova OS</button>
@@ -229,32 +220,30 @@
         <div id="certificados" class="page">
             <div id="certificado-lista-container" class="certificado-lista">
                 <div class="tab">Certificados</div>
-                <div class="btn-type-selector" style="margin-bottom: 20px;">
-                    <button class="btn btn-success" onclick="toggleTipoCertificadoMenu(event)">＋ Novo
-                        certificado</button>
-                    <div id="tipo-certificado-dropdown" class="tipo-certificado-dropdown">
-                        <a href="#" onclick="abrirNovoCertificadoAvulso()">Certificado de Balsa</a>
-                        <a href="#" onclick="carregarFormulario(event, 'baleeira')">Baleeira</a>
-                        <a href="#" onclick="carregarFormulario(event, 'turco')">Turco</a>
-                        <a href="#" onclick="carregarFormulario(event, 'colete')">Colete</a>
-                    </div>
+                <div style="display:flex; gap:8px; align-items:center; margin-bottom: 20px; flex-wrap:wrap;">
+                    <select id="cert-tipo-ativo" class="form-control" style="max-width:200px;" onchange="trocarTipoCertificado()">
+                        <option value="balsa">Balsa</option>
+                        <option value="baleeira">Baleeira</option>
+                        <option value="turco">Turco</option>
+                        <option value="colete">Colete</option>
+                    </select>
+                    <button class="btn btn-success" onclick="novoCertificadoTipoAtivo()">＋ Novo certificado</button>
                 </div>
                 <div style="display:flex; gap:12px; margin-bottom:16px; flex-wrap:wrap;">
                     <input type="text" id="filtro-cert-numero" class="form-control" placeholder="Filtrar por número..." style="max-width:150px;" oninput="atualizarTabelaCertificados()">
-                    <input type="text" id="filtro-cert-ano" class="form-control" placeholder="Filtrar por ano..." style="max-width:120px;" oninput="atualizarTabelaCertificados()">
+                    <input type="text" id="filtro-cert-ano" class="form-control cert-filtro-balsa" placeholder="Filtrar por ano..." style="max-width:120px;" oninput="atualizarTabelaCertificados()">
                     <input type="text" id="filtro-cert-navio" class="form-control" placeholder="Filtrar por embarcação..." style="max-width:220px;" oninput="atualizarTabelaCertificados()">
-                    <input type="text" id="filtro-cert-armador" class="form-control" placeholder="Filtrar por armador..." style="max-width:220px;" oninput="atualizarTabelaCertificados()">
-                    <input type="text" id="filtro-cert-tecnico" class="form-control" placeholder="Filtrar por técnico..." style="max-width:220px;" oninput="atualizarTabelaCertificados()">
+                    <input type="text" id="filtro-cert-armador" class="form-control cert-filtro-balsa" placeholder="Filtrar por armador..." style="max-width:220px;" oninput="atualizarTabelaCertificados()">
+                    <input type="text" id="filtro-cert-tecnico" class="form-control cert-filtro-balsa" placeholder="Filtrar por técnico..." style="max-width:220px;" oninput="atualizarTabelaCertificados()">
                 </div>
                 <div class="table-scroll">
                     <table class="table-certificados" style="table-layout:fixed;">
                         <thead>
                             <tr>
-                                <th style="width:80px;">Número</th>
-                                <th style="width:160px;">Navio</th>
-                                <th style="width:140px;">Armador</th>
-                                <th style="width:120px;">Técnico</th>
-                                <th style="width:80px;">Tipo</th>
+                                <th style="width:100px;">Número</th>
+                                <th style="width:180px;">Navio</th>
+                                <th style="width:160px;">Armador</th>
+                                <th style="width:140px;">Técnico</th>
                                 <th style="width:130px;">Status</th>
                                 <th style="width:110px;">Data Emissão</th>
                                 <th class="col-acoes" style="width:220px;">Ações</th>
@@ -262,7 +251,7 @@
                         </thead>
                         <tbody id="tabela-certificados">
                             <tr>
-                                <td colspan="8" style="text-align: center; color: #999; padding: 30px;">Nenhum certificado
+                                <td colspan="7" style="text-align: center; color: #999; padding: 30px;">Nenhum certificado
                                     cadastrado ainda</td>
                             </tr>
                         </tbody>

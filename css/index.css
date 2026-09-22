@@ -312,43 +312,6 @@ body {
 }
 
 /* CERTIFICADOS */
-.tipo-certificado-dropdown {
-    display: none;
-    position: absolute;
-    background: white;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    min-width: 200px;
-    top: 100%;
-    left: 0;
-    z-index: 1000;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    margin-top: 5px;
-    pointer-events: none;
-}
-
-.tipo-certificado-dropdown.show {
-    display: block;
-    pointer-events: auto;
-}
-
-.tipo-certificado-dropdown a {
-    display: block;
-    padding: 12px 16px;
-    color: var(--acento);
-    text-decoration: none;
-    border-bottom: 1px solid #eee;
-}
-
-.tipo-certificado-dropdown a:last-child {
-    border-bottom: none;
-}
-
-.tipo-certificado-dropdown a:hover {
-    background: var(--cinza-bg);
-    color: var(--laranja);
-}
-
 .certificado-lista {
     flex: 1;
 }
@@ -414,11 +377,6 @@ body {
 
 .table-certificados tbody tr:hover {
     background: var(--cinza-bg);
-}
-
-.btn-type-selector {
-    position: relative;
-    display: inline-block;
 }
 
 .form-group {
