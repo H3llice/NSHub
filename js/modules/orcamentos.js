@@ -97,24 +97,26 @@ export function inicializarOrcamentos() {
       </div>
     </div>
 
-    <table class="table-certificados">
-      <thead>
-        <tr>
-          <th>Nº Orçamento</th>
-          <th>Cliente</th>
-          <th>Vendedor</th>
-          <th>Data</th>
-          <th>Validade</th>
-          <th>Situação</th>
-          <th>Envio</th>
-          <th>Total líquido</th>
-          <th>Ações</th>
-        </tr>
-      </thead>
-      <tbody id="tabela-orcamentos">
-        <tr><td colspan="9" style="text-align:center; color:#999; padding:30px;">Carregando...</td></tr>
-      </tbody>
-    </table>
+    <div class="table-scroll">
+      <table class="table-certificados">
+        <thead>
+          <tr>
+            <th>Nº Orçamento</th>
+            <th>Cliente</th>
+            <th>Vendedor</th>
+            <th>Data</th>
+            <th>Validade</th>
+            <th>Situação</th>
+            <th>Envio</th>
+            <th>Total líquido</th>
+            <th class="col-acoes">Ações</th>
+          </tr>
+        </thead>
+        <tbody id="tabela-orcamentos">
+          <tr><td colspan="9" style="text-align:center; color:#999; padding:30px;">Carregando...</td></tr>
+        </tbody>
+      </table>
+    </div>
     <div id="contador-orcamentos" style="margin-top:12px;"></div>
   `
 
@@ -173,7 +175,7 @@ function renderizarTabelaOrcamentos(orcamentos) {
       <td>${badgeStatusOrcamento(o.status)}</td>
       <td>${badgeEnvioOrcamento(o.statusEnvio)}</td>
       <td>${formatarMoedaOrc(o.totalLiquido)}</td>
-      <td style="white-space:nowrap;">
+      <td class="col-acoes" style="white-space:nowrap;">
         <button class="btn btn-sm btn-info" onclick="verOrcamento(${o.id})">Ver</button>
         ${podeGerenciarOrcamentos && o.status !== 'convertido' ? `<button class="btn btn-sm btn-secondary" onclick="editarOrcamento(${o.id})">Editar</button>` : ''}
       </td>
@@ -189,7 +191,7 @@ window.verOrcamento = async function (id) {
 
   document.getElementById('orcamentos').innerHTML = `
     <div style="margin-top:20px; max-width:1000px;">
-      <div style="display:flex; justify-content:space-between; align-items:center;">
+      <div style="display:flex; flex-wrap:wrap; gap:8px; justify-content:space-between; align-items:center;">
         <button class="btn btn-secondary" onclick="inicializarOrcamentos()">← Voltar</button>
         ${podeGerenciarOrcamentos && o.status !== 'convertido' ? `<button class="btn btn-info" onclick="editarOrcamento(${o.id})">Editar</button>` : ''}
       </div>
@@ -221,23 +223,25 @@ window.verOrcamento = async function (id) {
       </div>
 
       <div style="background:white; border-radius:6px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06); margin-bottom:16px;">
-        <table class="table-certificados" style="margin:0;">
-          <thead>
-            <tr><th>Produto/Serviço</th><th>Tipo</th><th>Detalhes</th><th>Quantidade</th><th>Valor unitário</th><th>Subtotal</th></tr>
-          </thead>
-          <tbody>
-            ${o.itens.map(i => `
-              <tr>
-                <td>${i.nome}</td>
-                <td>${tipoLabel[i.tipo] || i.tipo}</td>
-                <td>${i.detalhes || '-'}</td>
-                <td>${i.quantidade}</td>
-                <td>${formatarMoedaOrc(i.valorUnitario)}</td>
-                <td>${formatarMoedaOrc(i.quantidade * i.valorUnitario)}</td>
-              </tr>
-            `).join('')}
-          </tbody>
-        </table>
+        <div class="table-scroll">
+          <table class="table-certificados" style="margin:0;">
+            <thead>
+              <tr><th>Produto/Serviço</th><th>Tipo</th><th>Detalhes</th><th>Quantidade</th><th>Valor unitário</th><th>Subtotal</th></tr>
+            </thead>
+            <tbody>
+              ${o.itens.map(i => `
+                <tr>
+                  <td>${i.nome}</td>
+                  <td>${tipoLabel[i.tipo] || i.tipo}</td>
+                  <td>${i.detalhes || '-'}</td>
+                  <td>${i.quantidade}</td>
+                  <td>${formatarMoedaOrc(i.valorUnitario)}</td>
+                  <td>${formatarMoedaOrc(i.quantidade * i.valorUnitario)}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
 
         <div style="margin-top:16px; padding-top:16px; border-top:1px solid #eee; display:flex; justify-content:space-between; align-items:flex-start;">
           <div>
@@ -559,16 +563,18 @@ async function abrirFormularioOrcamentoBase(o = null) {
         </label>
       </div>
 
-      <table class="table-certificados">
-        <thead>
-          <tr>
-            <th>Tipo</th><th>Produto/Serviço</th><th>Detalhes</th><th>Qtd</th><th>Valor Unit. (R$)</th>
-            <th class="orc-col-desconto-item" style="display:${modoAtual === 'item' ? '' : 'none'};">Desconto</th>
-            <th>Subtotal</th><th></th>
-          </tr>
-        </thead>
-        <tbody id="orc-itens-tbody"></tbody>
-      </table>
+      <div class="table-scroll">
+        <table class="table-certificados">
+          <thead>
+            <tr>
+              <th>Tipo</th><th>Produto/Serviço</th><th>Detalhes</th><th>Qtd</th><th>Valor Unit. (R$)</th>
+              <th class="orc-col-desconto-item" style="display:${modoAtual === 'item' ? '' : 'none'};">Desconto</th>
+              <th>Subtotal</th><th></th>
+            </tr>
+          </thead>
+          <tbody id="orc-itens-tbody"></tbody>
+        </table>
+      </div>
       <button type="button" class="btn btn-secondary" style="margin-top:8px;" onclick="adicionarLinhaItemOrcamento()">+ Item</button>
 
       <div style="background:white; border-radius:6px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06); margin-top:20px;">

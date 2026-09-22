@@ -200,11 +200,15 @@ function renderCertificado(c, empresas) {
 
   return `
     <div style="margin-top:20px; max-width:1000px;">
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+      <div style="display:flex; flex-wrap:wrap; gap:8px; justify-content:space-between; align-items:center; margin-bottom:20px;">
         <button class="btn btn-secondary" onclick="abrirPagina(event, 'certificados')">← Voltar</button>
         ${!novo ? `
-          <div style="display:flex; gap:8px;">
+          <div style="display:flex; flex-wrap:wrap; gap:8px;">
             <a class="btn btn-secondary" href="${urlPdfCertificado(c.id)}" target="_blank">PDF</a>
+            ${(perfil === 'admin' || perfil === 'gerente') ? `
+              ${!cancelado ? `<button class="btn btn-warning" onclick="cancelarCertificado(${c.id})">Cancelar</button>` : ''}
+              <button class="btn btn-danger" onclick="excluirCertificado(${c.id})">Excluir</button>
+            ` : ''}
           </div>
         ` : ''}
       </div>

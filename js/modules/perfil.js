@@ -35,14 +35,13 @@ function aplicarTema(tema) {
   }
 }
 
-// ===== Deixa o nome na topbar clicável e liga o modal de edição de perfil =====
+// ===== Deixa o nome (topbar no desktop, sidebar no celular) clicável e liga o modal de edição de perfil =====
 export function inicializarPerfil() {
-  const span = document.getElementById('topbar-usuario')
-  if (!span) return
-
-  span.style.cursor = 'pointer'
-  span.title = 'Editar perfil'
-  span.onclick = () => window.abrirModalPerfil()
+  document.querySelectorAll('.usuario-nome-el').forEach(span => {
+    span.style.cursor = 'pointer'
+    span.title = 'Editar perfil'
+    span.onclick = () => window.abrirModalPerfil()
+  })
 }
 
 // ===== MODAL — EDITAR PERFIL (nome e tema) =====================================
@@ -114,8 +113,9 @@ window.salvarPerfil = async function () {
     const novoUsuario = { ...usuarioAtual, ...usuarioAtualizado }
     localStorage.setItem('ns_usuario', JSON.stringify(novoUsuario))
 
-    const span = document.getElementById('topbar-usuario')
-    if (span) span.textContent = `👤 ${novoUsuario.nome} (${novoUsuario.perfil})`
+    document.querySelectorAll('.usuario-nome-el').forEach(span => {
+      span.textContent = `👤 ${novoUsuario.nome} (${novoUsuario.perfil})`
+    })
 
     aplicarTema(novoUsuario.tema)
     fecharModalPerfil()

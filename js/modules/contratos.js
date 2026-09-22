@@ -60,21 +60,23 @@ export function inicializarClientes() {
       <input type="text" id="filtro-cliente" class="form-control" placeholder="Buscar por nome ou CPF/CNPJ..." oninput="carregarClientes(1)">
     </div>
 
-    <table class="table-certificados">
-      <thead>
-        <tr>
-          <th>Nome</th>
-          <th>CPF/CNPJ</th>
-          <th>Tipo</th>
-          <th>Telefone</th>
-          <th>Cidade</th>
-          <th>Ações</th>
-        </tr>
-      </thead>
-      <tbody id="tabela-clientes">
-        <tr><td colspan="6" style="text-align:center; color:#999; padding:30px;">Carregando...</td></tr>
-      </tbody>
-    </table>
+    <div class="table-scroll">
+      <table class="table-certificados">
+        <thead>
+          <tr>
+            <th>Nome</th>
+            <th>CPF/CNPJ</th>
+            <th>Tipo</th>
+            <th>Telefone</th>
+            <th>Cidade</th>
+            <th>Ações</th>
+          </tr>
+        </thead>
+        <tbody id="tabela-clientes">
+          <tr><td colspan="6" style="text-align:center; color:#999; padding:30px;">Carregando...</td></tr>
+        </tbody>
+      </table>
+    </div>
     <div id="contador-clientes" style="margin-top:12px;"></div>
   `
 
@@ -125,7 +127,7 @@ function renderizarTabelaClientes(clientes) {
 
   tabela.innerHTML = clientes.map(c => `
     <tr>
-      <td>${c.nome}</td>
+      <td style="cursor:pointer;" onclick="editarCliente(${c.id})">${c.nome}</td>
       <td>${formatarDocumento(c.cpfCnpj)}</td>
       <td>${c.tipoPessoa === 'fisica' ? 'Física' : 'Jurídica'}</td>
       <td>${c.telefone || '-'}</td>
@@ -263,23 +265,25 @@ export function inicializarContratos() {
       </div>
     </div>
 
-    <table class="table-certificados">
-      <thead>
-        <tr>
-          <th>Nº Contrato</th>
-          <th>Cliente</th>
-          <th>Balsas</th>
-          <th>Início</th>
-          <th>Fim</th>
-          <th>Valor</th>
-          <th>Status</th>
-          ${podeGerenciarContratos ? '<th>Ações</th>' : ''}
-        </tr>
-      </thead>
-      <tbody id="tabela-contratos">
-        <tr><td colspan="8" style="text-align:center; color:#999; padding:30px;">Carregando...</td></tr>
-      </tbody>
-    </table>
+    <div class="table-scroll">
+      <table class="table-certificados">
+        <thead>
+          <tr>
+            <th>Nº Contrato</th>
+            <th>Cliente</th>
+            <th>Balsas</th>
+            <th>Início</th>
+            <th>Fim</th>
+            <th>Valor</th>
+            <th>Status</th>
+            ${podeGerenciarContratos ? '<th class="col-acoes">Ações</th>' : ''}
+          </tr>
+        </thead>
+        <tbody id="tabela-contratos">
+          <tr><td colspan="8" style="text-align:center; color:#999; padding:30px;">Carregando...</td></tr>
+        </tbody>
+      </table>
+    </div>
     <div id="contador-contratos" style="margin-top:12px;"></div>
   `
 
@@ -348,7 +352,7 @@ function renderizarTabelaContratos(contratos) {
         <td>${fim}</td>
         <td>${valor}</td>
         <td>${badgeStatusContrato(c.status)}</td>
-        ${podeGerenciarContratos ? `<td style="white-space:nowrap;">${acoes}</td>` : ''}
+        ${podeGerenciarContratos ? `<td class="col-acoes" style="white-space:nowrap;">${acoes}</td>` : ''}
       </tr>
     `
   }).join('')

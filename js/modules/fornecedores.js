@@ -63,7 +63,7 @@ export function inicializarFornecedores() {
     <div class="tab">Fornecedores</div>
     <button class="btn btn-success" onclick="abrirFormularioFornecedor()">+ Novo Fornecedor</button>
 
-    <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin: 16px 0;">
+    <div class="filtros-grid">
       <div>
         <label style="font-size:12px;">Nome</label>
         <input type="text" id="filtro-fornecedor-nome" class="form-control form-control-sm" oninput="carregarFornecedores(1)">
@@ -78,20 +78,22 @@ export function inicializarFornecedores() {
       </div>
     </div>
 
-    <table class="table-certificados">
-      <thead>
-        <tr>
-          <th>Nome</th>
-          <th>CNPJ/CPF</th>
-          <th>Cidade</th>
-          <th>Telefone</th>
-          <th>Ações</th>
-        </tr>
-      </thead>
-      <tbody id="tabela-fornecedores">
-        <tr><td colspan="5" style="text-align:center; color:#999; padding:30px;">Carregando...</td></tr>
-      </tbody>
-    </table>
+    <div class="table-scroll">
+      <table class="table-certificados">
+        <thead>
+          <tr>
+            <th>Nome</th>
+            <th>CNPJ/CPF</th>
+            <th>Cidade</th>
+            <th>Telefone</th>
+            <th>Ações</th>
+          </tr>
+        </thead>
+        <tbody id="tabela-fornecedores">
+          <tr><td colspan="5" style="text-align:center; color:#999; padding:30px;">Carregando...</td></tr>
+        </tbody>
+      </table>
+    </div>
     <div id="contador-fornecedores" style="margin-top:12px;"></div>
   `
 
@@ -145,7 +147,7 @@ function renderizarTabelaFornecedores(fornecedores) {
 
   tabela.innerHTML = fornecedores.map(f => `
     <tr>
-      <td>${f.nome}</td>
+      <td style="cursor:pointer;" onclick="editarFornecedor(${f.id})">${f.nome}</td>
       <td>${formatarDocumento(f.documento)}</td>
       <td>${f.cidade || '-'}</td>
       <td>${f.telefone || '-'}</td>

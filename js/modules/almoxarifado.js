@@ -128,35 +128,39 @@ function renderizarTabelaProdutosAlmox(produtos, dados) {
         ⚠️ <strong>${criticos.length}</strong> item(ns) com estoque no nível crítico ou abaixo: ${criticos.map(p => p.nome).join(', ')}
       </div>
     ` : ''}
-    <table class="table-certificados">
-      <thead>
-        <tr>
-          <th>Código</th>
-          <th>Material</th>
-          <th>Unidade</th>
-          <th>Valor</th>
-          <th>Qtd. disponível</th>
-          <th>Qtd. crítica</th>
-          ${podeGerenciar ? '<th>Ações</th>' : ''}
-        </tr>
-      </thead>
-      <tbody>
-        ${produtos.map(p => `
-          <tr${estoqueCriticoAlmox(p) ? ' style="background:#fff3cd;"' : ''}>
-            <td>${p.codigo}</td>
-            <td>${p.nome}</td>
-            <td>${p.unidade}</td>
-            <td>${formatarMoedaAlmox(p.valor)}</td>
-            <td><strong>${p.quantidade}</strong>${estoqueCriticoAlmox(p) ? ' ⚠️' : ''}</td>
-            <td>${p.quantidadeCritica ?? 0}</td>
-            ${podeGerenciar ? `<td>
-              <button class="btn btn-sm btn-info" onclick="editarProdutoAlmox(${p.id})">Editar</button>
-              ${isAdminAlmox ? `<button class="btn btn-sm btn-danger" style="margin-left:6px;" onclick="excluirProdutoAlmox(${p.id})">Excluir</button>` : ''}
-            </td>` : ''}
+    <div class="table-scroll">
+      <table class="table-certificados">
+        <thead>
+          <tr>
+            <th>Código</th>
+            <th>Material</th>
+            <th>Unidade</th>
+            <th>Valor</th>
+            <th>Qtd. disponível</th>
+            <th>Qtd. crítica</th>
+            ${podeGerenciar ? '<th class="col-acoes">Ações</th>' : ''}
           </tr>
-        `).join('')}
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          ${produtos.map(p => `
+            <tr${estoqueCriticoAlmox(p) ? ' style="background:#fff3cd;"' : ''}>
+              <td${podeGerenciar ? ` style="cursor:pointer;" onclick="editarProdutoAlmox(${p.id})"` : ''}>${p.codigo}</td>
+              <td${podeGerenciar ? ` style="cursor:pointer;" onclick="editarProdutoAlmox(${p.id})"` : ''}>${p.nome}</td>
+              <td>${p.unidade}</td>
+              <td>${formatarMoedaAlmox(p.valor)}</td>
+              <td><strong>${p.quantidade}</strong>${estoqueCriticoAlmox(p) ? ' ⚠️' : ''}</td>
+              <td>${p.quantidadeCritica ?? 0}</td>
+              ${podeGerenciar ? `<td class="col-acoes">
+                <div style="display:flex; flex-wrap:wrap; gap:6px;">
+                  <button class="btn btn-sm btn-info" onclick="editarProdutoAlmox(${p.id})">Editar</button>
+                  ${isAdminAlmox ? `<button class="btn btn-sm btn-danger" onclick="excluirProdutoAlmox(${p.id})">Excluir</button>` : ''}
+                </div>
+              </td>` : ''}
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
     <div style="display:flex; justify-content:space-between; align-items:center; margin-top:12px;">
       <span>${dados.total || 0} produtos encontrados</span>
       <div style="display:flex; gap:8px; align-items:center;">
@@ -250,7 +254,10 @@ window.editarProdutoAlmox = async function (id) {
         </div>
       </div>
 
-      <button type="button" class="btn btn-success" style="margin-top:20px;" onclick="atualizarProdutoAlmox(${p.id})">Salvar Alterações</button>
+      <div style="display:flex; flex-wrap:wrap; gap:8px; margin-top:20px;">
+        <button type="button" class="btn btn-success" onclick="atualizarProdutoAlmox(${p.id})">Salvar Alterações</button>
+        ${isAdminAlmox ? `<button type="button" class="btn btn-danger" onclick="excluirProdutoAlmox(${p.id})">Excluir</button>` : ''}
+      </div>
     </div>
   `
 }
@@ -315,31 +322,33 @@ function renderizarTabelaPedidosAlmox(pedidos, dados) {
   }
 
   container.innerHTML = `
-    <table class="table-certificados">
-      <thead>
-        <tr>
-          <th>Número</th>
-          <th>Data</th>
-          <th>Solicitante</th>
-          <th>Itens</th>
-          <th>Ações</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${pedidos.map(p => `
+    <div class="table-scroll">
+      <table class="table-certificados">
+        <thead>
           <tr>
-            <td>${p.numero}.${p.ano}</td>
-            <td>${new Date(p.criadoEm).toLocaleDateString('pt-BR')}</td>
-            <td>${p.solicitante?.nome || '-'}</td>
-            <td>${p.itens.length}</td>
-            <td>
-              <button class="btn btn-sm btn-info" onclick="verPedidoAlmox(${p.id})">Ver detalhes</button>
-              ${podeGerenciar ? `<button class="btn btn-sm btn-danger" style="margin-left:6px;" onclick="cancelarPedidoAlmox(${p.id})">Cancelar</button>` : ''}
-            </td>
+            <th>Número</th>
+            <th>Data</th>
+            <th>Solicitante</th>
+            <th>Itens</th>
+            <th>Ações</th>
           </tr>
-        `).join('')}
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          ${pedidos.map(p => `
+            <tr>
+              <td style="cursor:pointer;" onclick="verPedidoAlmox(${p.id})">${p.numero}.${p.ano}</td>
+              <td>${new Date(p.criadoEm).toLocaleDateString('pt-BR')}</td>
+              <td>${p.solicitante?.nome || '-'}</td>
+              <td>${p.itens.length}</td>
+              <td>
+                <button class="btn btn-sm btn-info" onclick="verPedidoAlmox(${p.id})">Ver detalhes</button>
+                ${podeGerenciar ? `<button class="btn btn-sm btn-danger" style="margin-left:6px;" onclick="cancelarPedidoAlmox(${p.id})">Cancelar</button>` : ''}
+              </td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
     <div style="display:flex; justify-content:space-between; align-items:center; margin-top:12px;">
       <span>${dados.total || 0} pedidos encontrados</span>
       <div style="display:flex; gap:8px; align-items:center;">

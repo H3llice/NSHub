@@ -71,7 +71,7 @@ export function inicializarContasReceber() {
     <div class="tab">Contas a Receber</div>
     ${podeMarcarPago ? `<button class="btn btn-success" onclick="abrirFormularioContaAvulsa()">+ Nova Conta</button>` : ''}
 
-    <div id="resumo-contas-receber" style="display:grid; grid-template-columns:repeat(3, 1fr); gap:16px; margin: 16px 0;">
+    <div id="resumo-contas-receber" class="info-grid-3" style="margin: 16px 0;">
       <div style="background:white; border-radius:6px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06);">
         <div style="color:#999; font-size:12px;">Total a Receber</div>
         <div id="resumo-total-receber" style="font-size:22px; font-weight:700; color:var(--acento);">-</div>
@@ -87,7 +87,7 @@ export function inicializarContasReceber() {
     </div>
 
     <!-- Filtros -->
-    <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 16px; align-items:end;">
+    <div class="filtros-grid">
       <div>
         <label style="font-size:12px;">Buscar (cliente, contrato, referência)</label>
         <input type="text" id="filtro-busca-pagamento" class="form-control form-control-sm" oninput="carregarPagamentos(1)">
@@ -111,22 +111,24 @@ export function inicializarContasReceber() {
       </div>
     </div>
 
-    <table class="table-certificados">
-      <thead>
-        <tr>
-          <th>Contrato</th>
-          <th>Cliente</th>
-          <th>Referência / Descrição</th>
-          <th>Vencimento</th>
-          <th>Valor</th>
-          <th>Status</th>
-          ${podeMarcarPago ? '<th>Ações</th>' : ''}
-        </tr>
-      </thead>
-      <tbody id="tabela-pagamentos">
-        <tr><td colspan="7" style="text-align:center; color:#999; padding:30px;">Carregando...</td></tr>
-      </tbody>
-    </table>
+    <div class="table-scroll">
+      <table class="table-certificados">
+        <thead>
+          <tr>
+            <th>Contrato</th>
+            <th>Cliente</th>
+            <th>Referência / Descrição</th>
+            <th>Vencimento</th>
+            <th>Valor</th>
+            <th>Status</th>
+            ${podeMarcarPago ? '<th>Ações</th>' : ''}
+          </tr>
+        </thead>
+        <tbody id="tabela-pagamentos">
+          <tr><td colspan="7" style="text-align:center; color:#999; padding:30px;">Carregando...</td></tr>
+        </tbody>
+      </table>
+    </div>
     <div id="contador-pagamentos" style="margin-top:12px;"></div>
   `
 

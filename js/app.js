@@ -38,10 +38,11 @@ function aplicarPermissoesInterface() {
 }
 
 window.addEventListener('load', () => {
-    // Mostra nome na topbar
-    const span = document.getElementById('topbar-usuario')
-    if (span && usuarioLogado) {
-        span.textContent = `👤 ${usuarioLogado.nome} (${usuarioLogado.perfil})`
+    // Mostra nome na topbar (desktop) e na sidebar (celular — ver .sidebar-user no CSS)
+    if (usuarioLogado) {
+        document.querySelectorAll('.usuario-nome-el').forEach(span => {
+            span.textContent = `👤 ${usuarioLogado.nome} (${usuarioLogado.perfil})`
+        })
     }
 
     aplicarPermissoesInterface()
@@ -491,14 +492,14 @@ async function atualizarTabelaCertificados(pagina = 1) {
             || (cert.relatorio?.criadoPor?.nome || cert.criadoPor?.nome) || '-'
         return `
             <tr>
-                <td>${cert.numero}</td>
-                <td>${cert.navio || cert.embarcacao?.nome || '-'}</td>
+                <td style="cursor:pointer;" onclick="abrirCertificado(${cert.id})">${cert.numero}</td>
+                <td style="cursor:pointer;" onclick="abrirCertificado(${cert.id})">${cert.navio || cert.embarcacao?.nome || '-'}</td>
                 <td>${armador}</td>
                 <td>${tecnico}</td>
                 <td>Balsa</td>
                 <td>${badgeStatusCertificado(cert.status)}</td>
                 <td>${dataEmissao}</td>
-                <td>
+                <td class="col-acoes">
                     <div style="display:flex; flex-wrap:wrap; gap:6px;">
                         <button class="btn btn-sm btn-info" onclick="abrirCertificado(${cert.id})">Editar</button>
                         <a class="btn btn-sm btn-secondary" href="${urlPdfCertificado(cert.id)}" target="_blank">PDF</a>
@@ -516,16 +517,18 @@ async function atualizarTabelaCertificados(pagina = 1) {
         const dataEmissao = new Date(cert.dataEmissao).toLocaleDateString('pt-BR');
         return `
             <tr>
-                <td>${cert.numero}</td>
-                <td>${cert.navio}</td>
+                <td style="cursor:pointer;" onclick="editarCertificado(${cert.id})">${cert.numero}</td>
+                <td style="cursor:pointer;" onclick="editarCertificado(${cert.id})">${cert.navio}</td>
                 <td>-</td>
                 <td>-</td>
                 <td>${cert.tipo.charAt(0).toUpperCase() + cert.tipo.slice(1)}</td>
                 <td>-</td>
                 <td>${dataEmissao}</td>
                 <td>
-                    <button class="btn btn-sm btn-info" style="margin-right: 5px;" onclick="editarCertificado(${cert.id})">Editar</button>
-                    <button class="btn btn-sm btn-danger" onclick="deletarCertificado(${cert.id})">Deletar</button>
+                    <div style="display:flex; flex-wrap:wrap; gap:6px;">
+                        <button class="btn btn-sm btn-info" onclick="editarCertificado(${cert.id})">Editar</button>
+                        <button class="btn btn-sm btn-danger" onclick="deletarCertificado(${cert.id})">Deletar</button>
+                    </div>
                 </td>
             </tr>
         `;

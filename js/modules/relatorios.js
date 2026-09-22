@@ -172,21 +172,23 @@ export function inicializarRelatorios() {
     depois (botão + criarRelatorioTeste, abaixo). -->
     <button class="btn btn-secondary" onclick="criarRelatorioTeste()">+ Novo Relatório (teste)</button>
 
-    <table class="table-certificados" style="margin-top:16px; table-layout:fixed;">
-      <thead>
-        <tr>
-          <th style="width:90px;">Nº</th>
-          <th style="width:180px;">Navio</th>
-          <th style="width:160px;">Armador</th>
-          <th style="width:100px;">Data</th>
-          <th style="width:110px;">Status</th>
-          <th style="width:260px;">Ações</th>
-        </tr>
-      </thead>
-      <tbody id="tabela-relatorios">
-        <tr><td colspan="6" style="text-align:center; color:#999; padding:30px;">Carregando...</td></tr>
-      </tbody>
-    </table>
+    <div class="table-scroll">
+      <table class="table-certificados" style="margin-top:16px; table-layout:fixed;">
+        <thead>
+          <tr>
+            <th style="width:90px;">Nº</th>
+            <th style="width:180px;">Navio</th>
+            <th style="width:160px;">Armador</th>
+            <th style="width:100px;">Data</th>
+            <th style="width:110px;">Status</th>
+            <th class="col-acoes" style="width:260px;">Ações</th>
+          </tr>
+        </thead>
+        <tbody id="tabela-relatorios">
+          <tr><td colspan="6" style="text-align:center; color:#999; padding:30px;">Carregando...</td></tr>
+        </tbody>
+      </table>
+    </div>
     <div id="contador-relatorios" style="margin-top:12px;"></div>
   `
 
@@ -222,12 +224,12 @@ window.carregarRelatorios = async function (pagina = 1) {
 
     tabela.innerHTML = resp.relatorios.map(r => `
       <tr>
-        <td>${r.numero}/${r.ano}</td>
-        <td>${r.embarcacao?.nome || '-'}</td>
+        <td style="cursor:pointer;" onclick="editarRelatorio(${r.id})">${r.numero}/${r.ano}</td>
+        <td style="cursor:pointer;" onclick="editarRelatorio(${r.id})">${r.embarcacao?.nome || '-'}</td>
         <td>${r.embarcacao?.armador?.nome || '-'}</td>
         <td>${new Date(r.data).toLocaleDateString('pt-BR', { timeZone: 'UTC' })}</td>
         <td>${badgeStatus(r.status)}</td>
-        <td>
+        <td class="col-acoes">
           <div style="display:flex; flex-wrap:wrap; gap:6px;">
             <button class="btn btn-sm btn-info" onclick="editarRelatorio(${r.id})">${r.status === 'preenchendo' ? 'Editar' : 'Ver'}</button>
             <a class="btn btn-sm btn-secondary" href="${API}/relatorios/${r.id}/pdf?token=${encodeURIComponent(tokenAtual)}" target="_blank">PDF</a>
@@ -392,20 +394,22 @@ export function renderSecoesTecnicasRelatorio(r, somenteLeitura, opcoes = {}) {
 
   return `
       ${secao('Lista de Verificação e Reparos', `
-        <table class="table-certificados">
-          <thead><tr><th>Item</th><th>Qtd</th><th>Extra</th><th>Substituído</th><th>Validade</th></tr></thead>
-          <tbody>
-            ${KIT_ITENS.map(item => `
-              <tr>
-                <td>${item.label}</td>
-                <td style="width:80px;"><input type="number" min="0" class="form-control form-control-sm" id="rel-kit-${item.key}-qtd" value="${r?.[`${item.key}Qtd`] ?? ''}" ${dis}></td>
-                <td style="width:120px;">${item.extraKey ? `<input type="number" min="0" step="0.01" class="form-control form-control-sm" placeholder="${item.extraLabel}" id="rel-kit-${item.key}-extra" value="${r?.[`${item.key}${item.extraKey.charAt(0).toUpperCase()}${item.extraKey.slice(1)}`] ?? ''}" ${dis}>` : ''}</td>
-                <td style="width:60px; text-align:center;"><input type="checkbox" id="rel-kit-${item.key}-substituido" ${r?.[`${item.key}Substituido`] ? 'checked' : ''} ${dis}></td>
-                <td style="width:150px;"><input type="text" class="form-control form-control-sm" placeholder="Ex: 05/2027" id="rel-kit-${item.key}-validade" value="${r?.[`${item.key}Validade`] || ''}" ${dis}></td>
-              </tr>
-            `).join('')}
-          </tbody>
-        </table>
+        <div class="table-scroll">
+          <table class="table-certificados">
+            <thead><tr><th>Item</th><th>Qtd</th><th>Extra</th><th>Substituído</th><th>Validade</th></tr></thead>
+            <tbody>
+              ${KIT_ITENS.map(item => `
+                <tr>
+                  <td>${item.label}</td>
+                  <td style="width:80px;"><input type="number" min="0" class="form-control form-control-sm" id="rel-kit-${item.key}-qtd" value="${r?.[`${item.key}Qtd`] ?? ''}" ${dis}></td>
+                  <td style="width:120px;">${item.extraKey ? `<input type="number" min="0" step="0.01" class="form-control form-control-sm" placeholder="${item.extraLabel}" id="rel-kit-${item.key}-extra" value="${r?.[`${item.key}${item.extraKey.charAt(0).toUpperCase()}${item.extraKey.slice(1)}`] ?? ''}" ${dis}>` : ''}</td>
+                  <td style="width:60px; text-align:center;"><input type="checkbox" id="rel-kit-${item.key}-substituido" ${r?.[`${item.key}Substituido`] ? 'checked' : ''} ${dis}></td>
+                  <td style="width:150px;"><input type="text" class="form-control form-control-sm" placeholder="Ex: 05/2027" id="rel-kit-${item.key}-validade" value="${r?.[`${item.key}Validade`] || ''}" ${dis}></td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
       `)}
 
       ${secao('Checklist de Componentes', `
@@ -442,7 +446,7 @@ export function renderSecoesTecnicasRelatorio(r, somenteLeitura, opcoes = {}) {
       `)}
 
       ${secao('Cilindros', `
-        <div style="overflow-x:auto;">
+        <div class="table-scroll">
           <table class="table-certificados" style="min-width:1200px;">
             <thead><tr><th>Nº</th><th>Nº Válvula</th><th>Teste</th><th>Carga (kg)</th><th>Carga CO2 (kg)</th><th>Carga N2 (kg)</th><th>Fabricante</th><th>Ano Fab.</th><th>Cabo Interno (m)</th><th>Cabo Externo (m)</th><th>Altura Máx. (m)</th>${somenteLeitura ? '' : '<th></th>'}</tr></thead>
             <tbody id="lista-cilindros"></tbody>

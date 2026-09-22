@@ -84,23 +84,25 @@ export function inicializarVendas() {
       </div>
     </div>
 
-    <table class="table-certificados">
-      <thead>
-        <tr>
-          <th>Nº Venda</th>
-          <th>Cliente</th>
-          <th>Vendedor</th>
-          <th>Balsas</th>
-          <th>Data</th>
-          <th>Valor</th>
-          <th>Status</th>
-          ${podeGerenciarVendas ? '<th>Ações</th>' : ''}
-        </tr>
-      </thead>
-      <tbody id="tabela-vendas">
-        <tr><td colspan="8" style="text-align:center; color:#999; padding:30px;">Carregando...</td></tr>
-      </tbody>
-    </table>
+    <div class="table-scroll">
+      <table class="table-certificados">
+        <thead>
+          <tr>
+            <th>Nº Venda</th>
+            <th>Cliente</th>
+            <th>Vendedor</th>
+            <th>Balsas</th>
+            <th>Data</th>
+            <th>Valor</th>
+            <th>Status</th>
+            ${podeGerenciarVendas ? '<th class="col-acoes">Ações</th>' : ''}
+          </tr>
+        </thead>
+        <tbody id="tabela-vendas">
+          <tr><td colspan="8" style="text-align:center; color:#999; padding:30px;">Carregando...</td></tr>
+        </tbody>
+      </table>
+    </div>
     <div id="contador-vendas" style="margin-top:12px;"></div>
   `
 
@@ -167,7 +169,7 @@ function renderizarTabelaVendas(vendas) {
         <td>${data}</td>
         <td>${valor}</td>
         <td>${badgeStatusVenda(v.status)}</td>
-        ${podeGerenciarVendas ? `<td style="white-space:nowrap;">${acoes}</td>` : ''}
+        ${podeGerenciarVendas ? `<td class="col-acoes" style="white-space:nowrap;">${acoes}</td>` : ''}
       </tr>
     `
   }).join('')

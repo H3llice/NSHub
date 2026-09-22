@@ -102,23 +102,25 @@ export function inicializarVendasOrcamento() {
       </div>
     </div>
 
-    <table class="table-certificados">
-      <thead>
-        <tr>
-          <th>Nº Venda</th>
-          <th>Cliente</th>
-          <th>Vendedor</th>
-          <th>Data</th>
-          <th>Pagamento</th>
-          <th>Valor Total</th>
-          <th>Status</th>
-          <th>Ações</th>
-        </tr>
-      </thead>
-      <tbody id="tabela-vendas-orc">
-        <tr><td colspan="8" style="text-align:center; color:#999; padding:30px;">Carregando...</td></tr>
-      </tbody>
-    </table>
+    <div class="table-scroll">
+      <table class="table-certificados">
+        <thead>
+          <tr>
+            <th>Nº Venda</th>
+            <th>Cliente</th>
+            <th>Vendedor</th>
+            <th>Data</th>
+            <th>Pagamento</th>
+            <th>Valor Total</th>
+            <th>Status</th>
+            <th>Ações</th>
+          </tr>
+        </thead>
+        <tbody id="tabela-vendas-orc">
+          <tr><td colspan="8" style="text-align:center; color:#999; padding:30px;">Carregando...</td></tr>
+        </tbody>
+      </table>
+    </div>
     <div id="contador-vendas-orc" style="margin-top:12px;"></div>
   `
 

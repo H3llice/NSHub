@@ -34,6 +34,34 @@ body {
     left: 0;
     top: 0;
     transform: translateX(0); /* Desktop padrão */
+    overflow-y: auto;
+}
+
+/* Nome do usuário e botão Sair dentro da sidebar — só aparecem no celular
+(ver media query), onde a topbar não tem espaço pra eles (.topbar-user-actions) */
+.sidebar-user {
+    display: none;
+    padding: 12px 22px;
+    font-size: 13px;
+    border-bottom: 1px solid rgba(255, 255, 255, .15);
+}
+
+.sidebar-logout-mobile {
+    display: none;
+    margin-top: auto;
+    width: 100%;
+    background: rgba(0, 0, 0, .15);
+    color: white;
+    border: none;
+    border-top: 1px solid rgba(255, 255, 255, .15);
+    padding: 14px 22px;
+    text-align: left;
+    font-size: 15px;
+    cursor: pointer;
+}
+
+.sidebar-logout-mobile:hover {
+    background: rgba(0, 0, 0, .3);
 }
 
 .sidebar-toggle {
@@ -155,6 +183,12 @@ body {
     display: flex;
     align-items: center;
     gap: 16px;
+}
+
+.topbar-user-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
 }
 
 .page {
@@ -496,6 +530,44 @@ body {
     text-align: center;
 }
 
+/* ===== PADRÃO DE LISTA (filtros/tabela) — usado em TODAS as páginas ===== */
+
+/* Grid de filtros que se adapta sozinho: cabe quantas colunas couberem (min.
+150px cada) e quebra linha conforme a tela encolhe, sem precisar de media
+query por página — troca o "display:grid; grid-template-columns:2fr 1fr..."
+fixo (que não quebrava linha e estourava no celular) usado antes em cada lista. */
+.filtros-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 8px;
+    align-items: end;
+    margin: 16px 0;
+}
+
+/* Envolve tabelas largas — só a tabela rola de lado, sem arrastar o resto
+da página junto (antes era o .content inteiro que rolava, e ao rolar pra ver
+colunas da tabela o resto do conteúdo saía de vista também). */
+.table-scroll {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* Cards de informação lado a lado (ex: assinaturas) — mesma lógica do
+.filtros-grid, com colunas maiores pro conteúdo dos cards. */
+.info-grid-3 {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+}
+
+/* Par de cards lado a lado (ex: Fornecedor/Condições Comerciais numa OC) —
+empilha em vez de espremer quando não cabem os dois lado a lado. */
+.info-grid-2 {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 16px;
+}
+
 /* ===== RESPONSIVO ===== */
 
 @media (max-width: 768px) {
@@ -521,35 +593,35 @@ body {
         padding: 10px 15px 10px 60px;
     }
 
-    /* A busca e o grupo de ações (Novo registro/usuário/Sair) não cabem numa
-    linha só no celular — cada um vira sua própria linha dentro do topbar
-    (que cresce em altura, já que não é mais height:65px fixo), em vez de
-    espremer/cortar os elementos como acontecia antes. */
     .topbar-row {
         flex-wrap: wrap;
         row-gap: 8px;
     }
 
-    .topbar-search {
-        flex: 1 1 100%;
-    }
-
-    .topbar-search input {
-        width: 100% !important;
-    }
-
+    /* Sem busca nem usuário/Sair no celular (foram pra sidebar — ver
+    .sidebar-user/.sidebar-logout-mobile), o topbar-actions só tem o botão
+    "Novo registro" — flex-end empurra ele pra direita da tela. */
     .topbar-actions {
         flex: 1 1 100%;
-        flex-wrap: wrap;
-        justify-content: space-between;
-        row-gap: 8px;
+        justify-content: flex-end;
     }
 
-    #topbar-usuario {
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        max-width: 140px;
+    .topbar-user-actions {
+        display: none;
+    }
+
+    .sidebar-user,
+    .sidebar-logout-mobile {
+        display: block;
+    }
+
+    /* Coluna de ações das listas (Editar/PDF/Aprovar/Recusar/Cancelar...)
+    não cabe no celular em nenhuma tela — some da lista, e as mesmas ações
+    continuam disponíveis ao abrir o registro (clicando na linha). Padrão
+    usado em TODAS as listas do projeto (OCs, Relatórios, Certificados, OS,
+    Solicitações, Contratos, Vendas, Fornecedores, Embarcações, etc). */
+    .col-acoes {
+        display: none;
     }
 
     .content {

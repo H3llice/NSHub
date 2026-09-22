@@ -33,6 +33,12 @@
             <img src="../img/logo.png" alt="Natal Safety">
         </div>
 
+        <!-- No celular, o nome do usuário fica no topo da sidebar (a versão da
+        topbar fica escondida nessa largura, ver .topbar-user-actions no CSS) -->
+        <div class="sidebar-user">
+            <span class="usuario-nome-el"></span>
+        </div>
+
         <div class="menu">
             <a href="#" onclick="abrirPagina(event,'inicio')">🏠 Início</a>
             <a href="#" onclick="abrirPagina(event,'favoritos')">⭐ Favoritos</a>
@@ -141,14 +147,15 @@
                 </div>
             </div>
         </div>
+
+        <!-- Fica escondido no desktop/tablet; só aparece no celular, empurrado
+        pro final da sidebar (flex column + margin-top:auto no CSS) -->
+        <button class="sidebar-logout-mobile" onclick="logout()">🚪 Sair</button>
     </div>
 
     <!-- TOPBAR -->
     <div class="topbar">
-        <div class="main-container topbar-row d-flex justify-content-between align-items-center w-100">
-            <div class="topbar-search">
-                🔎 <input class="form-control form-control-sm d-inline" style="width:200px" placeholder="Pesquisar">
-            </div>
+        <div class="main-container topbar-row d-flex justify-content-end align-items-center w-100">
             <div class="topbar-actions">
                 <div class="novo-registro-menu">
                     <button class="btn btn-warning" onclick="toggleNovoRegistroMenu(event)">＋ Novo registro</button>
@@ -165,8 +172,10 @@
 
                     </div>
                 </div>
-                <span id="topbar-usuario" style="font-size:13px; color:#555;"></span>
-                <button class="btn btn-sm btn-outline-danger" onclick="logout()">Sair</button>
+                <div class="topbar-user-actions">
+                    <span id="topbar-usuario" class="usuario-nome-el" style="font-size:13px; color:#555;"></span>
+                    <button class="btn btn-sm btn-outline-danger" onclick="logout()">Sair</button>
+                </div>
             </div>
         </div>
     </div>
@@ -237,26 +246,28 @@
                     <input type="text" id="filtro-cert-armador" class="form-control" placeholder="Filtrar por armador..." style="max-width:220px;" oninput="atualizarTabelaCertificados()">
                     <input type="text" id="filtro-cert-tecnico" class="form-control" placeholder="Filtrar por técnico..." style="max-width:220px;" oninput="atualizarTabelaCertificados()">
                 </div>
-                <table class="table-certificados" style="table-layout:fixed;">
-                    <thead>
-                        <tr>
-                            <th style="width:80px;">Número</th>
-                            <th style="width:160px;">Navio</th>
-                            <th style="width:140px;">Armador</th>
-                            <th style="width:120px;">Técnico</th>
-                            <th style="width:80px;">Tipo</th>
-                            <th style="width:130px;">Status</th>
-                            <th style="width:110px;">Data Emissão</th>
-                            <th style="width:220px;">Ações</th>
-                        </tr>
-                    </thead>
-                    <tbody id="tabela-certificados">
-                        <tr>
-                            <td colspan="8" style="text-align: center; color: #999; padding: 30px;">Nenhum certificado
-                                cadastrado ainda</td>
-                        </tr>
-                    </tbody>
-                </table>
+                <div class="table-scroll">
+                    <table class="table-certificados" style="table-layout:fixed;">
+                        <thead>
+                            <tr>
+                                <th style="width:80px;">Número</th>
+                                <th style="width:160px;">Navio</th>
+                                <th style="width:140px;">Armador</th>
+                                <th style="width:120px;">Técnico</th>
+                                <th style="width:80px;">Tipo</th>
+                                <th style="width:130px;">Status</th>
+                                <th style="width:110px;">Data Emissão</th>
+                                <th class="col-acoes" style="width:220px;">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabela-certificados">
+                            <tr>
+                                <td colspan="8" style="text-align: center; color: #999; padding: 30px;">Nenhum certificado
+                                    cadastrado ainda</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
                 <div id="contador-certificados" style="margin-top:12px;"></div>
             </div>
 

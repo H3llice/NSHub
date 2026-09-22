@@ -71,21 +71,23 @@ export function inicializarOrdensServico() {
     <div class="tab">Ordens de Serviço</div>
     ${podeGerenciarOS ? `<button class="btn btn-success" onclick="abrirFormularioOS()">+ Nova OS</button>` : ''}
 
-    <table class="table-certificados" style="margin-top:16px; table-layout:fixed;">
-      <thead>
-        <tr>
-          <th style="width:90px;">Nº</th>
-          <th style="width:180px;">Navio</th>
-          <th style="width:160px;">Cliente</th>
-          <th style="width:100px;">Emissão</th>
-          <th style="width:110px;">Status</th>
-          <th style="width:300px;">Ações</th>
-        </tr>
-      </thead>
-      <tbody id="tabela-os">
-        <tr><td colspan="6" style="text-align:center; color:#999; padding:30px;">Carregando...</td></tr>
-      </tbody>
-    </table>
+    <div class="table-scroll">
+      <table class="table-certificados" style="margin-top:16px; table-layout:fixed;">
+        <thead>
+          <tr>
+            <th style="width:90px;">Nº</th>
+            <th style="width:180px;">Navio</th>
+            <th style="width:160px;">Cliente</th>
+            <th style="width:100px;">Emissão</th>
+            <th style="width:110px;">Status</th>
+            <th class="col-acoes" style="width:300px;">Ações</th>
+          </tr>
+        </thead>
+        <tbody id="tabela-os">
+          <tr><td colspan="6" style="text-align:center; color:#999; padding:30px;">Carregando...</td></tr>
+        </tbody>
+      </table>
+    </div>
     <div id="contador-os" style="margin-top:12px;"></div>
   `
 
@@ -121,12 +123,12 @@ window.carregarOrdensServico = async function (pagina = 1) {
 
     tabela.innerHTML = resp.ordensServico.map(os => `
       <tr>
-        <td>${os.numero}/${os.ano}</td>
-        <td>${os.embarcacao?.nome || '-'}</td>
+        <td style="cursor:pointer;" onclick="editarOS(${os.id})">${os.numero}/${os.ano}</td>
+        <td style="cursor:pointer;" onclick="editarOS(${os.id})">${os.embarcacao?.nome || '-'}</td>
         <td>${os.cliente?.nome || '-'}</td>
         <td>${new Date(os.dataEmissao).toLocaleDateString('pt-BR', { timeZone: 'UTC' })}</td>
         <td>${badgeStatus(os.status)}</td>
-        <td>
+        <td class="col-acoes">
           <div style="display:flex; flex-wrap:wrap; gap:6px;">
             <button class="btn btn-sm btn-info" onclick="editarOS(${os.id})">${os.status === 'aberta' && podeGerenciarOS ? 'Editar' : 'Ver'}</button>
             ${!os.relatorio ? `<button class="btn btn-sm btn-warning" onclick="gerarRelatorioDeOS(${os.id})">Gerar Relatório</button>` : `<button class="btn btn-sm btn-secondary" onclick="editarRelatorio(${os.relatorio.id})">Ver Relatório</button>`}
@@ -170,8 +172,11 @@ function renderFormularioOS(os, empresas) {
 
   return `
     <div style="margin-top:20px; max-width:900px;">
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+      <div style="display:flex; flex-wrap:wrap; gap:8px; justify-content:space-between; align-items:center; margin-bottom:20px;">
         <button class="btn btn-secondary" onclick="inicializarOrdensServico()">← Voltar</button>
+        ${os?.id ? (!os.relatorio
+      ? `<button class="btn btn-warning" onclick="gerarRelatorioDeOS(${os.id})">Gerar Relatório</button>`
+      : `<button class="btn btn-secondary" onclick="editarRelatorio(${os.relatorio.id})">Ver Relatório</button>`) : ''}
       </div>
 
       <div style="display:flex; align-items:center; gap:12px; margin-bottom:20px;">

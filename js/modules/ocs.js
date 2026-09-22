@@ -76,7 +76,7 @@ export function inicializarOCs() {
     <div class="tab">Ordens de Compra</div>
     <button class="btn btn-success" onclick="abrirFormularioOC()">+ Nova OC</button>
 
-    <div style="display:grid; grid-template-columns: 2fr 1fr 1fr 1fr 1fr; gap: 8px; margin: 16px 0; align-items: end;">
+    <div class="filtros-grid">
       <div>
         <label>Buscar</label>
         <input type="text" id="filtro-busca" class="form-control" placeholder="Número ou fornecedor..." oninput="aplicarFiltros()">
@@ -111,21 +111,23 @@ export function inicializarOCs() {
 
     <div id="contador-ocs" style="color:#999; font-size:12px; margin-bottom: 8px;"></div>
 
-    <table class="table-certificados">
-      <thead>
-        <tr>
-          <th>Número</th>
-          <th>Fornecedor</th>
-          <th>Data</th>
-          <th>Valor Total</th>
-          <th>Status</th>
-          <th>Ações</th>
-        </tr>
-      </thead>
-      <tbody id="tabela-ocs">
-        <tr><td colspan="6" style="text-align:center; color:#999; padding:30px;">Carregando...</td></tr>
-      </tbody>
-    </table>
+    <div class="table-scroll">
+      <table class="table-certificados">
+        <thead>
+          <tr>
+            <th>Número</th>
+            <th>Fornecedor</th>
+            <th>Data</th>
+            <th>Valor Total</th>
+            <th>Status</th>
+            <th class="col-acoes">Ações</th>
+          </tr>
+        </thead>
+        <tbody id="tabela-ocs">
+          <tr><td colspan="6" style="text-align:center; color:#999; padding:30px;">Carregando...</td></tr>
+        </tbody>
+      </table>
+    </div>
   `
 
   apiFetch(`${API}/empresas`).then(r => r.json()).then(empresas => {
@@ -219,7 +221,7 @@ function renderizarTabela(ocs) {
         <td>${data}</td>
         <td>R$ ${total.toFixed(2)}</td>
         <td>${badgeStatus(oc.status)}</td>
-        <td style="white-space:nowrap;">${botoesAcao}</td>
+        <td class="col-acoes" style="white-space:nowrap;">${botoesAcao}</td>
       </tr>
     `
   }).join('')
@@ -321,12 +323,15 @@ window.verOC = async function (id) {
   if (!['aprovada'].includes(s) && s !== 'cancelada') {
     botoesVer.push(`<button class="btn btn-danger" onclick="deletarOC(${oc.id}, '${numero}')">Cancelar</button>`)
   }
+  if (s === 'cancelada') {
+    botoesVer.push(`<button class="btn btn-success" onclick="restaurarOC(${oc.id})">Restaurar</button>`)
+  }
 
   document.getElementById('ocs').innerHTML = `
     <div style="margin-top:20px; max-width:900px;">
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+      <div style="display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:8px; margin-bottom:20px;">
         <button class="btn btn-secondary" onclick="fecharFormularioOC()">← Voltar</button>
-        <div style="display:flex; gap:8px;">${botoesVer.join('')}</div>
+        <div style="display:flex; flex-wrap:wrap; gap:8px;">${botoesVer.join('')}</div>
       </div>
 
       <div style="display:flex; align-items:center; gap:12px; margin-bottom:20px;">
@@ -334,7 +339,7 @@ window.verOC = async function (id) {
         ${badgeStatus(oc.status)}
       </div>
 
-      <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:20px;">
+      <div class="info-grid-2" style="margin-bottom:20px;">
         <div style="background:white; border-radius:6px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06);">
           <div style="font-weight:700; color:var(--acento); margin-bottom:10px;">Fornecedor</div>
           <div><strong>${oc.fornecedor?.nome || '-'}</strong></div>
@@ -366,26 +371,28 @@ window.verOC = async function (id) {
 
       <div style="background:white; border-radius:6px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06); margin-bottom:16px;">
         <div style="font-weight:700; color:var(--acento); margin-bottom:10px;">Itens</div>
-        <table class="table-certificados">
-          <thead><tr><th>Qtd</th><th>Unid</th><th>Descrição</th><th>Valor Unit</th><th>Desconto</th><th>IPI</th><th>Total</th></tr></thead>
-          <tbody>
-            ${oc.itens.map(item => `
-              <tr>
-                <td>${item.quantidade}</td>
-                <td>${item.unidade || '-'}</td>
-                <td>${item.descricao}</td>
-                <td>${item.valorUni ? 'R$ ' + item.valorUni.toFixed(2) : '-'}</td>
-                <td>${formatarDesconto(item)}</td>
-                <td>${item.ipi ? item.ipi + '%' : '-'}</td>
-                <td>${item.valorTotal ? 'R$ ' + item.valorTotal.toFixed(2) : '-'}</td>
+        <div class="table-scroll">
+          <table class="table-certificados">
+            <thead><tr><th>Qtd</th><th>Unid</th><th>Descrição</th><th>Valor Unit</th><th>Desconto</th><th>IPI</th><th>Total</th></tr></thead>
+            <tbody>
+              ${oc.itens.map(item => `
+                <tr>
+                  <td>${item.quantidade}</td>
+                  <td>${item.unidade || '-'}</td>
+                  <td>${item.descricao}</td>
+                  <td>${item.valorUni ? 'R$ ' + item.valorUni.toFixed(2) : '-'}</td>
+                  <td>${formatarDesconto(item)}</td>
+                  <td>${item.ipi ? item.ipi + '%' : '-'}</td>
+                  <td>${item.valorTotal ? 'R$ ' + item.valorTotal.toFixed(2) : '-'}</td>
+                </tr>
+              `).join('')}
+              <tr style="font-weight:700; background:#f9f9f9;">
+                <td colspan="6" style="text-align:right;">TOTAL</td>
+                <td>R$ ${total.toFixed(2)}</td>
               </tr>
-            `).join('')}
-            <tr style="font-weight:700; background:#f9f9f9;">
-              <td colspan="6" style="text-align:right;">TOTAL</td>
-              <td>R$ ${total.toFixed(2)}</td>
-            </tr>
-          </tbody>
-        </table>
+            </tbody>
+          </table>
+        </div>
       </div>
 
       ${oc.instrucoes ? `
@@ -411,7 +418,7 @@ window.verOC = async function (id) {
 
       <div style="background:white; border-radius:6px; padding:20px; box-shadow:0 2px 6px rgba(0,0,0,0.06);">
         <div style="font-weight:700; color:var(--acento); margin-bottom:16px;">Assinaturas</div>
-        <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:16px;">
+        <div class="info-grid-3">
           ${blocoAssinatura('SOLICITANTE', asSolicitante || null, 'solicitante')}
           ${blocoAssinatura('AUTORIZADO', asAprovacao || null, 'aprovar')}
           ${blocoAssinatura('FINANCEIRO', asAutorizacao || null, 'autorizar')}
@@ -668,10 +675,12 @@ window.abrirFormularioOC = async function () {
       </div>
 
       <h5 style="margin: 24px 0 12px;">Itens</h5>
-      <table class="table-certificados">
-        <thead><tr><th>Qtd</th><th>Unid</th><th>Descrição</th><th>Valor Unit</th><th>Desconto</th><th>IPI %</th><th>Total</th><th></th></tr></thead>
-        <tbody id="itens-oc"></tbody>
-      </table>
+      <div class="table-scroll">
+        <table class="table-certificados">
+          <thead><tr><th>Qtd</th><th>Unid</th><th>Descrição</th><th>Valor Unit</th><th>Desconto</th><th>IPI %</th><th>Total</th><th></th></tr></thead>
+          <tbody id="itens-oc"></tbody>
+        </table>
+      </div>
       <button class="btn btn-secondary" style="margin-top: 8px;" onclick="adicionarItemOC()">+ Item</button>
 
       <div style="margin-top: 20px;">
@@ -918,31 +927,33 @@ window.editarOC = async function (id) {
       </div>
 
       <h5 style="margin: 24px 0 12px;">Itens</h5>
-      <table class="table-certificados">
-        <thead><tr><th>Qtd</th><th>Unid</th><th>Descrição</th><th>Valor Unit</th><th>Desconto</th><th>IPI %</th><th>Total</th>${somenteLeitura ? '' : '<th></th>'}</tr></thead>
-        <tbody id="itens-oc">
-          ${oc.itens.map((item, i) => `
-            <tr>
-              <td><input type="number" class="form-control" id="item-qtd-${i}" value="${item.quantidade}" oninput="calcularTotal(${i})" ${somenteLeitura ? 'disabled' : ''}></td>
-              <td><input type="text" class="form-control" id="item-unid-${i}" value="${item.unidade || ''}" ${somenteLeitura ? 'disabled' : ''}></td>
-              <td><input type="text" class="form-control" id="item-desc-${i}" value="${item.descricao}" ${somenteLeitura ? 'disabled' : ''}></td>
-              <td><input type="number" class="form-control" id="item-vuni-${i}" value="${item.valorUni || ''}" oninput="calcularTotal(${i})" ${somenteLeitura ? 'disabled' : ''}></td>
-              <td>
-                <div style="display:flex; gap:4px;">
-                  <select class="form-control form-control-sm" id="item-descTipo-${i}" style="width:60px; flex-shrink:0;" onchange="calcularTotal(${i})" ${somenteLeitura ? 'disabled' : ''}>
-                    <option value="percentual" ${item.descontoTipo !== 'fixo' ? 'selected' : ''}>%</option>
-                    <option value="fixo" ${item.descontoTipo === 'fixo' ? 'selected' : ''}>R$</option>
-                  </select>
-                  <input type="number" class="form-control form-control-sm" id="item-descValor-${i}" value="${item.descontoValor || ''}" min="0" step="0.01" oninput="calcularTotal(${i})" ${somenteLeitura ? 'disabled' : ''}>
-                </div>
-              </td>
-              <td><input type="number" class="form-control" id="item-ipi-${i}" value="${item.ipi || ''}" oninput="calcularTotal(${i})" ${somenteLeitura ? 'disabled' : ''}></td>
-              <td><input type="number" class="form-control" id="item-vtotal-${i}" value="${item.valorTotal || ''}" readonly></td>
-              ${somenteLeitura ? '' : `<td><button class="btn btn-sm btn-danger" onclick="this.closest('tr').remove()">✕</button></td>`}
-            </tr>
-          `).join('')}
-        </tbody>
-      </table>
+      <div class="table-scroll">
+        <table class="table-certificados">
+          <thead><tr><th>Qtd</th><th>Unid</th><th>Descrição</th><th>Valor Unit</th><th>Desconto</th><th>IPI %</th><th>Total</th>${somenteLeitura ? '' : '<th></th>'}</tr></thead>
+          <tbody id="itens-oc">
+            ${oc.itens.map((item, i) => `
+              <tr>
+                <td><input type="number" class="form-control" id="item-qtd-${i}" value="${item.quantidade}" oninput="calcularTotal(${i})" ${somenteLeitura ? 'disabled' : ''}></td>
+                <td><input type="text" class="form-control" id="item-unid-${i}" value="${item.unidade || ''}" ${somenteLeitura ? 'disabled' : ''}></td>
+                <td><input type="text" class="form-control" id="item-desc-${i}" value="${item.descricao}" ${somenteLeitura ? 'disabled' : ''}></td>
+                <td><input type="number" class="form-control" id="item-vuni-${i}" value="${item.valorUni || ''}" oninput="calcularTotal(${i})" ${somenteLeitura ? 'disabled' : ''}></td>
+                <td>
+                  <div style="display:flex; gap:4px;">
+                    <select class="form-control form-control-sm" id="item-descTipo-${i}" style="width:60px; flex-shrink:0;" onchange="calcularTotal(${i})" ${somenteLeitura ? 'disabled' : ''}>
+                      <option value="percentual" ${item.descontoTipo !== 'fixo' ? 'selected' : ''}>%</option>
+                      <option value="fixo" ${item.descontoTipo === 'fixo' ? 'selected' : ''}>R$</option>
+                    </select>
+                    <input type="number" class="form-control form-control-sm" id="item-descValor-${i}" value="${item.descontoValor || ''}" min="0" step="0.01" oninput="calcularTotal(${i})" ${somenteLeitura ? 'disabled' : ''}>
+                  </div>
+                </td>
+                <td><input type="number" class="form-control" id="item-ipi-${i}" value="${item.ipi || ''}" oninput="calcularTotal(${i})" ${somenteLeitura ? 'disabled' : ''}></td>
+                <td><input type="number" class="form-control" id="item-vtotal-${i}" value="${item.valorTotal || ''}" readonly></td>
+                ${somenteLeitura ? '' : `<td><button class="btn btn-sm btn-danger" onclick="this.closest('tr').remove()">✕</button></td>`}
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
       ${somenteLeitura ? '' : `<button class="btn btn-secondary" style="margin-top: 8px;" onclick="adicionarItemOC()">+ Item</button>`}
 
       <div style="margin-top: 20px;">
@@ -1381,7 +1392,7 @@ export function inicializarContasAPagar() {
     <div class="tab">Contas a Pagar</div>
     ${podeMarcarPagoOC ? `<button class="btn btn-success" onclick="abrirFormularioContaPagarAvulsa()">+ Nova Conta a Pagar</button>` : ''}
 
-    <div id="resumo-contas-pagar" style="display:grid; grid-template-columns:repeat(3, 1fr); gap:16px; margin: 16px 0;">
+    <div id="resumo-contas-pagar" class="info-grid-3" style="margin: 16px 0;">
       <div style="background:white; border-radius:6px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06);">
         <div style="color:#999; font-size:12px;">Total a Pagar</div>
         <div id="resumo-total-a-pagar" style="font-size:22px; font-weight:700; color:#dc3545;">-</div>
@@ -1397,7 +1408,7 @@ export function inicializarContasAPagar() {
     </div>
 
     <!-- Filtros -->
-    <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 16px; align-items:end;">
+    <div class="filtros-grid">
       <div>
         <label style="font-size:12px;">Buscar (fornecedor, OC)</label>
         <input type="text" id="filtro-busca-conta-pagar" class="form-control form-control-sm" oninput="filtrarContasAPagar()">
@@ -1416,22 +1427,24 @@ export function inicializarContasAPagar() {
       </div>
     </div>
 
-    <table class="table-certificados">
-      <thead>
-        <tr>
-          <th>OC</th>
-          <th>Fornecedor</th>
-          <th>Empresa</th>
-          <th>Data do Pedido</th>
-          <th>Valor</th>
-          <th>Status</th>
-          ${podeMarcarPagoOC ? '<th>Ações</th>' : ''}
-        </tr>
-      </thead>
-      <tbody id="tabela-contas-pagar">
-        <tr><td colspan="7" style="text-align:center; color:#999; padding:30px;">Carregando...</td></tr>
-      </tbody>
-    </table>
+    <div class="table-scroll">
+      <table class="table-certificados">
+        <thead>
+          <tr>
+            <th>OC</th>
+            <th>Fornecedor</th>
+            <th>Empresa</th>
+            <th>Data do Pedido</th>
+            <th>Valor</th>
+            <th>Status</th>
+            ${podeMarcarPagoOC ? '<th class="col-acoes">Ações</th>' : ''}
+          </tr>
+        </thead>
+        <tbody id="tabela-contas-pagar">
+          <tr><td colspan="7" style="text-align:center; color:#999; padding:30px;">Carregando...</td></tr>
+        </tbody>
+      </table>
+    </div>
   `
 
   carregarContasAPagar()
@@ -1525,16 +1538,17 @@ function renderizarTabelaContasAPagar(ocs) {
     const acoes = oc.pago
       ? `<button class="btn btn-sm btn-secondary" onclick="reverterContaAPagar(${oc.id}, '${oc.tipo}')">Reverter</button>`
       : `<button class="btn btn-sm btn-success" onclick="marcarContaAPagarPaga(${oc.id}, '${oc.tipo}')">Marcar Pago</button>`
+    const abrir = oc.tipo === 'avulsa' ? `editarContaPagarAvulsa(${oc.id})` : `abrirOCDeContaPagar(${oc.id})`
 
     return `
       <tr>
-        <td>${numeroTxt}</td>
-        <td>${oc.fornecedor?.nome || '-'}</td>
+        <td style="cursor:pointer;" onclick="${abrir}">${numeroTxt}</td>
+        <td style="cursor:pointer;" onclick="${abrir}">${oc.fornecedor?.nome || '-'}</td>
         <td>${oc.empresa?.nome || '-'}</td>
         <td>${dataPedido}</td>
         <td>${formatarMoeda(oc.valorTotal)}</td>
         <td>${badgeStatusPagtoOC(oc.pago)}</td>
-        ${podeMarcarPagoOC ? `<td>${acoes}</td>` : ''}
+        ${podeMarcarPagoOC ? `<td class="col-acoes">${acoes}</td>` : ''}
       </tr>
     `
   }).join('')
@@ -1563,33 +1577,55 @@ window.reverterContaAPagar = async function (id, tipo) {
   }
 }
 
-// ===== FORMULÁRIO — NOVA CONTA A PAGAR (avulsa, sem OC vinculada) =============
-window.abrirFormularioContaPagarAvulsa = function () {
-  document.getElementById('contasPagar').innerHTML = `
+// Abre a OC de origem de uma linha da lista de Contas a Pagar — a tela de
+// detalhe (verOC) já existe em Compras → Ordens de Compra, só precisa trocar
+// a página ativa pra "ocs" antes de renderizar nela.
+window.abrirOCDeContaPagar = function (id) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'))
+  document.getElementById('ocs').classList.add('active')
+  verOC(id)
+}
+
+// ===== FORMULÁRIO — CONTA A PAGAR AVULSA (sem OC vinculada) — criar/editar ====
+function renderFormularioContaPagarAvulsa(c = {}) {
+  return `
     <div style="margin-top:20px; max-width:600px;">
       <button class="btn btn-secondary" onclick="inicializarContasAPagar()">← Voltar</button>
-      <h3 style="margin:20px 0;">Nova Conta a Pagar (avulsa)</h3>
+      <h3 style="margin:20px 0;">${c.id ? 'Editar Conta a Pagar (avulsa)' : 'Nova Conta a Pagar (avulsa)'}</h3>
       <p style="font-size:13px; color:#999;">Use isso para despesas que não vêm de uma Ordem de Compra.</p>
 
       <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
-        <div style="grid-column:span 2;"><label>Fornecedor</label><input type="text" id="conta-pagar-fornecedorNome" class="form-control" placeholder="Nome do fornecedor (opcional)"></div>
-        <div style="grid-column:span 2;"><label>Descrição *</label><input type="text" id="conta-pagar-descricao" class="form-control" placeholder="Ex: Serviço avulso, taxa, etc."></div>
-        <div><label>Valor *</label><input type="number" id="conta-pagar-valor" class="form-control" step="0.01"></div>
-        <div><label>Data de Vencimento *</label><input type="date" id="conta-pagar-dataVencimento" class="form-control" value="${new Date().toISOString().split('T')[0]}"></div>
+        <div style="grid-column:span 2;"><label>Fornecedor</label><input type="text" id="conta-pagar-fornecedorNome" class="form-control" placeholder="Nome do fornecedor (opcional)" value="${c.fornecedorNome || ''}"></div>
+        <div style="grid-column:span 2;"><label>Descrição *</label><input type="text" id="conta-pagar-descricao" class="form-control" placeholder="Ex: Serviço avulso, taxa, etc." value="${c.descricao || ''}"></div>
+        <div><label>Valor *</label><input type="number" id="conta-pagar-valor" class="form-control" step="0.01" value="${c.valor ?? ''}"></div>
+        <div><label>Data de Vencimento *</label><input type="date" id="conta-pagar-dataVencimento" class="form-control" value="${c.dataVencimento ? c.dataVencimento.split('T')[0] : new Date().toISOString().split('T')[0]}"></div>
       </div>
 
-      <button type="button" class="btn btn-success" style="margin-top:20px;" onclick="salvarContaPagarAvulsa()">Salvar Conta</button>
+      <button type="button" class="btn btn-success" style="margin-top:20px;" onclick="${c.id ? `atualizarContaPagarAvulsa(${c.id})` : 'salvarContaPagarAvulsa()'}">${c.id ? 'Salvar Alterações' : 'Salvar Conta'}</button>
     </div>
   `
 }
 
-window.salvarContaPagarAvulsa = async function () {
-  const body = {
+window.abrirFormularioContaPagarAvulsa = function () {
+  document.getElementById('contasPagar').innerHTML = renderFormularioContaPagarAvulsa()
+}
+
+window.editarContaPagarAvulsa = async function (id) {
+  const c = await apiFetch(`${API}/contas-pagar/${id}`).then(r => r.json())
+  document.getElementById('contasPagar').innerHTML = renderFormularioContaPagarAvulsa(c)
+}
+
+function lerFormularioContaPagarAvulsa() {
+  return {
     fornecedorNome: document.getElementById('conta-pagar-fornecedorNome').value.trim(),
     descricao: document.getElementById('conta-pagar-descricao').value.trim(),
     valor: document.getElementById('conta-pagar-valor').value,
     dataVencimento: document.getElementById('conta-pagar-dataVencimento').value,
   }
+}
+
+window.salvarContaPagarAvulsa = async function () {
+  const body = lerFormularioContaPagarAvulsa()
 
   if (!body.descricao || !body.valor || !body.dataVencimento) {
     alert('Descrição, valor e data de vencimento são obrigatórios!')
@@ -1603,6 +1639,24 @@ window.salvarContaPagarAvulsa = async function () {
   } else {
     const err = await res.json()
     alert('Erro: ' + (err.erro || 'Falha ao cadastrar'))
+  }
+}
+
+window.atualizarContaPagarAvulsa = async function (id) {
+  const body = lerFormularioContaPagarAvulsa()
+
+  if (!body.descricao || !body.valor || !body.dataVencimento) {
+    alert('Descrição, valor e data de vencimento são obrigatórios!')
+    return
+  }
+
+  const res = await apiJson(`${API}/contas-pagar/${id}`, { method: 'PUT', body: JSON.stringify(body) })
+  if (res.ok) {
+    alert('Conta atualizada com sucesso!')
+    inicializarContasAPagar()
+  } else {
+    const err = await res.json()
+    alert('Erro: ' + (err.erro || 'Falha ao atualizar'))
   }
 }
 

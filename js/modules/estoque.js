@@ -80,7 +80,7 @@ export function inicializarEstoque(finalidade) {
     </div>
 
     <!-- Filtros -->
-    <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 8px; align-items:end;">
+    <div class="filtros-grid" style="margin-bottom: 8px;">
       <div>
         <label style="font-size:12px;">Nº Série</label>
         <input type="text" id="filtro-numeroSerie-${finalidade}" class="form-control form-control-sm" oninput="aplicarFiltrosBalsa('${finalidade}')">
@@ -120,24 +120,26 @@ export function inicializarEstoque(finalidade) {
 
     <div id="contador-balsas-${finalidade}" style="color:#999; font-size:12px; margin-bottom: 8px;"></div>
 
-    <table class="table-certificados">
-      <thead>
-        <tr>
-          <th>Capacidade</th>
-          <th>Fabricante</th>
-          <th>Nº Série</th>
-          <th>Modelo</th>
-          <th>Ano</th>
-          <th>Tipo</th>
-          <th>Armazém</th>
-          <th>Status</th>
-          ${podeGerenciar ? '<th>Ações</th>' : ''}
-        </tr>
-      </thead>
-      <tbody id="tabela-balsas-${finalidade}">
-        <tr><td colspan="9" style="text-align:center; color:#999; padding:30px;">Carregando...</td></tr>
-      </tbody>
-    </table>
+    <div class="table-scroll">
+      <table class="table-certificados">
+        <thead>
+          <tr>
+            <th>Capacidade</th>
+            <th>Fabricante</th>
+            <th>Nº Série</th>
+            <th>Modelo</th>
+            <th>Ano</th>
+            <th>Tipo</th>
+            <th>Armazém</th>
+            <th>Status</th>
+            ${podeGerenciar ? '<th class="col-acoes">Ações</th>' : ''}
+          </tr>
+        </thead>
+        <tbody id="tabela-balsas-${finalidade}">
+          <tr><td colspan="9" style="text-align:center; color:#999; padding:30px;">Carregando...</td></tr>
+        </tbody>
+      </table>
+    </div>
   `
 
   carregarBalsas(finalidade)
@@ -250,8 +252,8 @@ function renderizarTabela(finalidade, balsas) {
 
   tabela.innerHTML = balsas.map(b => `
     <tr>
-      <td><strong>${b.capacidade}</strong></td>
-      <td>${b.fabricante}</td>
+      <td${podeGerenciar ? ` style="cursor:pointer;" onclick="editarBalsa(${b.id}, '${finalidade}')"` : ''}><strong>${b.capacidade}</strong></td>
+      <td${podeGerenciar ? ` style="cursor:pointer;" onclick="editarBalsa(${b.id}, '${finalidade}')"` : ''}>${b.fabricante}</td>
       <td>${b.numeroSerie}</td>
       <td>${b.modelo}</td>
       <td>${b.anoFabricacao}</td>
@@ -259,17 +261,19 @@ function renderizarTabela(finalidade, balsas) {
       <td>${b.armazem || '-'}</td>
       <td>${badgeStatus(b.status)}</td>
       ${podeGerenciar ? `
-        <td style="white-space:nowrap;">
-          <button class="btn btn-sm btn-info" onclick="editarBalsa(${b.id}, '${finalidade}')">Editar</button>
-          ${b.status === 'disponivel' && finalidade === 'locacao'
+        <td class="col-acoes">
+          <div style="display:flex; flex-wrap:wrap; gap:6px;">
+            <button class="btn btn-sm btn-info" onclick="editarBalsa(${b.id}, '${finalidade}')">Editar</button>
+            ${b.status === 'disponivel' && finalidade === 'locacao'
         ? `<button class="btn btn-sm btn-warning" onclick="marcarStatusBalsa(${b.id}, 'locado', '${finalidade}')">Marcar locado</button>`
         : ''}
-          ${b.status === 'disponivel'
+            ${b.status === 'disponivel'
         ? `<button class="btn btn-sm btn-secondary" onclick="marcarStatusBalsa(${b.id}, 'vendido', '${finalidade}')">Marcar vendido</button>`
         : ''}
-          ${b.status !== 'disponivel'
+            ${b.status !== 'disponivel'
         ? `<button class="btn btn-sm btn-success" onclick="marcarStatusBalsa(${b.id}, 'disponivel', '${finalidade}')">Reativar</button>`
         : ''}
+          </div>
         </td>
       ` : ''}
     </tr>
@@ -291,7 +295,11 @@ window.marcarStatusBalsa = async function (id, status, finalidade) {
   })
 
   if (res.ok) {
-    carregarBalsas(finalidade)
+    // Chamado tanto da lista quanto de dentro da balsa aberta (editarBalsa) —
+    // nesse segundo caso a tabela da lista não está no DOM, então volta pra
+    // lista em vez de tentar atualizar um elemento que não existe mais.
+    if (document.getElementById(`tabela-balsas-${finalidade}`)) carregarBalsas(finalidade)
+    else inicializarEstoqueWrapper(finalidade)
   } else {
     const err = await res.json()
     alert('Erro: ' + (err.erro || 'Falha ao atualizar status'))
@@ -382,7 +390,18 @@ window.editarBalsa = async function (id, finalidade) {
         </div>
       </div>
 
-      <button type="button" class="btn btn-success" style="margin-top:20px;" onclick="atualizarBalsa(${b.id}, '${finalidade}')">Salvar Alterações</button>
+      <div style="display:flex; flex-wrap:wrap; gap:8px; margin-top:20px;">
+        <button type="button" class="btn btn-success" onclick="atualizarBalsa(${b.id}, '${finalidade}')">Salvar Alterações</button>
+        ${b.status === 'disponivel' && finalidade === 'locacao'
+      ? `<button type="button" class="btn btn-warning" onclick="marcarStatusBalsa(${b.id}, 'locado', '${finalidade}')">Marcar locado</button>`
+      : ''}
+        ${b.status === 'disponivel'
+      ? `<button type="button" class="btn btn-secondary" onclick="marcarStatusBalsa(${b.id}, 'vendido', '${finalidade}')">Marcar vendido</button>`
+      : ''}
+        ${b.status !== 'disponivel'
+      ? `<button type="button" class="btn btn-success" onclick="marcarStatusBalsa(${b.id}, 'disponivel', '${finalidade}')">Reativar</button>`
+      : ''}
+      </div>
     </div>
   `
 }

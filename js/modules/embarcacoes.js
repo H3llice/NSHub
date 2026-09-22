@@ -55,25 +55,27 @@ export function inicializarEmbarcacoes() {
     <div class="tab">Embarcações</div>
     <button class="btn btn-success" onclick="abrirFormularioEmbarcacao()">+ Nova Embarcação</button>
 
-    <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin: 16px 0;">
+    <div class="filtros-grid">
       <input type="text" id="filtro-embarcacao-nome" class="form-control" placeholder="Buscar por nome do navio..." oninput="carregarEmbarcacoes(1)">
       <input type="text" id="filtro-embarcacao-armador" class="form-control" placeholder="Buscar por armador..." oninput="carregarEmbarcacoes(1)">
     </div>
 
-    <table class="table-certificados">
-      <thead>
-        <tr>
-          <th>Navio</th>
-          <th>Armador</th>
-          <th>Porto de Registro</th>
-          <th>Telefone</th>
-          <th>Ações</th>
-        </tr>
-      </thead>
-      <tbody id="tabela-embarcacoes">
-        <tr><td colspan="5" style="text-align:center; color:#999; padding:30px;">Carregando...</td></tr>
-      </tbody>
-    </table>
+    <div class="table-scroll">
+      <table class="table-certificados">
+        <thead>
+          <tr>
+            <th>Navio</th>
+            <th>Armador</th>
+            <th>Porto de Registro</th>
+            <th>Telefone</th>
+            <th class="col-acoes">Ações</th>
+          </tr>
+        </thead>
+        <tbody id="tabela-embarcacoes">
+          <tr><td colspan="5" style="text-align:center; color:#999; padding:30px;">Carregando...</td></tr>
+        </tbody>
+      </table>
+    </div>
     <div id="contador-embarcacoes" style="margin-top:12px;"></div>
   `
 
@@ -128,13 +130,15 @@ function renderizarTabelaEmbarcacoes(embarcacoes) {
 
   tabela.innerHTML = embarcacoes.map(e => `
     <tr>
-      <td>${e.nome}</td>
+      <td style="cursor:pointer;" onclick="editarEmbarcacao(${e.id})">${e.nome}</td>
       <td>${e.armador?.nome || '-'}</td>
       <td>${e.portoRegistro || '-'}</td>
       <td>${e.telefone || '-'}</td>
-      <td>
-        <button class="btn btn-sm btn-info" onclick="editarEmbarcacao(${e.id})">Editar</button>
-        ${podeExcluirEmbarcacao ? `<button class="btn btn-sm btn-danger" onclick="excluirEmbarcacao(${e.id})">Excluir</button>` : ''}
+      <td class="col-acoes">
+        <div style="display:flex; flex-wrap:wrap; gap:6px;">
+          <button class="btn btn-sm btn-info" onclick="editarEmbarcacao(${e.id})">Editar</button>
+          ${podeExcluirEmbarcacao ? `<button class="btn btn-sm btn-danger" onclick="excluirEmbarcacao(${e.id})">Excluir</button>` : ''}
+        </div>
       </td>
     </tr>
   `).join('')
@@ -249,7 +253,10 @@ window.editarEmbarcacao = async function (id) {
       <button class="btn btn-secondary" onclick="inicializarEmbarcacoes()">← Voltar</button>
       <h3 style="margin:20px 0;">Editar Embarcação</h3>
       ${formularioEmbarcacaoHtml(e)}
-      <button type="button" class="btn btn-success" style="margin-top:20px;" onclick="atualizarEmbarcacao(${e.id})">Salvar Alterações</button>
+      <div style="display:flex; flex-wrap:wrap; gap:8px; margin-top:20px;">
+        <button type="button" class="btn btn-success" onclick="atualizarEmbarcacao(${e.id})">Salvar Alterações</button>
+        ${podeExcluirEmbarcacao ? `<button type="button" class="btn btn-danger" onclick="excluirEmbarcacao(${e.id})">Excluir</button>` : ''}
+      </div>
     </div>
   `
 }

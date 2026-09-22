@@ -29,6 +29,14 @@ router.get('/', autenticar, async (req, res) => {
   res.json({ contas, total, pagina: paginaNum, totalPaginas: Math.ceil(total / porPagina) })
 })
 
+// ─── Buscar uma conta a pagar avulsa (pra abrir a tela de edição) ─────────────
+router.get('/:id', autenticar, async (req, res) => {
+  const id = Number(req.params.id)
+  const conta = await prisma.contaPagar.findUnique({ where: { id } })
+  if (!conta) return res.status(404).json({ erro: 'Conta a pagar não encontrada' })
+  res.json(conta)
+})
+
 // ─── Criar conta a pagar avulsa (só admin e financeiro) ────────────────────────
 router.post('/', autenticar, exigirPerfil('admin', 'financeiro'), async (req, res) => {
   const { fornecedorNome, descricao, valor, dataVencimento, referencia } = req.body
@@ -48,6 +56,32 @@ router.post('/', autenticar, exigirPerfil('admin', 'financeiro'), async (req, re
   })
 
   res.json(conta)
+})
+
+// ─── Editar conta a pagar avulsa (só admin e financeiro) ──────────────────────
+router.put('/:id', autenticar, exigirPerfil('admin', 'financeiro'), async (req, res) => {
+  const id = Number(req.params.id)
+  const { fornecedorNome, descricao, valor, dataVencimento, referencia } = req.body
+
+  if (!valor || !dataVencimento) {
+    return res.status(400).json({ erro: 'Valor e data de vencimento são obrigatórios' })
+  }
+
+  const conta = await prisma.contaPagar.findUnique({ where: { id } })
+  if (!conta) return res.status(404).json({ erro: 'Conta a pagar não encontrada' })
+
+  const atualizada = await prisma.contaPagar.update({
+    where: { id },
+    data: {
+      fornecedorNome: fornecedorNome || null,
+      descricao: descricao || null,
+      valor: parseFloat(valor),
+      dataVencimento: new Date(dataVencimento).toISOString(),
+      referencia: referencia || null
+    }
+  })
+
+  res.json(atualizada)
 })
 
 // ─── Marcar conta a pagar avulsa como paga (só admin e financeiro) ────────────

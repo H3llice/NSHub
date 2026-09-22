@@ -67,7 +67,7 @@ export function inicializarSolicitacoes() {
     <div class="tab">Solicitações de Compra</div>
     <button class="btn btn-success" onclick="abrirFormularioSolicitacao()">+ Nova Solicitação</button>
 
-    <div style="display:grid; grid-template-columns: 2fr 1fr 1fr; gap: 8px; margin: 16px 0; align-items: end;">
+    <div class="filtros-grid">
       <div>
         <label>Buscar</label>
         <input type="text" id="filtro-sc-busca" class="form-control" placeholder="Número..." oninput="aplicarFiltrosSC()">
@@ -92,21 +92,23 @@ export function inicializarSolicitacoes() {
 
     <div id="contador-sc" style="color:#999; font-size:12px; margin-bottom: 8px;"></div>
 
-    <table class="table-certificados">
-      <thead>
-        <tr>
-          <th>Número</th>
-          <th>Empresa</th>
-          <th>Itens</th>
-          <th>Fornecedores Cotados</th>
-          <th>Status</th>
-          <th>Ações</th>
-        </tr>
-      </thead>
-      <tbody id="tabela-sc">
-        <tr><td colspan="6" style="text-align:center; color:#999; padding:30px;">Carregando...</td></tr>
-      </tbody>
-    </table>
+    <div class="table-scroll">
+      <table class="table-certificados">
+        <thead>
+          <tr>
+            <th>Número</th>
+            <th>Empresa</th>
+            <th>Itens</th>
+            <th>Fornecedores Cotados</th>
+            <th>Status</th>
+            <th class="col-acoes">Ações</th>
+          </tr>
+        </thead>
+        <tbody id="tabela-sc">
+          <tr><td colspan="6" style="text-align:center; color:#999; padding:30px;">Carregando...</td></tr>
+        </tbody>
+      </table>
+    </div>
   `
 
   apiFetch(`${API}/empresas`).then(r => r.json()).then(empresas => {
@@ -191,11 +193,11 @@ function renderizarTabelaSC(solicitacoes) {
     return `
       <tr style="${cancelada ? 'opacity:0.6; background:#fff5f5;' : ''}">
         <td><a href="#" onclick="verSolicitacao(${sc.id}); return false;" style="color:var(--acento); font-weight:600; text-decoration:none;">${numero}</a></td>
-        <td>${sc.empresa?.sigla || '-'}</td>
+        <td style="cursor:pointer;" onclick="verSolicitacao(${sc.id})">${sc.empresa?.sigla || '-'}</td>
         <td>${sc.itens?.length || 0}</td>
         <td>${sc.fornecedores?.length || 0}</td>
         <td>${badgeStatus(sc.status)}</td>
-        <td style="white-space:nowrap;">${btns.join(' ')}</td>
+        <td class="col-acoes" style="white-space:nowrap;">${btns.join(' ')}</td>
       </tr>
     `
   }).join('')
@@ -432,28 +434,30 @@ window.renderizarMatrizPrecosSC = function () {
   }
 
   container.innerHTML = `
-    <table class="table-certificados">
-      <thead>
-        <tr>
-          <th>Item</th>
-          ${fornecedores.map(f => `<th>${f.nome || '(sem nome)'}</th>`).join('')}
-        </tr>
-      </thead>
-      <tbody>
-        ${itens.map((item, iIdx) => `
+    <div class="table-scroll">
+      <table class="table-certificados">
+        <thead>
           <tr>
-            <td>${item.descricao || '(sem descrição)'}</td>
-            ${fornecedores.map((f, fIdx) => `
-              <td>
-                <input type="number" step="0.01" class="form-control form-control-sm"
-                  value="${window.scEstado.precos[`${iIdx}-${fIdx}`] ?? ''}"
-                  oninput="scEstado.precos['${iIdx}-${fIdx}'] = this.value">
-              </td>
-            `).join('')}
+            <th>Item</th>
+            ${fornecedores.map(f => `<th>${f.nome || '(sem nome)'}</th>`).join('')}
           </tr>
-        `).join('')}
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          ${itens.map((item, iIdx) => `
+            <tr>
+              <td>${item.descricao || '(sem descrição)'}</td>
+              ${fornecedores.map((f, fIdx) => `
+                <td>
+                  <input type="number" step="0.01" class="form-control form-control-sm"
+                    value="${window.scEstado.precos[`${iIdx}-${fIdx}`] ?? ''}"
+                    oninput="scEstado.precos['${iIdx}-${fIdx}'] = this.value">
+                </td>
+              `).join('')}
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
   `
 }
 
@@ -544,11 +548,13 @@ window.verSolicitacao = async function (id) {
 
   document.getElementById('solicitacoes').innerHTML = `
     <div style="margin-top:20px;">
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+      <div style="display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:8px; margin-bottom:20px;">
         <button class="btn btn-secondary" onclick="inicializarSolicitacoes()">← Voltar</button>
-        <div style="display:flex; gap:8px;">
+        <div style="display:flex; flex-wrap:wrap; gap:8px;">
+          ${['aguardando_aprovacao', 'recusada'].includes(sc.status) ? `<button class="btn btn-info" onclick="editarSolicitacao(${sc.id})">Editar</button>` : ''}
           <a class="btn btn-secondary" href="${API}/pdf/solicitacao/${sc.id}?token=${encodeURIComponent(tokenAtual)}" target="_blank">📄 PDF</a>
           ${sc.status === 'aguardando_aprovacao' ? `<button class="btn btn-danger" onclick="abrirModalRecusaSC(${sc.id})">Recusar</button>` : ''}
+          ${sc.status !== 'cancelada' ? `<button class="btn btn-danger" onclick="cancelarSolicitacao(${sc.id}, '${numero}')">Cancelar</button>` : ''}
         </div>
       </div>
 
@@ -566,36 +572,38 @@ window.verSolicitacao = async function (id) {
 
       <div style="background:white; border-radius:6px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06); margin-bottom:16px;">
         <div style="font-weight:700; color:var(--acento); margin-bottom:10px;">Quadro Comparativo</div>
-        <table class="table-certificados">
-          <thead>
-            <tr>
-              <th>Item</th>
-              <th>Qtd</th>
-              ${sc.fornecedores.map(f => `<th>${f.nome} ${f.favorito ? '⭐' : ''} ${f.escolhido ? '<span style="color:#198754;">✓ Escolhido</span>' : ''}</th>`).join('')}
-            </tr>
-          </thead>
-          <tbody>
-            ${sc.itens.map(item => `
+        <div class="table-scroll">
+          <table class="table-certificados">
+            <thead>
               <tr>
-                <td>${item.descricao}</td>
-                <td>${item.quantidade} ${item.unidade || ''}</td>
-                ${sc.fornecedores.map(f => {
+                <th>Item</th>
+                <th>Qtd</th>
+                ${sc.fornecedores.map(f => `<th>${f.nome} ${f.favorito ? '⭐' : ''} ${f.escolhido ? '<span style="color:#198754;">✓ Escolhido</span>' : ''}</th>`).join('')}
+              </tr>
+            </thead>
+            <tbody>
+              ${sc.itens.map(item => `
+                <tr>
+                  <td>${item.descricao}</td>
+                  <td>${item.quantidade} ${item.unidade || ''}</td>
+                  ${sc.fornecedores.map(f => {
     const preco = item.precos.find(p => p.fornecedorCotadoId === f.id)
     return `<td>${preco ? 'R$ ' + preco.valor.toFixed(2) : '<span style="color:#ccc;">—</span>'}</td>`
   }).join('')}
+                </tr>
+              `).join('')}
+              <tr style="font-weight:700; background:#f9f9f9;">
+                <td colspan="2">TOTAL</td>
+                ${totais.map(t => `<td>R$ ${t.total.toFixed(2)} <small style="color:#999;">(${t.qtdCotados}/${sc.itens.length} itens)</small></td>`).join('')}
               </tr>
-            `).join('')}
-            <tr style="font-weight:700; background:#f9f9f9;">
-              <td colspan="2">TOTAL</td>
-              ${totais.map(t => `<td>R$ ${t.total.toFixed(2)} <small style="color:#999;">(${t.qtdCotados}/${sc.itens.length} itens)</small></td>`).join('')}
-            </tr>
-          </tbody>
-        </table>
+            </tbody>
+          </table>
+        </div>
       </div>
 
       <div style="background:white; border-radius:6px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06); margin-bottom:16px;">
         <div style="font-weight:700; color:var(--acento); margin-bottom:10px;">Dados dos Fornecedores</div>
-        <div style="display:grid; grid-template-columns:repeat(${Math.min(sc.fornecedores.length, 3)}, 1fr); gap:12px;">
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:12px;">
           ${sc.fornecedores.map(f => `
             <div style="border:1px solid #eee; border-radius:6px; padding:10px; font-size:13px;">
               <strong>${f.nome}</strong> ${f.favorito ? '⭐' : ''}<br>
