@@ -306,12 +306,12 @@ let orcItensAtivos = []
 let orcItensContador = 0
 let orcamentoEmEdicaoId = null
 
-function opcoesCatalogoItem(tipo, selecionadoId) {
+// Devolve o nome já cadastrado (pra pré-preencher a busca ao editar um
+// orçamento existente — o item só guarda produtoId/servicoId, não o nome).
+function nomeCatalogoItem(tipo, selecionadoId) {
+  if (!selecionadoId) return ''
   const lista = tipo === 'produto' ? orcCatalogoProdutos : orcCatalogoServicos
-  const opcoes = lista.map(c =>
-    `<option value="${c.id}" ${String(c.id) === String(selecionadoId) ? 'selected' : ''}>${c.nome}</option>`
-  ).join('')
-  return `<option value="">Selecione...</option>${opcoes}<option value="novo">+ Cadastrar novo...</option>`
+  return lista.find(c => String(c.id) === String(selecionadoId))?.nome || ''
 }
 
 function linhaItemOrcamento(i, item = {}) {
@@ -326,9 +326,10 @@ function linhaItemOrcamento(i, item = {}) {
         </select>
       </td>
       <td style="min-width:180px;">
-        <select class="form-control form-control-sm" id="orc-item-catalogo-${i}" onchange="selecionarCatalogoItemOrcamento(${i})">
-          ${opcoesCatalogoItem(tipo, selecionadoId)}
-        </select>
+        <input type="text" class="form-control form-control-sm" id="orc-item-catalogo-busca-${i}"
+          placeholder="Digite pra buscar..." value="${nomeCatalogoItem(tipo, selecionadoId)}" autocomplete="off"
+          oninput="buscarCatalogoItemOrcamento(${i})" onfocus="buscarCatalogoItemOrcamento(${i})">
+        <input type="hidden" id="orc-item-catalogo-${i}" value="${selecionadoId || ''}">
         <div id="orc-item-novo-${i}" style="display:none;"></div>
       </td>
       <td><input type="text" class="form-control form-control-sm" id="orc-item-detalhes-${i}" value="${item.detalhes || ''}" placeholder="Opcional"></td>
@@ -359,54 +360,131 @@ window.adicionarLinhaItemOrcamento = function (item = {}) {
 window.removerItemOrcamento = function (i) {
   document.getElementById(`orc-item-row-${i}`)?.remove()
   orcItensAtivos = orcItensAtivos.filter(x => x !== i)
+  if (document.getElementById('orc-catalogo-sugestoes-flutuante')?.dataset.linha === String(i)) {
+    esconderSugestoesCatalogoOrcamento()
+  }
   recalcularTotaisOrcamento()
 }
 
 window.mudarTipoItemOrcamento = function (i) {
-  const tipo = document.getElementById(`orc-item-tipo-${i}`).value
-  document.getElementById(`orc-item-catalogo-${i}`).innerHTML = opcoesCatalogoItem(tipo, '')
+  document.getElementById(`orc-item-catalogo-busca-${i}`).value = ''
+  document.getElementById(`orc-item-catalogo-${i}`).value = ''
   document.getElementById(`orc-item-valor-${i}`).value = ''
+  document.getElementById(`orc-item-catalogo-sugestoes-${i}`).style.display = 'none'
   const novoDiv = document.getElementById(`orc-item-novo-${i}`)
   novoDiv.style.display = 'none'
   novoDiv.innerHTML = ''
   recalcularTotaisOrcamento()
 }
 
-window.selecionarCatalogoItemOrcamento = function (i) {
-  const tipo = document.getElementById(`orc-item-tipo-${i}`).value
-  const select = document.getElementById(`orc-item-catalogo-${i}`)
-  const novoDiv = document.getElementById(`orc-item-novo-${i}`)
+// Dropdown de sugestões único, reaproveitado por todas as linhas — anexado
+// direto no <body> (não dentro da tabela) e posicionado via getBoundingClientRect,
+// pra não ficar cortado pelo overflow:auto do .table-scroll que envolve a
+// tabela de Itens (um position:absolute/fixed dentro de um ancestral com
+// overflow não-visible é recortado nos limites dele, mesmo fixed).
+function elementoSugestoesCatalogoOrcamento() {
+  let div = document.getElementById('orc-catalogo-sugestoes-flutuante')
+  if (!div) {
+    div = document.createElement('div')
+    div.id = 'orc-catalogo-sugestoes-flutuante'
+    div.style.cssText = 'display:none; position:fixed; background:white; border:1px solid #ccc; border-radius:4px; z-index:2000; max-height:220px; overflow-y:auto; box-shadow:0 2px 8px rgba(0,0,0,0.15);'
+    document.body.appendChild(div)
+  }
+  return div
+}
 
-  if (select.value === 'novo') {
-    novoDiv.style.display = 'block'
-    novoDiv.innerHTML = tipo === 'produto' ? `
-      <div style="display:grid; grid-template-columns:1fr 1fr; gap:4px; margin-top:6px;">
-        <input type="text" class="form-control form-control-sm" id="orc-item-novo-codigo-${i}" placeholder="Código *">
-        <input type="text" class="form-control form-control-sm" id="orc-item-novo-nome-${i}" placeholder="Nome *">
-        <input type="text" class="form-control form-control-sm" id="orc-item-novo-unidade-${i}" placeholder="Unidade *">
-        <input type="number" step="0.01" class="form-control form-control-sm" id="orc-item-novo-valor-${i}" placeholder="Valor (R$)">
-      </div>
-      <button type="button" class="btn btn-sm btn-secondary" style="margin-top:4px;" onclick="criarItemCatalogoOrcamento(${i}, 'produto')">Cadastrar e usar</button>
-    ` : `
-      <div style="display:grid; grid-template-columns:1fr 1fr; gap:4px; margin-top:6px;">
-        <input type="text" class="form-control form-control-sm" id="orc-item-novo-nome-${i}" placeholder="Nome *" style="grid-column:span 2;">
-        <input type="number" step="0.01" class="form-control form-control-sm" id="orc-item-novo-valor-${i}" placeholder="Valor (R$)">
-      </div>
-      <button type="button" class="btn btn-sm btn-secondary" style="margin-top:4px;" onclick="criarItemCatalogoOrcamento(${i}, 'servico')">Cadastrar e usar</button>
-    `
-    return
+window.esconderSugestoesCatalogoOrcamento = function () {
+  const div = document.getElementById('orc-catalogo-sugestoes-flutuante')
+  if (div) div.style.display = 'none'
+}
+
+// Busca no catálogo já carregado (produtos/serviços vêm inteiros do backend
+// uma vez só — filtra local em vez de fazer uma chamada por tecla) — muitos
+// serviços cadastrados pra caber num <select>, por isso texto + sugestões
+// em vez de dropdown.
+window.buscarCatalogoItemOrcamento = function (i) {
+  const tipo = document.getElementById(`orc-item-tipo-${i}`).value
+  const input = document.getElementById(`orc-item-catalogo-busca-${i}`)
+  const q = input.value.trim().toLowerCase()
+  const lista = tipo === 'produto' ? orcCatalogoProdutos : orcCatalogoServicos
+
+  // Só invalida o item já selecionado se o texto realmente mudou — sem isso,
+  // só focar o campo pra conferir a sugestão (onfocus chama esta função
+  // também) já "esqueceria" a seleção que já tava certa.
+  const hiddenInput = document.getElementById(`orc-item-catalogo-${i}`)
+  const itemAtual = hiddenInput.value ? lista.find(c => String(c.id) === hiddenInput.value) : null
+  if (!itemAtual || itemAtual.nome.toLowerCase() !== q) {
+    hiddenInput.value = ''
   }
 
-  novoDiv.style.display = 'none'
-  novoDiv.innerHTML = ''
+  const filtrados = (q ? lista.filter(c => c.nome.toLowerCase().includes(q)) : lista).slice(0, 50)
 
-  if (!select.value) return
+  const opcoesHtml = filtrados.length === 0
+    ? `<div style="padding:8px 12px; color:#999;">Nenhum resultado</div>`
+    : filtrados.map(c => `
+      <div onclick="selecionarCatalogoItemOrcamento(${i}, '${c.id}')" style="padding:8px 12px; cursor:pointer; border-bottom:1px solid #eee;"
+        onmouseover="this.style.background='#f5f5f5'" onmouseout="this.style.background='white'">
+        ${c.nome} <span style="color:#999; font-size:12px;">${formatarMoedaOrc(c.valor)}</span>
+      </div>
+    `).join('')
 
+  const div = elementoSugestoesCatalogoOrcamento()
+  div.dataset.linha = i
+  div.innerHTML = opcoesHtml + `
+    <div onclick="mostrarNovoItemCatalogoOrcamento(${i})" style="padding:8px 12px; cursor:pointer; color:var(--acento); font-weight:600;"
+      onmouseover="this.style.background='#f5f5f5'" onmouseout="this.style.background='white'">+ Cadastrar novo...</div>
+  `
+  const rect = input.getBoundingClientRect()
+  div.style.left = `${rect.left}px`
+  div.style.top = `${rect.bottom}px`
+  div.style.width = `${rect.width}px`
+  div.style.display = 'block'
+}
+
+window.selecionarCatalogoItemOrcamento = function (i, id) {
+  const tipo = document.getElementById(`orc-item-tipo-${i}`).value
   const lista = tipo === 'produto' ? orcCatalogoProdutos : orcCatalogoServicos
-  const item = lista.find(c => String(c.id) === select.value)
-  if (item) document.getElementById(`orc-item-valor-${i}`).value = item.valor ?? ''
+  const item = lista.find(c => String(c.id) === String(id))
+  if (!item) return
+
+  document.getElementById(`orc-item-catalogo-busca-${i}`).value = item.nome
+  document.getElementById(`orc-item-catalogo-${i}`).value = item.id
+  document.getElementById(`orc-item-valor-${i}`).value = item.valor ?? ''
+  esconderSugestoesCatalogoOrcamento()
   recalcularTotaisOrcamento()
 }
+
+window.mostrarNovoItemCatalogoOrcamento = function (i) {
+  const tipo = document.getElementById(`orc-item-tipo-${i}`).value
+  esconderSugestoesCatalogoOrcamento()
+
+  const novoDiv = document.getElementById(`orc-item-novo-${i}`)
+  novoDiv.style.display = 'block'
+  novoDiv.innerHTML = tipo === 'produto' ? `
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:4px; margin-top:6px;">
+      <input type="text" class="form-control form-control-sm" id="orc-item-novo-codigo-${i}" placeholder="Código *">
+      <input type="text" class="form-control form-control-sm" id="orc-item-novo-nome-${i}" placeholder="Nome *">
+      <input type="text" class="form-control form-control-sm" id="orc-item-novo-unidade-${i}" placeholder="Unidade *">
+      <input type="number" step="0.01" class="form-control form-control-sm" id="orc-item-novo-valor-${i}" placeholder="Valor (R$)">
+    </div>
+    <button type="button" class="btn btn-sm btn-secondary" style="margin-top:4px;" onclick="criarItemCatalogoOrcamento(${i}, 'produto')">Cadastrar e usar</button>
+  ` : `
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:4px; margin-top:6px;">
+      <input type="text" class="form-control form-control-sm" id="orc-item-novo-nome-${i}" placeholder="Nome *" style="grid-column:span 2;">
+      <input type="number" step="0.01" class="form-control form-control-sm" id="orc-item-novo-valor-${i}" placeholder="Valor (R$)">
+    </div>
+    <button type="button" class="btn btn-sm btn-secondary" style="margin-top:4px;" onclick="criarItemCatalogoOrcamento(${i}, 'servico')">Cadastrar e usar</button>
+  `
+}
+
+document.addEventListener('click', (e) => {
+  const div = document.getElementById('orc-catalogo-sugestoes-flutuante')
+  if (!div || div.style.display === 'none') return
+  const input = document.getElementById(`orc-item-catalogo-busca-${div.dataset.linha}`)
+  if (!div.contains(e.target) && e.target !== input) {
+    div.style.display = 'none'
+  }
+})
 
 window.criarItemCatalogoOrcamento = async function (i, tipo) {
   const nome = document.getElementById(`orc-item-novo-nome-${i}`).value.trim()
@@ -429,7 +507,8 @@ window.criarItemCatalogoOrcamento = async function (i, tipo) {
     orcCatalogoServicos.push(novo)
   }
 
-  document.getElementById(`orc-item-catalogo-${i}`).innerHTML = opcoesCatalogoItem(tipo, novo.id)
+  document.getElementById(`orc-item-catalogo-busca-${i}`).value = novo.nome
+  document.getElementById(`orc-item-catalogo-${i}`).value = novo.id
   document.getElementById(`orc-item-novo-${i}`).style.display = 'none'
   document.getElementById(`orc-item-novo-${i}`).innerHTML = ''
   document.getElementById(`orc-item-valor-${i}`).value = novo.valor ?? ''
@@ -719,7 +798,7 @@ window.salvarOrcamento = async function () {
     const catalogoId = document.getElementById(`orc-item-catalogo-${i}`).value
     const valorUnitario = document.getElementById(`orc-item-valor-${i}`).value
 
-    if (!catalogoId || catalogoId === 'novo') {
+    if (!catalogoId) {
       alert('Selecione (ou cadastre) o produto/serviço de todos os itens!')
       return
     }
