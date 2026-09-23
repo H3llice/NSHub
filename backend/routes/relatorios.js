@@ -525,9 +525,9 @@ export async function desenharPaginaRelatorio(pdfDoc, relatorio) {
 // Recriado em HTML/CSS puro (mesma técnica do OC/Solicitação em backend/routes/pdf.js),
 // fiel ao layout do modelo original (backend/migracao/RELATÓRIO E TESTES DE
 // BALSAS.docx — que no Word é ele mesmo só 2 imagens de página escaneadas, sem
-// texto nativo), com a cor azul do modelo trocada por preto (inclusive no
-// logo, reprocessado em backend/assets/relatorio-logo-natal-safety.png — cada
-// pixel azul virou preto com opacidade proporcional à intensidade original).
+// texto nativo), com a cor azul do modelo trocada por preto (o logo, porém,
+// é o logo colorido oficial — backend/assets/Logo-NS.png — não o brasão
+// preto e branco do modelo escaneado original).
 // Pág. 2 (Testes IMO A.761(18)) é gerada por gerarHtmlTestesImo, abaixo, que já
 // era HTML/Puppeteer porque no .docx original ela é tabela nativa do Word.
 function formatarMetros(v) {
@@ -593,6 +593,11 @@ function gerarHtmlServicoBalsa(relatorio) {
   const portoRegistro = relatorio.portoRegistro || relatorio.embarcacao?.portoRegistro || ''
   const armador = relatorio.armador || relatorio.embarcacao?.armador?.nome || ''
   const cilindros = relatorio.cilindros || []
+  // Mesmo campo único de valor de teste do desenharPaginaRelatorio (Certificado)
+  // — só um dos 5 xxxValor vem preenchido, o PDF mostra esse abaixo da temperatura.
+  const primeiroValorTeste = TESTES_FLUTUADOR_ORDEM
+    .map(chave => relatorio[`${chave}Valor`])
+    .find(v => v !== null && v !== undefined && v !== '')
   const capacidade = relatorio.equipCapacidade ? `${relatorio.equipCapacidade} PAX` : ''
   const executanteNome = relatorio.tecnicoNome || relatorio.criadoPor?.nome || ''
   const dataObj = relatorio.data ? new Date(relatorio.data) : null
@@ -601,7 +606,7 @@ function gerarHtmlServicoBalsa(relatorio) {
   const dataAA = dataObj ? String(dataObj.getUTCFullYear()) : ''
   const numeroCompleto = relatorio.numero ? `${relatorio.numero}/${relatorio.ano}` : ''
 
-  const logoPath = path.resolve('assets/relatorio-logo-natal-safety.png')
+  const logoPath = path.resolve('assets/Logo-NS.png')
   const logoBase64 = fs.existsSync(logoPath)
     ? `data:image/png;base64,${fs.readFileSync(logoPath).toString('base64')}`
     : ''
@@ -688,6 +693,7 @@ function gerarHtmlServicoBalsa(relatorio) {
         .rs-linha-teste { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; font-size: 10px; gap: 12px; }
         .rs-linha-teste:last-child { margin-bottom: 0; }
         .rs-check-pair { font-weight: bold; white-space: nowrap; }
+        .rs-testes-valor-col { display: flex; flex-direction: column; gap: 6px; }
         .rs-caixa-temp { border: 2px solid #000; border-radius: 10px; padding: 10px 12px; text-align: center; font-weight: bold; font-size: 10.5px; }
         .rs-caixa-temp .val { display: inline-block; border: 1px solid #000; border-radius: 4px; min-width: 46px; padding: 2px 6px; margin: 0 4px; font-weight: normal; }
 
@@ -769,7 +775,10 @@ function gerarHtmlServicoBalsa(relatorio) {
         <div class="rs-testes-titulo">TESTE DOS FLUTUADORES / BUOYANT TEST</div>
         <div class="rs-testes-corpo">
           <div class="rs-testes-lista">${testesHtml}</div>
-          <div class="rs-caixa-temp">TEMP <span class="val">${esc(relatorio.temperatura)}</span> °C</div>
+          <div class="rs-testes-valor-col">
+            <div class="rs-caixa-temp">TEMP <span class="val">${esc(relatorio.temperatura)}</span> °C</div>
+            <div class="rs-caixa-temp">VALOR <span class="val">${esc(primeiroValorTeste)}</span> mmHg</div>
+          </div>
         </div>
       </div>
 
@@ -858,16 +867,9 @@ function gerarHtmlTestesImo(relatorio) {
   const esc = escapeHtmlRelatorio
   const testeImo = relatorio.testeImo
 
-  const logoPath = path.resolve('assets/logo.png')
-  const logoBase64 = fs.existsSync(logoPath)
-    ? `data:image/png;base64,${fs.readFileSync(logoPath).toString('base64')}`
-    : ''
-
   const estilos = `
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: Arial, sans-serif; font-size: 9.5px; padding: 16px; }
-    .header { margin-bottom: 10px; }
-    .header img { width: 100%; height: auto; }
     h2 { text-align: center; font-size: 13px; margin: 6px 0; }
     .caixa { border: 1px solid #000; padding: 6px 8px; margin-bottom: 8px; }
     .linha { margin-bottom: 3px; }
@@ -894,7 +896,6 @@ function gerarHtmlTestesImo(relatorio) {
       <style>${estilos}</style>
     </head>
     <body>
-      <div class="header">${logoBase64 ? `<img src="${logoBase64}" />` : ''}</div>
       <h2>Testes de acordo a Resolução IMO A.761 (18) / IMO Resolution A.761(18)</h2>
 
       <div class="caixa">
