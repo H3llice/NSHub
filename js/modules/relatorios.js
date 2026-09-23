@@ -305,6 +305,12 @@ window.gerarRelatorioDeOS = async function (ordemServicoId) {
 
   document.getElementById('relatorios').innerHTML = renderFormularioRelatorio(preenchido, empresas)
   renderizarCilindros()
+  // Relatório do zero — sugere as quantidades padrão do kit (mesma lógica do Certificado).
+  preencherQuantidadesPadraoKit(preenchido.equipCapacidade)
+}
+
+window.atualizarQuantidadesPadraoRelatorio = function () {
+  preencherQuantidadesPadraoKit(document.getElementById('rel-equipCapacidade').value)
 }
 
 window.editarRelatorio = async function (id) {
@@ -404,12 +410,21 @@ export function renderSecoesTecnicasRelatorio(r, somenteLeitura, opcoes = {}) {
 
       ${secao('Cilindros', `
         <div class="table-scroll">
-          <table class="table-certificados" style="min-width:1200px;">
-            <thead><tr><th>Nº</th><th>Nº Válvula</th><th>Teste</th><th>Carga (kg)</th><th>Carga CO2 (kg)</th><th>Carga N2 (kg)</th><th>Fabricante</th><th>Ano Fab.</th><th>Cabo Interno (m)</th><th>Cabo Externo (m)</th><th>Altura Máx. (m)</th>${somenteLeitura ? '' : '<th></th>'}</tr></thead>
+          <table class="table-certificados">
+            <thead><tr><th>Nº</th><th>Nº Válvula</th><th>Teste</th><th>Carga (kg)</th><th>Carga CO2 (kg)</th><th>Carga N2 (kg)</th><th>Fabricante</th><th>Ano Fab.</th>${somenteLeitura ? '' : '<th></th>'}</tr></thead>
             <tbody id="lista-cilindros"></tbody>
           </table>
         </div>
         ${somenteLeitura ? '' : '<button class="btn btn-secondary btn-sm" style="margin-top:8px;" onclick="adicionarCilindro()">+ Cilindro</button>'}
+      `)}
+
+      ${secao('Cabo de Disparo', `
+        <div class="table-scroll">
+          <table class="table-certificados">
+            <thead><tr><th>Cilindro</th><th>Cabo Interno (m)</th><th>Cabo Externo (m)</th><th>Altura Máx. (m)</th></tr></thead>
+            <tbody id="lista-cabo-disparo"></tbody>
+          </table>
+        </div>
       `)}
 
       ${secao('Casulo (Reparo / Pintura)', `
@@ -538,6 +553,7 @@ function renderFormularioRelatorio(r, empresas) {
   const concluido = r?.status === 'concluido'
   const somenteLeitura = concluido || cancelado
   const dis = somenteLeitura ? 'disabled' : ''
+  const novo = !r?.id
   const opcoesEmpresas = empresas.map(e =>
     `<option value="${e.id}" ${r?.empresaId === e.id ? 'selected' : ''}>${e.nome} (${e.sigla})</option>`
   ).join('')
@@ -582,7 +598,7 @@ function renderFormularioRelatorio(r, empresas) {
           <div><label>Marca/Fabricante</label><input type="text" id="rel-equipFabricante" class="form-control" value="${r?.equipFabricante || ''}" ${dis}></div>
           <div><label>Modelo</label><input type="text" id="rel-equipModelo" class="form-control" value="${r?.equipModelo || ''}" ${dis}></div>
           <div><label>Classe</label><input type="text" id="rel-equipClasse" class="form-control" placeholder="Ex: Classe II Pack B" value="${r?.equipClasse || ''}" ${dis}></div>
-          <div><label>Capacidade (pessoas)</label><input type="number" id="rel-equipCapacidade" class="form-control" value="${r?.equipCapacidade ?? ''}" ${dis}></div>
+          <div><label>Capacidade (pessoas)</label><input type="number" id="rel-equipCapacidade" class="form-control" value="${r?.equipCapacidade ?? ''}" ${novo ? 'onchange="atualizarQuantidadesPadraoRelatorio()"' : ''} ${dis}></div>
           <div><label>Nº Certificado de Revisão anterior</label><input type="text" id="rel-certRevisaoNumero" class="form-control" value="${r?.certRevisaoNumero || ''}" ${dis}></div>
           <div><label>Data de Expedição</label><input type="text" id="rel-certRevisaoDataExpedicao" class="form-control" value="${r?.certRevisaoDataExpedicao || ''}" ${dis}></div>
         </div>
@@ -686,6 +702,7 @@ export function prepararCilindros(lista, somenteLeitura = false) {
 
 export function renderizarCilindros() {
   const tbody = document.getElementById('lista-cilindros')
+  const tbodyCabo = document.getElementById('lista-cabo-disparo')
   if (!tbody) return
   const dis = cilindrosSomenteLeitura ? 'disabled' : ''
 
@@ -699,12 +716,20 @@ export function renderizarCilindros() {
       <td><input type="number" step="0.01" class="form-control form-control-sm" id="cil-cargaN2-${i}" value="${c.cargaN2 ?? ''}" ${dis}></td>
       <td><input type="text" class="form-control form-control-sm" id="cil-fabricante-${i}" value="${c.fabricante || ''}" ${dis}></td>
       <td><input type="text" class="form-control form-control-sm" id="cil-anoFabricacao-${i}" value="${c.anoFabricacao || ''}" ${dis}></td>
-      <td><input type="number" step="0.01" class="form-control form-control-sm" id="cil-caboInternoMetros-${i}" value="${c.caboInternoMetros ?? ''}" ${dis}></td>
-      <td><input type="number" step="0.01" class="form-control form-control-sm" id="cil-caboExternoMetros-${i}" value="${c.caboExternoMetros ?? ''}" ${dis}></td>
-      <td><input type="number" step="0.01" class="form-control form-control-sm" id="cil-alturaMaximaEstocagemMetros-${i}" value="${c.alturaMaximaEstocagemMetros ?? ''}" ${dis}></td>
       ${cilindrosSomenteLeitura ? '' : `<td><button class="btn btn-sm btn-danger" onclick="removerCilindro(${i})">✕</button></td>`}
     </tr>
   `).join('')
+
+  if (tbodyCabo) {
+    tbodyCabo.innerHTML = cilindrosEstado.map((c, i) => `
+      <tr>
+        <td>${c.numero || i + 1}</td>
+        <td><input type="number" step="0.01" class="form-control form-control-sm" id="cil-caboInternoMetros-${i}" value="${c.caboInternoMetros ?? ''}" ${dis}></td>
+        <td><input type="number" step="0.01" class="form-control form-control-sm" id="cil-caboExternoMetros-${i}" value="${c.caboExternoMetros ?? ''}" ${dis}></td>
+        <td><input type="number" step="0.01" class="form-control form-control-sm" id="cil-alturaMaximaEstocagemMetros-${i}" value="${c.alturaMaximaEstocagemMetros ?? ''}" ${dis}></td>
+      </tr>
+    `).join('')
+  }
 }
 
 window.adicionarCilindro = function () {
