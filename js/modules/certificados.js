@@ -244,7 +244,7 @@ function renderCertificado(c, empresas) {
         </div>
       </div>
 
-      ${renderSecoesTecnicasRelatorio(r || c.dadosTecnicos || {}, false, { incluirTesteImo: false, nomeTecnicoDefault: c.criadoPor?.nome || usuarioAtual?.nome || '' })}
+      ${renderSecoesTecnicasRelatorio(r || c.dadosTecnicos || {}, false, { incluirTesteImo: false, incluirServicosBalsa: false, nomeTecnicoDefault: c.criadoPor?.nome || usuarioAtual?.nome || '' })}
 
       <div style="background:white; border-radius:6px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06); margin-bottom:16px;">
         <div style="font-weight:700; color:var(--acento); margin-bottom:10px;">Emissão</div>

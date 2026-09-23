@@ -385,7 +385,7 @@ function secao(titulo, conteudoHtml) {
 // do Certificado (js/modules/certificados.js), que edita o Relatório de
 // origem por baixo dos panos.
 export function renderSecoesTecnicasRelatorio(r, somenteLeitura, opcoes = {}) {
-  const { incluirTesteImo = true, nomeTecnicoDefault = '' } = opcoes
+  const { incluirTesteImo = true, incluirServicosBalsa = true, nomeTecnicoDefault = '' } = opcoes
   const dis = somenteLeitura ? 'disabled' : ''
   const imo = r?.testeImo || {}
 
@@ -571,7 +571,7 @@ export function renderSecoesTecnicasRelatorio(r, somenteLeitura, opcoes = {}) {
         </div>
       `)}
 
-      ${secao('Serviços Realizados (Relatório de Serviço de Balsas)', `
+      ${!incluirServicosBalsa ? '' : secao('Serviços Realizados (Relatório de Serviço de Balsas)', `
         <table class="table-certificados">
           <thead><tr><th style="width:50px; text-align:center;">Item</th><th>Descrição</th><th style="width:70px; text-align:center;">Sim</th></tr></thead>
           <tbody>
@@ -595,9 +595,9 @@ export function renderSecoesTecnicasRelatorio(r, somenteLeitura, opcoes = {}) {
           <div>
             <label>Revisão Anual</label>
             <div style="display:flex; gap:16px; margin-top:8px;">
-              <label style="display:flex; align-items:center; gap:6px; font-size:13px;"><input type="radio" name="rel-revisaoAnual" value="ok" ${r?.revisaoAnualOk === true ? 'checked' : ''} ${dis}> OK</label>
-              <label style="display:flex; align-items:center; gap:6px; font-size:13px;"><input type="radio" name="rel-revisaoAnual" value="sim" ${dis}> SIM</label>
-              <label style="display:flex; align-items:center; gap:6px; font-size:13px;"><input type="radio" name="rel-revisaoAnual" value="nao" ${r?.revisaoAnualOk === false ? 'checked' : ''} ${dis}> NÃO</label>
+              <label style="display:flex; align-items:center; gap:6px; font-size:13px;"><input type="checkbox" id="rel-revisaoAnual-ok" ${r?.revisaoAnualOk === true ? 'checked' : ''} ${dis}> OK</label>
+              <label style="display:flex; align-items:center; gap:6px; font-size:13px;"><input type="checkbox" id="rel-revisaoAnual-sim" ${r?.revisaoAnualOk === true ? 'checked' : ''} ${dis}> SIM</label>
+              <label style="display:flex; align-items:center; gap:6px; font-size:13px;"><input type="checkbox" id="rel-revisaoAnual-nao" ${r?.revisaoAnualOk === false ? 'checked' : ''} ${dis}> NÃO</label>
             </div>
           </div>
           <div>
@@ -838,10 +838,13 @@ export function lerCamposTecnicosRelatorio() {
     tecnicoNome: document.getElementById('rel-tecnicoNome').value,
   }
 
-  // OK e SIM marcam o mesmo estado (revisaoAnualOk = true) — o papel tem os
-  // 3 checkboxes separados, mas só existe aprovado/reprovado no banco.
-  const revisaoMarcada = document.querySelector('input[name="rel-revisaoAnual"]:checked')?.value
-  body.revisaoAnualOk = revisaoMarcada === undefined ? null : revisaoMarcada !== 'nao'
+  // 3 checkboxes independentes (pode marcar mais de um, igual no papel) —
+  // OK e SIM marcam o mesmo estado no banco (aprovado), NÃO marca reprovado;
+  // sem nenhum marcado fica sem informar.
+  const revisaoOk = document.getElementById('rel-revisaoAnual-ok').checked
+  const revisaoSim = document.getElementById('rel-revisaoAnual-sim').checked
+  const revisaoNao = document.getElementById('rel-revisaoAnual-nao').checked
+  body.revisaoAnualOk = revisaoNao ? false : ((revisaoOk || revisaoSim) ? true : null)
 
   KIT_ITENS.forEach(item => {
     body[`${item.key}Qtd`] = document.getElementById(`rel-kit-${item.key}-qtd`).value
@@ -874,10 +877,14 @@ export function lerCamposTecnicosRelatorio() {
   body.casuloValvulaFabricante = document.getElementById('rel-casulo-valvulaFabricante').value
   body.casuloValvulaValidade = document.getElementById('rel-casulo-valvulaValidade').value
 
-  SERVICOS_BALSA.forEach(([chave]) => {
-    body[chave] = document.getElementById(`rel-serv-${chave}`).checked
-  })
-  body.servicosObservacoes = document.getElementById('rel-servicosObservacoes').value
+  // Serviços Realizados não existe na tela do Certificado
+  // (renderSecoesTecnicasRelatorio com incluirServicosBalsa:false).
+  if (document.getElementById('rel-servicosObservacoes')) {
+    SERVICOS_BALSA.forEach(([chave]) => {
+      body[chave] = document.getElementById(`rel-serv-${chave}`).checked
+    })
+    body.servicosObservacoes = document.getElementById('rel-servicosObservacoes').value
+  }
 
   // Testes IMO não existem na tela do Certificado (renderSecoesTecnicasRelatorio
   // com incluirTesteImo:false) — sem os elementos no DOM, nem tenta ler.
