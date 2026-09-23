@@ -465,11 +465,10 @@ export function renderSecoesTecnicasRelatorio(r, somenteLeitura, opcoes = {}) {
       `)}
 
       ${secao('Cabo de Disparo', `
-        <div class="table-scroll">
-          <table class="table-certificados">
-            <thead><tr><th>Cilindro</th><th>Cabo Interno (m)</th><th>Cabo Externo (m)</th><th>Altura Máx. (m)</th></tr></thead>
-            <tbody id="lista-cabo-disparo"></tbody>
-          </table>
+        <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:16px;">
+          <div><label>Cabo Interno (m)</label><input type="number" step="0.01" class="form-control" id="rel-caboInternoMetros" value="${r?.caboInternoMetros ?? ''}" ${dis}></div>
+          <div><label>Cabo Externo (m)</label><input type="number" step="0.01" class="form-control" id="rel-caboExternoMetros" value="${r?.caboExternoMetros ?? ''}" ${dis}></div>
+          <div><label>Altura Máx. de Estocagem (m)</label><input type="number" step="0.01" class="form-control" id="rel-alturaMaximaEstocagemMetros" value="${r?.alturaMaximaEstocagemMetros ?? ''}" ${dis}></div>
         </div>
       `)}
 
@@ -767,7 +766,6 @@ export function prepararCilindros(lista, somenteLeitura = false) {
 
 export function renderizarCilindros() {
   const tbody = document.getElementById('lista-cilindros')
-  const tbodyCabo = document.getElementById('lista-cabo-disparo')
   if (!tbody) return
   const dis = cilindrosSomenteLeitura ? 'disabled' : ''
 
@@ -784,17 +782,6 @@ export function renderizarCilindros() {
       ${cilindrosSomenteLeitura ? '' : `<td><button class="btn btn-sm btn-danger" onclick="removerCilindro(${i})">✕</button></td>`}
     </tr>
   `).join('')
-
-  if (tbodyCabo) {
-    tbodyCabo.innerHTML = cilindrosEstado.map((c, i) => `
-      <tr>
-        <td>${c.numero || i + 1}</td>
-        <td><input type="number" step="0.01" class="form-control form-control-sm" id="cil-caboInternoMetros-${i}" value="${c.caboInternoMetros ?? ''}" ${dis}></td>
-        <td><input type="number" step="0.01" class="form-control form-control-sm" id="cil-caboExternoMetros-${i}" value="${c.caboExternoMetros ?? ''}" ${dis}></td>
-        <td><input type="number" step="0.01" class="form-control form-control-sm" id="cil-alturaMaximaEstocagemMetros-${i}" value="${c.alturaMaximaEstocagemMetros ?? ''}" ${dis}></td>
-      </tr>
-    `).join('')
-  }
 }
 
 window.adicionarCilindro = function () {
@@ -810,8 +797,8 @@ window.removerCilindro = function (i) {
 }
 
 function lerCilindrosDoForm() {
-  const campos = ['numero', 'valvulaNumero', 'teste', 'carga', 'cargaCO2', 'cargaN2', 'fabricante', 'anoFabricacao', 'caboInternoMetros', 'caboExternoMetros', 'alturaMaximaEstocagemMetros']
-  const numericos = ['carga', 'cargaCO2', 'cargaN2', 'caboInternoMetros', 'caboExternoMetros', 'alturaMaximaEstocagemMetros']
+  const campos = ['numero', 'valvulaNumero', 'teste', 'carga', 'cargaCO2', 'cargaN2', 'fabricante', 'anoFabricacao']
+  const numericos = ['carga', 'cargaCO2', 'cargaN2']
 
   return cilindrosEstado.map((_, i) => {
     const c = {}
@@ -870,6 +857,12 @@ export function lerCamposTecnicosRelatorio() {
   })
 
   body.cilindros = lerCilindrosDoForm()
+
+  // Cabo de Disparo — um valor só por relatório, não por cilindro (conversão
+  // pra Float fica a cargo do extrair() no backend, como os demais campos).
+  body.caboInternoMetros = document.getElementById('rel-caboInternoMetros').value
+  body.caboExternoMetros = document.getElementById('rel-caboExternoMetros').value
+  body.alturaMaximaEstocagemMetros = document.getElementById('rel-alturaMaximaEstocagemMetros').value
 
   body.casuloReparo = document.getElementById('rel-casulo-reparo').checked
   body.casuloPintura = document.getElementById('rel-casulo-pintura').checked

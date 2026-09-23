@@ -771,6 +771,13 @@ model Relatorio {
   casuloValvulaFabricante String?
   casuloValvulaValidade   String?
 
+  // Cabo de Disparo — um só por balsa (não por cilindro, mesmo quando há mais
+  // de um), seção própria no papel ao lado do Casulo. Antes vivia em
+  // CilindroRelatorio (repetido por linha, sem necessidade).
+  caboInternoMetros           Float?
+  caboExternoMetros           Float?
+  alturaMaximaEstocagemMetros Float?
+
   // Página 3 do PDF — checklist "RELATÓRIO DE SERVIÇO DE BALSAS" (documento
   // avulso migrado, backend/migracao/RELATÓRIO DE SERVIÇOS DE BALSA.docx),
   // 23 serviços marcados sim/não + observações próprias (diferente de
@@ -824,19 +831,23 @@ model CilindroRelatorio {
   relatorio   Relatorio @relation(fields: [relatorioId], references: [id])
   relatorioId Int
 
-  numero                      String?
-  valvulaNumero               String?
-  teste                       String?
-  carga                       Float?
-  cargaCO2                    Float?
-  cargaN2                     Float?
-  fabricante                  String?
-  anoFabricacao               String?
-  validadeHidrostatica        String?
+  numero               String?
+  valvulaNumero        String?
+  teste                String?
+  carga                Float?
+  cargaCO2             Float?
+  cargaN2              Float?
+  fabricante           String?
+  anoFabricacao        String?
+  validadeHidrostatica String?
+  classe               String?
+
+  // Não usados mais pelo app (Cabo de Disparo virou campo único em Relatorio,
+  // ver lá) — mantidos aqui só pra não dropar coluna com dado já salvo numa
+  // migração de schema (prisma db push sem --accept-data-loss recusaria).
   caboInternoMetros           Float?
   caboExternoMetros           Float?
   alturaMaximaEstocagemMetros Float?
-  classe                      String?
 }
 
 // Testes formais de acordo com a Resolução IMO A.761(18) — versão detalhada dos

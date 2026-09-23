@@ -58,13 +58,14 @@ const CAMPOS_RELATORIO = [
   'napRealizado', 'napValor', 'wpRealizado', 'wpValor', 'giRealizado', 'giValor',
   'fsRealizado', 'fsValor', 'olRealizado', 'olValor', 'temperatura',
   'casuloReparo', 'casuloPintura', 'casuloValvulaNumero', 'casuloValvulaFabricante', 'casuloValvulaValidade',
+  'caboInternoMetros', 'caboExternoMetros', 'alturaMaximaEstocagemMetros',
   ...SERVICOS_BALSA.map(([chave]) => chave), 'servicosObservacoes',
   'revisaoAnualOk', 'observacoes', 'tecnicoNome'
 ]
 
 const CAMPOS_CILINDRO = [
   'numero', 'valvulaNumero', 'teste', 'carga', 'cargaCO2', 'cargaN2', 'fabricante', 'anoFabricacao',
-  'validadeHidrostatica', 'caboInternoMetros', 'caboExternoMetros', 'alturaMaximaEstocagemMetros', 'classe'
+  'validadeHidrostatica', 'classe'
 ]
 
 const CAMPOS_TESTE_IMO = [
@@ -843,9 +844,9 @@ function gerarHtmlServicoBalsa(relatorio) {
 
       <div class="rs-linha-dupla">
         <div class="rs-caixa rs-caixa-cabo">
-          <div>CABO DE DISPARO INTERNO / LENGTH OF PAINTER INSIDE <span class="val">${esc(juntarCilindros(cilindros, 'caboInternoMetros', formatarMetros))}</span> M</div>
-          <div>CABO DE DISPARO EXTERNO / LENGTH OF PAINTER OUTSIDE <span class="val">${esc(juntarCilindros(cilindros, 'caboExternoMetros', formatarMetros))}</span> M</div>
-          <div>CAPACIDADE DE ALTURA MÁXIMA / MAX STOWAGE HEIGHT <span class="val">${esc(juntarCilindros(cilindros, 'alturaMaximaEstocagemMetros', formatarMetros))}</span> M</div>
+          <div>CABO DE DISPARO INTERNO / LENGTH OF PAINTER INSIDE <span class="val">${esc(formatarMetros(relatorio.caboInternoMetros))}</span> M</div>
+          <div>CABO DE DISPARO EXTERNO / LENGTH OF PAINTER OUTSIDE <span class="val">${esc(formatarMetros(relatorio.caboExternoMetros))}</span> M</div>
+          <div>CAPACIDADE DE ALTURA MÁXIMA / MAX STOWAGE HEIGHT <span class="val">${esc(formatarMetros(relatorio.alturaMaximaEstocagemMetros))}</span> M</div>
         </div>
         <div class="rs-caixa rs-caixa-obs">
           <div class="rot">OBS:</div>
