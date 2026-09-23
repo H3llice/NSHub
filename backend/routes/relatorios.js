@@ -147,25 +147,27 @@ router.get('/:id', autenticar, async (req, res) => {
   res.json(relatorio)
 })
 
-// ─── Criar novo relatório (sempre a partir de uma Ordem de Serviço) ────────────
+// ─── Criar novo relatório (a partir de uma Ordem de Serviço, ou avulso) ────────
 // Financeiro não mexe em Serviços — de fora daqui e das duas rotas abaixo.
+// ordemServicoId é opcional por enquanto (ver comentário no schema) — dá pra
+// criar Relatório direto pelo "+ Novo Relatório" sem passar por uma OS.
 router.post('/', autenticar, exigirPerfil('usuario', 'gerente', 'admin', 'tecnico'), async (req, res) => {
   const { cilindros, testeImo, ordemServicoId } = req.body
   const dados = extrair(req.body, CAMPOS_RELATORIO)
 
-  if (!ordemServicoId) {
-    return res.status(400).json({ erro: 'Relatório precisa ser gerado a partir de uma Ordem de Serviço' })
-  }
   if (!dados.empresaId || !dados.navio) {
     return res.status(400).json({ erro: 'Empresa e embarcação (navio) são obrigatórias' })
   }
 
-  const os = await prisma.ordemServico.findUnique({
-    where: { id: parseInt(ordemServicoId) },
-    include: { relatorio: true }
-  })
-  if (!os) return res.status(400).json({ erro: 'Ordem de Serviço não encontrada' })
-  if (os.relatorio) return res.status(400).json({ erro: 'Essa Ordem de Serviço já tem um relatório gerado' })
+  let os = null
+  if (ordemServicoId) {
+    os = await prisma.ordemServico.findUnique({
+      where: { id: parseInt(ordemServicoId) },
+      include: { relatorio: true }
+    })
+    if (!os) return res.status(400).json({ erro: 'Ordem de Serviço não encontrada' })
+    if (os.relatorio) return res.status(400).json({ erro: 'Essa Ordem de Serviço já tem um relatório gerado' })
+  }
 
   const ano = new Date().getFullYear()
   const ultimo = await prisma.relatorio.findFirst({
@@ -179,7 +181,7 @@ router.post('/', autenticar, exigirPerfil('usuario', 'gerente', 'admin', 'tecnic
       ...dados,
       empresaId: parseInt(dados.empresaId),
       embarcacaoId: dados.embarcacaoId ? parseInt(dados.embarcacaoId) : null,
-      ordemServicoId: os.id,
+      ordemServicoId: os ? os.id : null,
       numero: proximoNumero,
       ano,
       criadoPorId: req.usuario.id,

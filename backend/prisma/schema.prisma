@@ -654,8 +654,11 @@ model Relatorio {
   empresaId      Int
   embarcacao     Embarcacao?  @relation(fields: [embarcacaoId], references: [id])
   embarcacaoId   Int?
-  ordemServico   OrdemServico @relation(fields: [ordemServicoId], references: [id])
-  ordemServicoId Int          @unique
+  // Opcional por enquanto — dá pra criar Relatório direto, sem passar por OS
+  // ("+ Novo Relatório" na tela de Relatórios). Continua único quando
+  // preenchido (uma OS não pode gerar dois relatórios).
+  ordemServico   OrdemServico? @relation(fields: [ordemServicoId], references: [id])
+  ordemServicoId Int?          @unique
   data           DateTime     @default(now())
   criadoPor      Usuario?     @relation(fields: [criadoPorId], references: [id])
   criadoPorId    Int?

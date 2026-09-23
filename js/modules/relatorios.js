@@ -210,8 +210,23 @@ window.trocarTipoRelatorio = function () {
   carregarRelatorios(1)
 }
 
-window.novoRelatorioTipoAtivo = function () {
-  alert('Todo relatório é gerado a partir de uma Ordem de Serviço — abra Serviços → Ordens de Serviço e clique em "Gerar Relatório".')
+window.novoRelatorioTipoAtivo = async function () {
+  const tipo = document.getElementById('rel-tipo-ativo')?.value || 'balsa'
+  if (tipo !== 'balsa') {
+    alert(`Formulário de Relatório de ${LABEL_TIPO_RELATORIO[tipo]} ainda não implementado.`)
+    return
+  }
+
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'))
+  document.getElementById('relatorios').classList.add('active')
+
+  cilindrosEstado = [{}]
+  cilindrosSomenteLeitura = false
+  const empresas = await apiFetch(`${API}/empresas`).then(r => r.json())
+
+  document.getElementById('relatorios').innerHTML = renderFormularioRelatorio(null, empresas)
+  renderizarCilindros()
+  preencherQuantidadesPadraoKit(undefined)
 }
 
 window.carregarRelatorios = async function (pagina = 1) {
@@ -856,10 +871,6 @@ function lerFormularioRelatorio() {
 
 window.salvarRelatorio = async function () {
   const body = lerFormularioRelatorio()
-  if (!body.ordemServicoId) {
-    alert('Relatório precisa ser gerado a partir de uma Ordem de Serviço.')
-    return
-  }
   if (!body.empresaId || !body.navio) {
     alert('Empresa e Embarcação (navio) são obrigatórios!')
     return
