@@ -435,17 +435,19 @@ export function renderSecoesTecnicasRelatorio(r, somenteLeitura, opcoes = {}) {
       `)}
 
       ${secao('Teste de Flutuadores', `
-        <table class="table-certificados">
-          <thead><tr><th>Teste</th><th>Realizado</th></tr></thead>
-          <tbody>
-            ${TESTES_FLUTUADOR.map(([key, label]) => `
-              <tr>
-                <td>${label}</td>
-                <td style="width:80px; text-align:center;"><input type="checkbox" id="rel-teste-${key}-realizado" ${r?.[`${key}Realizado`] ? 'checked' : ''} ${dis}></td>
-              </tr>
-            `).join('')}
-          </tbody>
-        </table>
+        <div class="table-scroll">
+          <table class="table-certificados">
+            <thead><tr><th>Teste</th><th>Realizado</th></tr></thead>
+            <tbody>
+              ${TESTES_FLUTUADOR.map(([key, label]) => `
+                <tr>
+                  <td>${label}</td>
+                  <td style="width:80px; text-align:center;"><input type="checkbox" id="rel-teste-${key}-realizado" ${r?.[`${key}Realizado`] ? 'checked' : ''} ${dis}></td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
         <div style="display:flex; gap:16px; margin-top:8px;">
           <div style="max-width:200px;"><label>Valor</label><input type="number" step="0.01" class="form-control" id="rel-teste-valor" value="${valorTesteFlutuador ?? ''}" ${dis}></div>
           <div style="max-width:200px;"><label>Temperatura</label><input type="text" id="rel-temperatura" class="form-control" value="${r?.temperatura || ''}" ${dis}></div>
