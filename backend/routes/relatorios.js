@@ -9,7 +9,7 @@ import { autenticar, exigirPerfil } from '../middleware/auth.js'
 const router = Router()
 
 const CAMPOS_RELATORIO = [
-  'empresaId', 'embarcacaoId', 'data',
+  'empresaId', 'embarcacaoId', 'navio', 'armador', 'portoRegistro', 'data',
   'equipTipo', 'equipNumeroSerie', 'equipAnoFabricacao', 'equipFabricante', 'equipModelo', 'equipClasse', 'equipCapacidade',
   'certRevisaoNumero', 'certRevisaoDataExpedicao',
   'foguetesQtd', 'foguetesSubstituido', 'foguetesValidade',
@@ -156,8 +156,8 @@ router.post('/', autenticar, exigirPerfil('usuario', 'gerente', 'admin', 'tecnic
   if (!ordemServicoId) {
     return res.status(400).json({ erro: 'Relatório precisa ser gerado a partir de uma Ordem de Serviço' })
   }
-  if (!dados.empresaId || !dados.embarcacaoId) {
-    return res.status(400).json({ erro: 'Empresa e embarcação são obrigatórias' })
+  if (!dados.empresaId || !dados.navio) {
+    return res.status(400).json({ erro: 'Empresa e embarcação (navio) são obrigatórias' })
   }
 
   const os = await prisma.ordemServico.findUnique({
@@ -178,7 +178,7 @@ router.post('/', autenticar, exigirPerfil('usuario', 'gerente', 'admin', 'tecnic
     data: {
       ...dados,
       empresaId: parseInt(dados.empresaId),
-      embarcacaoId: parseInt(dados.embarcacaoId),
+      embarcacaoId: dados.embarcacaoId ? parseInt(dados.embarcacaoId) : null,
       ordemServicoId: os.id,
       numero: proximoNumero,
       ano,
@@ -585,8 +585,11 @@ const KIT_ITENS_LABELS = {
 // (desenharPaginaRelatorio, acima), que não inclui identificação.
 function gerarHtmlServicoBalsa(relatorio) {
   const esc = escapeHtmlRelatorio
-  const e = relatorio.embarcacao
-  const a = e?.armador
+  // navio/armador/portoRegistro são texto livre no Relatorio — cai pra
+  // Embarcacao vinculada só em relatórios antigos que não tinham esses campos.
+  const navio = relatorio.navio || relatorio.embarcacao?.nome || ''
+  const portoRegistro = relatorio.portoRegistro || relatorio.embarcacao?.portoRegistro || ''
+  const armador = relatorio.armador || relatorio.embarcacao?.armador?.nome || ''
   const cilindros = relatorio.cilindros || []
   const capacidade = relatorio.equipCapacidade ? `${relatorio.equipCapacidade} PAX` : ''
   const executanteNome = relatorio.tecnicoNome || relatorio.criadoPor?.nome || ''
@@ -716,11 +719,11 @@ function gerarHtmlServicoBalsa(relatorio) {
 
       <div class="rs-caixa">
         <div class="rs-linha-id">
-          ${campo('NAVIO', e?.nome, 'flex:2.2;')}
-          ${campo('PORTO REG.', e?.portoRegistro, 'flex:1.2;')}
+          ${campo('NAVIO', navio, 'flex:2.2;')}
+          ${campo('PORTO REG.', portoRegistro, 'flex:1.2;')}
         </div>
         <div class="rs-linha-id">
-          ${campo('ARMADOR', a?.nome)}
+          ${campo('ARMADOR', armador)}
         </div>
         <div class="rs-linha-id">
           ${campo('TIPO', relatorio.equipTipo)}

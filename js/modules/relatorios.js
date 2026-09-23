@@ -252,8 +252,8 @@ window.carregarRelatorios = async function (pagina = 1) {
     tabela.innerHTML = resp.relatorios.map(r => `
       <tr>
         <td style="cursor:pointer;" onclick="editarRelatorio(${r.id})">${r.numero}/${r.ano}</td>
-        <td style="cursor:pointer;" onclick="editarRelatorio(${r.id})">${r.embarcacao?.nome || '-'}</td>
-        <td>${r.embarcacao?.armador?.nome || '-'}</td>
+        <td style="cursor:pointer;" onclick="editarRelatorio(${r.id})">${r.navio || r.embarcacao?.nome || '-'}</td>
+        <td>${r.armador || r.embarcacao?.armador?.nome || '-'}</td>
         <td>${new Date(r.data).toLocaleDateString('pt-BR', { timeZone: 'UTC' })}</td>
         <td>${badgeStatus(r.status)}</td>
         <td class="col-acoes">
@@ -368,6 +368,9 @@ window.gerarRelatorioDeOS = async function (ordemServicoId) {
     empresaId: os.empresaId,
     embarcacaoId: os.embarcacaoId,
     embarcacao: os.embarcacao,
+    navio: os.embarcacao?.nome || '',
+    armador: os.embarcacao?.armador?.nome || '',
+    portoRegistro: os.embarcacao?.portoRegistro || '',
     equipTipo: os.equipModelo || '',
     equipNumeroSerie: os.equipNumeroSerie || '',
     equipFabricante: os.equipMarca || '',
@@ -633,14 +636,14 @@ function renderFormularioRelatorio(r, empresas) {
           <div><label>Empresa executante *</label><select id="rel-empresaId" class="form-control" ${dis}>${opcoesEmpresas}</select></div>
           <div><label>Data *</label><input type="date" id="rel-data" class="form-control" value="${r?.data ? r.data.split('T')[0] : hojeISO()}" ${dis}></div>
           <div style="position:relative; grid-column: span 2;">
-            <label>Embarcação (navio) * <small style="color:#999;">(busca por nome — autopreenche armador e porto)</small></label>
+            <label>Embarcação (navio) * <small style="color:#999;">(busca por nome — autopreenche armador e porto; se não achar, digite livremente)</small></label>
             <input type="text" id="rel-embarcacao-busca" class="form-control" placeholder="Digite o nome do navio..."
-              value="${r?.embarcacao?.nome || ''}" oninput="buscarEmbarcacaoRelatorio(this.value)" autocomplete="off" ${dis}>
+              value="${r?.navio || r?.embarcacao?.nome || ''}" oninput="buscarEmbarcacaoRelatorio(this.value)" autocomplete="off" ${dis}>
             <div id="sugestoes-embarcacao" style="position:absolute; background:white; border:1px solid #ccc; border-radius:4px; width:100%; z-index:999; display:none; top:100%;"></div>
             <input type="hidden" id="rel-embarcacaoId" value="${r?.embarcacaoId || ''}">
           </div>
-          <div><label>Armador</label><input type="text" id="rel-embarcacao-armador" class="form-control" value="${r?.embarcacao?.armador?.nome || ''}" disabled></div>
-          <div><label>Porto de Registro</label><input type="text" id="rel-embarcacao-porto" class="form-control" value="${r?.embarcacao?.portoRegistro || ''}" disabled></div>
+          <div><label>Armador</label><input type="text" id="rel-embarcacao-armador" class="form-control" value="${r?.armador || r?.embarcacao?.armador?.nome || ''}" ${dis}></div>
+          <div><label>Porto de Registro</label><input type="text" id="rel-embarcacao-porto" class="form-control" value="${r?.portoRegistro || r?.embarcacao?.portoRegistro || ''}" ${dis}></div>
         </div>
       `)}
 
@@ -712,7 +715,7 @@ window.buscarEmbarcacaoRelatorio = async function (q) {
   const results = await apiFetch(`${API}/embarcacoes/buscar?q=${encodeURIComponent(q)}`).then(r => r.json())
 
   if (results.length === 0) {
-    div.innerHTML = `<div style="padding:8px 12px; color:#999;">Nenhuma embarcação encontrada — cadastre em Cadastros → Embarcações primeiro</div>`
+    div.innerHTML = `<div style="padding:8px 12px; color:#999;">Nenhuma embarcação encontrada — pode digitar livremente (armador e porto ficam como texto do relatório)</div>`
     div.style.display = 'block'
     return
   }
@@ -881,6 +884,9 @@ function lerFormularioRelatorio() {
     ordemServicoId: document.getElementById('rel-ordemServicoId').value,
     empresaId: document.getElementById('rel-empresaId').value,
     embarcacaoId: document.getElementById('rel-embarcacaoId').value,
+    navio: document.getElementById('rel-embarcacao-busca').value.trim(),
+    armador: document.getElementById('rel-embarcacao-armador').value.trim(),
+    portoRegistro: document.getElementById('rel-embarcacao-porto').value.trim(),
     data: document.getElementById('rel-data').value,
     equipTipo: document.getElementById('rel-equipTipo').value,
     equipNumeroSerie: document.getElementById('rel-equipNumeroSerie').value,
@@ -902,8 +908,8 @@ window.salvarRelatorio = async function () {
     alert('Relatório precisa ser gerado a partir de uma Ordem de Serviço.')
     return
   }
-  if (!body.empresaId || !body.embarcacaoId) {
-    alert('Empresa e Embarcação são obrigatórios! Selecione a embarcação na lista de sugestões.')
+  if (!body.empresaId || !body.navio) {
+    alert('Empresa e Embarcação (navio) são obrigatórios!')
     return
   }
 
@@ -920,8 +926,8 @@ window.salvarRelatorio = async function () {
 
 window.atualizarRelatorio = async function (id) {
   const body = lerFormularioRelatorio()
-  if (!body.empresaId || !body.embarcacaoId) {
-    alert('Empresa e Embarcação são obrigatórios! Selecione a embarcação na lista de sugestões.')
+  if (!body.empresaId || !body.navio) {
+    alert('Empresa e Embarcação (navio) são obrigatórios!')
     return
   }
 

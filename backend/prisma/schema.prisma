@@ -652,13 +652,22 @@ model Relatorio {
   ano            Int
   empresa        Empresa      @relation(fields: [empresaId], references: [id])
   empresaId      Int
-  embarcacao     Embarcacao   @relation(fields: [embarcacaoId], references: [id])
-  embarcacaoId   Int
+  embarcacao     Embarcacao?  @relation(fields: [embarcacaoId], references: [id])
+  embarcacaoId   Int?
   ordemServico   OrdemServico @relation(fields: [ordemServicoId], references: [id])
   ordemServicoId Int          @unique
   data           DateTime     @default(now())
   criadoPor      Usuario?     @relation(fields: [criadoPorId], references: [id])
   criadoPorId    Int?
+
+  // Texto livre — mesmo padrão do Certificado avulso (não exige cadastro
+  // prévio de Embarcacao/Cliente). embarcacaoId (acima) só é preenchido
+  // quando o técnico escolhe uma sugestão do autocomplete; o conteúdo
+  // impresso e a cópia pro Certificado sempre leem daqui primeiro, caindo
+  // pro relacionamento só em relatórios antigos que não tinham esses campos.
+  navio         String?
+  armador       String?
+  portoRegistro String?
 
   // Equipamento (a balsa física atendida — não confundir com a Embarcacao/navio)
   equipTipo                String?
