@@ -174,10 +174,6 @@ export function inicializarRelatorios() {
         <option value="turco">Turco</option>
         <option value="colete">Colete</option>
       </select>
-      <!-- TEMPORÁRIO: pra Balsa, gera relatório de teste sem passar pela OS de
-      verdade, só pra conferir layout/impressão do PDF — remover depois (botão
-      + criarRelatorioTeste, abaixo). Baleeira/Turco/Colete ainda não têm
-      formulário nenhum (mesma limitação dos avulsos de Certificado). -->
       <button class="btn btn-secondary" onclick="novoRelatorioTipoAtivo()">+ Novo Relatório</button>
     </div>
 
@@ -215,12 +211,7 @@ window.trocarTipoRelatorio = function () {
 }
 
 window.novoRelatorioTipoAtivo = function () {
-  const tipo = document.getElementById('rel-tipo-ativo')?.value || 'balsa'
-  if (tipo === 'balsa') {
-    criarRelatorioTeste()
-  } else {
-    alert(`Formulário de Relatório de ${LABEL_TIPO_RELATORIO[tipo]} ainda não implementado.`)
-  }
+  alert('Todo relatório é gerado a partir de uma Ordem de Serviço — abra Serviços → Ordens de Serviço e clique em "Gerar Relatório".')
 }
 
 window.carregarRelatorios = async function (pagina = 1) {
@@ -279,70 +270,6 @@ window.carregarRelatorios = async function (pagina = 1) {
 
 let cilindrosEstado = []
 let cilindrosSomenteLeitura = false
-
-// TEMPORÁRIO — só pra testar o layout/impressão do PDF sem ter que preencher
-// uma OS de verdade toda vez. Reaproveita (ou cria uma vez só) um cliente e
-// uma embarcação "TESTE", gera uma OS nova a cada clique (Relatorio.ordemServicoId
-// é obrigatório/único no schema) e já abre o formulário do Relatório pronto pra
-// preencher. Remover esta função e o botão em inicializarRelatorios() quando
-// não precisar mais — não mexe em nada do fluxo real de OS/Cliente/Embarcação.
-window.criarRelatorioTeste = async function () {
-  const NOME_CLIENTE_TESTE = 'CLIENTE TESTE (remover)'
-  const CPF_CLIENTE_TESTE = '11111111111'
-  const NOME_EMBARCACAO_TESTE = 'EMBARCACAO TESTE (remover)'
-
-  const empresas = await apiFetch(`${API}/empresas`).then(r => r.json())
-  if (!empresas.length) {
-    alert('Cadastre uma Empresa antes (Cadastros → Empresas).')
-    return
-  }
-
-  let clienteId
-  const clientesEncontrados = await apiFetch(`${API}/clientes/buscar?q=${encodeURIComponent(NOME_CLIENTE_TESTE)}`).then(r => r.json())
-  if (clientesEncontrados.length) {
-    clienteId = clientesEncontrados[0].id
-  } else {
-    const resCliente = await apiJson(`${API}/clientes`, {
-      method: 'POST',
-      body: JSON.stringify({ tipoPessoa: 'fisica', cpfCnpj: CPF_CLIENTE_TESTE, nome: NOME_CLIENTE_TESTE })
-    })
-    const dataCliente = await resCliente.json()
-    clienteId = resCliente.ok ? dataCliente.id : dataCliente.cliente?.id
-    if (!clienteId) { alert('Erro ao criar cliente de teste: ' + (dataCliente.erro || 'falha')); return }
-  }
-
-  let embarcacaoId
-  const embarcacoesEncontradas = await apiFetch(`${API}/embarcacoes/buscar?q=${encodeURIComponent(NOME_EMBARCACAO_TESTE)}`).then(r => r.json())
-  if (embarcacoesEncontradas.length) {
-    embarcacaoId = embarcacoesEncontradas[0].id
-  } else {
-    const resEmbarcacao = await apiJson(`${API}/embarcacoes`, {
-      method: 'POST',
-      body: JSON.stringify({ nome: NOME_EMBARCACAO_TESTE, armadorId: clienteId, portoRegistro: 'TESTE' })
-    })
-    const dataEmbarcacao = await resEmbarcacao.json()
-    if (!resEmbarcacao.ok) { alert('Erro ao criar embarcação de teste: ' + (dataEmbarcacao.erro || 'falha')); return }
-    embarcacaoId = dataEmbarcacao.id
-  }
-
-  const resOS = await apiJson(`${API}/ordens-servico`, {
-    method: 'POST',
-    body: JSON.stringify({
-      empresaId: empresas[0].id,
-      clienteId,
-      embarcacaoId,
-      dataInicio: hojeISO(),
-      previsaoEntrega: hojeISO(),
-      equipamentoRecebido: 'BALSA TESTE',
-      servicoApresentado: 'Teste de geração de PDF',
-      observacoes: 'OS gerada automaticamente pelo botão "Novo Relatório (teste)" — pode ser excluída.'
-    })
-  })
-  const os = await resOS.json()
-  if (!resOS.ok) { alert('Erro ao criar OS de teste: ' + (os.erro || 'falha')); return }
-
-  gerarRelatorioDeOS(os.id)
-}
 
 // Relatório sempre nasce de uma OS — gera o form já preenchido com os dados dela
 // (embarcação + equipamento), que o técnico pode ajustar antes de salvar.
