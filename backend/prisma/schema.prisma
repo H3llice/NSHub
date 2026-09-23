@@ -647,20 +647,20 @@ model OrdemServico {
 // nasce de uma OrdemServico (ordemServicoId obrigatório e único).
 // status: preenchendo | concluido
 model Relatorio {
-  id             Int          @id @default(autoincrement())
+  id             Int           @id @default(autoincrement())
   numero         Int
   ano            Int
-  empresa        Empresa      @relation(fields: [empresaId], references: [id])
+  empresa        Empresa       @relation(fields: [empresaId], references: [id])
   empresaId      Int
-  embarcacao     Embarcacao?  @relation(fields: [embarcacaoId], references: [id])
+  embarcacao     Embarcacao?   @relation(fields: [embarcacaoId], references: [id])
   embarcacaoId   Int?
   // Opcional por enquanto — dá pra criar Relatório direto, sem passar por OS
   // ("+ Novo Relatório" na tela de Relatórios). Continua único quando
   // preenchido (uma OS não pode gerar dois relatórios).
   ordemServico   OrdemServico? @relation(fields: [ordemServicoId], references: [id])
   ordemServicoId Int?          @unique
-  data           DateTime     @default(now())
-  criadoPor      Usuario?     @relation(fields: [criadoPorId], references: [id])
+  data           DateTime      @default(now())
+  criadoPor      Usuario?      @relation(fields: [criadoPorId], references: [id])
   criadoPorId    Int?
 
   // Texto livre — mesmo padrão do Certificado avulso (não exige cadastro
@@ -770,6 +770,35 @@ model Relatorio {
   casuloValvulaNumero     String?
   casuloValvulaFabricante String?
   casuloValvulaValidade   String?
+
+  // Página 3 do PDF — checklist "RELATÓRIO DE SERVIÇO DE BALSAS" (documento
+  // avulso migrado, backend/migracao/RELATÓRIO DE SERVIÇOS DE BALSA.docx),
+  // 23 serviços marcados sim/não + observações próprias (diferente de
+  // `observacoes`, abaixo, que é do documento da 1ª página).
+  servRevisaoTesteBalsa                Boolean @default(false)
+  servLimpezaBalsa                     Boolean @default(false)
+  servTransporteManipulacao            Boolean @default(false)
+  servTratamentoSilicone               Boolean @default(false)
+  servEmissaoLogCard                   Boolean @default(false)
+  servEmissaoCertificadoBalsa          Boolean @default(false)
+  servAparelhagemCasulo                Boolean @default(false)
+  servPinturaCasulo                    Boolean @default(false)
+  servReparoCasulo                     Boolean @default(false)
+  servRevisaoValvulaHidrostatica       Boolean @default(false)
+  servReparoValvula                    Boolean @default(false)
+  servPinturaValvulaHidrostatica       Boolean @default(false)
+  servTestePressaoHidrostaticaCilindro Boolean @default(false)
+  servPinturaCilindro                  Boolean @default(false)
+  servTesteCabecaDisparoCilindro       Boolean @default(false)
+  servRecargaCilindro                  Boolean @default(false)
+  servIdContainer                      Boolean @default(false)
+  servReparoBerco                      Boolean @default(false)
+  servPinturaBerco                     Boolean @default(false)
+  servHorasExtras                      Boolean @default(false)
+  servReparoBalsaPequeno               Boolean @default(false)
+  servReparoBalsaMedio                 Boolean @default(false)
+  servReparoBalsaGrande                Boolean @default(false)
+  servicosObservacoes                  String?
 
   revisaoAnualOk Boolean?
   observacoes    String?

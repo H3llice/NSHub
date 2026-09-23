@@ -159,6 +159,35 @@ const TESTES_FLUTUADOR = [
   ['ol', 'Teste de sobrecarga / Davit (OL)'],
 ]
 
+// Página 3 do PDF — checklist "RELATÓRIO DE SERVIÇO DE BALSAS" (documento
+// avulso migrado, backend/migracao/RELATÓRIO DE SERVIÇOS DE BALSA.docx),
+// mesma ordem e mesmas chaves do backend (routes/relatorios.js).
+const SERVICOS_BALSA = [
+  ['servRevisaoTesteBalsa', 'REVISÃO DE TESTE DE BALSA'],
+  ['servLimpezaBalsa', 'LIMPEZA DE BALSA'],
+  ['servTransporteManipulacao', 'TRANSPORTE C/ MANIPULAÇÃO DA BALSA'],
+  ['servTratamentoSilicone', 'TRATAMENTO C/ SILICONE'],
+  ['servEmissaoLogCard', 'EMISSÃO DE LOG CARD'],
+  ['servEmissaoCertificadoBalsa', 'EMISSÃO DE CERTIFICADO DA BALSA'],
+  ['servAparelhagemCasulo', 'APARELHAGEM DO CASULO'],
+  ['servPinturaCasulo', 'PINTURA DO CASULO'],
+  ['servReparoCasulo', 'REPARO DO CASULO'],
+  ['servRevisaoValvulaHidrostatica', 'REVISÃO, TESTE E AJUSTAGEM DA VÁLVULA HIDROSTÁTICA'],
+  ['servReparoValvula', 'REPARO DA VÁLVULA'],
+  ['servPinturaValvulaHidrostatica', 'PINTURA DA VÁLVULA HIDROSTÁTICA'],
+  ['servTestePressaoHidrostaticaCilindro', 'TESTE DE PRESSÃO HIDROSTÁTICA DO CILINDRO'],
+  ['servPinturaCilindro', 'PINTURA DO CILINDRO'],
+  ['servTesteCabecaDisparoCilindro', 'TESTE DA CABEÇA DO DISPARO DO CILINDRO'],
+  ['servRecargaCilindro', 'RECARGA DO CILINDRO'],
+  ['servIdContainer', 'ID CONTAINER'],
+  ['servReparoBerco', 'REPARO NO BERÇO'],
+  ['servPinturaBerco', 'PINTURA NO BERÇO'],
+  ['servHorasExtras', 'HORAS EXTRAS'],
+  ['servReparoBalsaPequeno', 'REPARO DE BALSA PEQUENO'],
+  ['servReparoBalsaMedio', 'REPARO DE BALSA MÉDIO'],
+  ['servReparoBalsaGrande', 'REPARO DE BALSA GRANDE'],
+]
+
 export function inicializarRelatorios() {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'))
   document.getElementById('relatorios').classList.add('active')
@@ -540,15 +569,34 @@ export function renderSecoesTecnicasRelatorio(r, somenteLeitura, opcoes = {}) {
         </div>
       `)}
 
+      ${secao('Serviços Realizados (Relatório de Serviço de Balsas)', `
+        <table class="table-certificados">
+          <thead><tr><th style="width:50px; text-align:center;">Item</th><th>Descrição</th><th style="width:70px; text-align:center;">Sim</th></tr></thead>
+          <tbody>
+            ${SERVICOS_BALSA.map(([chave, label], i) => `
+              <tr>
+                <td style="text-align:center;">${i + 1}</td>
+                <td>${label}</td>
+                <td style="text-align:center;"><input type="checkbox" id="rel-serv-${chave}" ${r?.[chave] ? 'checked' : ''} ${dis}></td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+        <div style="margin-top:12px;">
+          <label>Observações</label>
+          <textarea id="rel-servicosObservacoes" class="form-control" rows="3" ${dis}>${r?.servicosObservacoes || ''}</textarea>
+        </div>
+      `)}
+
       ${secao('Revisão Anual e Observações', `
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
           <div>
-            <label>Revisão Anual OK?</label>
-            <select id="rel-revisaoAnualOk" class="form-control" ${dis}>
-              <option value="">Não informado</option>
-              <option value="true" ${r?.revisaoAnualOk === true ? 'selected' : ''}>Sim</option>
-              <option value="false" ${r?.revisaoAnualOk === false ? 'selected' : ''}>Não</option>
-            </select>
+            <label>Revisão Anual</label>
+            <div style="display:flex; gap:16px; margin-top:8px;">
+              <label style="display:flex; align-items:center; gap:6px; font-size:13px;"><input type="radio" name="rel-revisaoAnual" value="ok" ${r?.revisaoAnualOk === true ? 'checked' : ''} ${dis}> OK</label>
+              <label style="display:flex; align-items:center; gap:6px; font-size:13px;"><input type="radio" name="rel-revisaoAnual" value="sim" ${dis}> SIM</label>
+              <label style="display:flex; align-items:center; gap:6px; font-size:13px;"><input type="radio" name="rel-revisaoAnual" value="nao" ${r?.revisaoAnualOk === false ? 'checked' : ''} ${dis}> NÃO</label>
+            </div>
           </div>
           <div>
             <label>Técnico responsável <small style="color:#999;">(impresso no rodapé da 2ª página)</small></label>
@@ -788,8 +836,10 @@ export function lerCamposTecnicosRelatorio() {
     tecnicoNome: document.getElementById('rel-tecnicoNome').value,
   }
 
-  const revisao = document.getElementById('rel-revisaoAnualOk').value
-  body.revisaoAnualOk = revisao === '' ? null : revisao === 'true'
+  // OK e SIM marcam o mesmo estado (revisaoAnualOk = true) — o papel tem os
+  // 3 checkboxes separados, mas só existe aprovado/reprovado no banco.
+  const revisaoMarcada = document.querySelector('input[name="rel-revisaoAnual"]:checked')?.value
+  body.revisaoAnualOk = revisaoMarcada === undefined ? null : revisaoMarcada !== 'nao'
 
   KIT_ITENS.forEach(item => {
     body[`${item.key}Qtd`] = document.getElementById(`rel-kit-${item.key}-qtd`).value
@@ -821,6 +871,11 @@ export function lerCamposTecnicosRelatorio() {
   body.casuloValvulaNumero = document.getElementById('rel-casulo-valvulaNumero').value
   body.casuloValvulaFabricante = document.getElementById('rel-casulo-valvulaFabricante').value
   body.casuloValvulaValidade = document.getElementById('rel-casulo-valvulaValidade').value
+
+  SERVICOS_BALSA.forEach(([chave]) => {
+    body[chave] = document.getElementById(`rel-serv-${chave}`).checked
+  })
+  body.servicosObservacoes = document.getElementById('rel-servicosObservacoes').value
 
   // Testes IMO não existem na tela do Certificado (renderSecoesTecnicasRelatorio
   // com incluirTesteImo:false) — sem os elementos no DOM, nem tenta ler.

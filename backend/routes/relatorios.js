@@ -8,6 +8,35 @@ import { autenticar, exigirPerfil } from '../middleware/auth.js'
 
 const router = Router()
 
+// Página 3 do PDF — checklist "RELATÓRIO DE SERVIÇO DE BALSAS" (documento
+// avulso migrado, backend/migracao/RELATÓRIO DE SERVIÇOS DE BALSA.docx),
+// mesma ordem do documento original.
+const SERVICOS_BALSA = [
+  ['servRevisaoTesteBalsa', 'REVISÃO DE TESTE DE BALSA'],
+  ['servLimpezaBalsa', 'LIMPEZA DE BALSA'],
+  ['servTransporteManipulacao', 'TRANSPORTE C/ MANIPULAÇÃO DA BALSA'],
+  ['servTratamentoSilicone', 'TRATAMENTO C/ SILICONE'],
+  ['servEmissaoLogCard', 'EMISSÃO DE LOG CARD'],
+  ['servEmissaoCertificadoBalsa', 'EMISSÃO DE CERTIFICADO DA BALSA'],
+  ['servAparelhagemCasulo', 'APARELHAGEM DO CASULO'],
+  ['servPinturaCasulo', 'PINTURA DO CASULO'],
+  ['servReparoCasulo', 'REPARO DO CASULO'],
+  ['servRevisaoValvulaHidrostatica', 'REVISÃO, TESTE E AJUSTAGEM DA VÁLVULA HIDROSTÁTICA'],
+  ['servReparoValvula', 'REPARO DA VÁLVULA'],
+  ['servPinturaValvulaHidrostatica', 'PINTURA DA VÁLVULA HIDROSTÁTICA'],
+  ['servTestePressaoHidrostaticaCilindro', 'TESTE DE PRESSÃO HIDROSTÁTICA DO CILINDRO'],
+  ['servPinturaCilindro', 'PINTURA DO CILINDRO'],
+  ['servTesteCabecaDisparoCilindro', 'TESTE DA CABEÇA DO DISPARO DO CILINDRO'],
+  ['servRecargaCilindro', 'RECARGA DO CILINDRO'],
+  ['servIdContainer', 'ID CONTAINER'],
+  ['servReparoBerco', 'REPARO NO BERÇO'],
+  ['servPinturaBerco', 'PINTURA NO BERÇO'],
+  ['servHorasExtras', 'HORAS EXTRAS'],
+  ['servReparoBalsaPequeno', 'REPARO DE BALSA PEQUENO'],
+  ['servReparoBalsaMedio', 'REPARO DE BALSA MÉDIO'],
+  ['servReparoBalsaGrande', 'REPARO DE BALSA GRANDE'],
+]
+
 const CAMPOS_RELATORIO = [
   'empresaId', 'embarcacaoId', 'navio', 'armador', 'portoRegistro', 'data',
   'equipTipo', 'equipNumeroSerie', 'equipAnoFabricacao', 'equipFabricante', 'equipModelo', 'equipClasse', 'equipCapacidade',
@@ -29,6 +58,7 @@ const CAMPOS_RELATORIO = [
   'napRealizado', 'napValor', 'wpRealizado', 'wpValor', 'giRealizado', 'giValor',
   'fsRealizado', 'fsValor', 'olRealizado', 'olValor', 'temperatura',
   'casuloReparo', 'casuloPintura', 'casuloValvulaNumero', 'casuloValvulaFabricante', 'casuloValvulaValidade',
+  ...SERVICOS_BALSA.map(([chave]) => chave), 'servicosObservacoes',
   'revisaoAnualOk', 'observacoes', 'tecnicoNome'
 ]
 
@@ -958,6 +988,72 @@ function gerarHtmlTestesImo(relatorio) {
   `
 }
 
+// Página 3 (checklist "RELATÓRIO DE SERVIÇO DE BALSAS") — documento avulso
+// migrado (backend/migracao/RELATÓRIO DE SERVIÇOS DE BALSA.docx), tabela
+// nativa simples, sem imagem escaneada. Igual à pág. 2, sem cabeçalho/logo —
+// só o título e a linha de identificação do próprio documento original.
+function gerarHtmlServicosBalsa(relatorio) {
+  const esc = escapeHtmlRelatorio
+  const navio = relatorio.navio || relatorio.embarcacao?.nome || ''
+  const dataObj = relatorio.data ? new Date(relatorio.data) : null
+  const dataFormatada = dataObj
+    ? `${String(dataObj.getUTCDate()).padStart(2, '0')} / ${String(dataObj.getUTCMonth() + 1).padStart(2, '0')} / ${dataObj.getUTCFullYear()}`
+    : '____ / ____ / ____'
+  const numeroCompleto = relatorio.numero ? `${relatorio.numero}/${relatorio.ano}` : ''
+
+  const estilos = `
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: Arial, sans-serif; font-size: 11px; color: #000; padding: 24px; }
+    h1 { text-align: center; font-size: 16px; margin-bottom: 14px; }
+    .ident { border: 1px solid #000; padding: 8px 12px; margin-bottom: 16px; }
+    .ident b { margin-right: 18px; }
+    table.servicos { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+    table.servicos th, table.servicos td { border: 1px solid #000; padding: 5px 10px; }
+    table.servicos th { background: #f0f0f0; font-size: 10.5px; text-align: center; }
+    .item-num { width: 50px; text-align: center; }
+    .item-check { width: 70px; text-align: center; font-size: 13px; }
+    .obs .rot { font-weight: bold; display: block; margin-bottom: 6px; }
+    .obs .val { border: 1px solid #000; min-height: 90px; padding: 8px; white-space: pre-wrap; }
+  `
+
+  const linhas = SERVICOS_BALSA.map(([chave, label], i) => `
+    <tr>
+      <td class="item-num">${i + 1}</td>
+      <td>${esc(label)}</td>
+      <td class="item-check">${caixaMarcada(!!relatorio[chave])}</td>
+    </tr>
+  `).join('')
+
+  return `
+    <!DOCTYPE html>
+    <html lang="pt-br">
+    <head>
+      <meta charset="UTF-8">
+      <style>${estilos}</style>
+    </head>
+    <body>
+      <h1>RELATÓRIO DE SERVIÇO DE BALSAS</h1>
+      <div class="ident">
+        CERTIFICADO Nº <b>${esc(numeroCompleto)}</b>
+        DATA: <b>${dataFormatada}</b>
+        EMBARCAÇÃO: <b>${esc(navio)}</b>
+        EXECUTANTE: <b>${esc(relatorio.empresa?.nome)}</b>
+      </div>
+
+      <table class="servicos">
+        <thead><tr><th>ITEM</th><th>DESCRIÇÃO</th><th>SIM</th></tr></thead>
+        <tbody>${linhas}</tbody>
+      </table>
+
+      <div class="obs">
+        <span class="rot">OBS.:</span>
+        <div class="val">${esc(relatorio.servicosObservacoes)}</div>
+      </div>
+    </body>
+    </html>
+  `
+}
+
 const INCLUDE_PDF_RELATORIO = {
   embarcacao: { include: { armador: true } },
   empresa: true,
@@ -997,6 +1093,12 @@ router.get('/:id/pdf', autenticar, async (req, res) => {
       const imoPages = await pdfDoc.copyPages(imoPdf, imoPdf.getPageIndices())
       imoPages.forEach(p => pdfDoc.addPage(p))
     }
+
+    // Pág. 3 (checklist de Serviços) sempre existe, igual a pág. 1.
+    const pagina3Bytes = await renderHtmlParaPdf(browser, gerarHtmlServicosBalsa(relatorio))
+    const pagina3Pdf = await PDFDocument.load(pagina3Bytes)
+    const pagina3Pages = await pdfDoc.copyPages(pagina3Pdf, pagina3Pdf.getPageIndices())
+    pagina3Pages.forEach(p => pdfDoc.addPage(p))
   } finally {
     await browser.close()
   }
