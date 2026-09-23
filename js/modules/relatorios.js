@@ -436,7 +436,7 @@ export function renderSecoesTecnicasRelatorio(r, somenteLeitura, opcoes = {}) {
 
       ${secao('Teste de Flutuadores', `
         <div class="table-scroll">
-          <table class="table-certificados">
+          <table class="table-certificados" style="min-width:0;">
             <thead><tr><th>Teste</th><th>Realizado</th></tr></thead>
             <tbody>
               ${TESTES_FLUTUADOR.map(([key, label]) => `
