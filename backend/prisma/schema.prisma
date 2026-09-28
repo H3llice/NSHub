@@ -90,6 +90,10 @@ model Usuario {
   relatorios    Relatorio[]
   ordensServico OrdemServico[]
   certificados  Certificado[]
+
+  // Ficha de colaborador vinculada a este login (opcional) — é por esse vínculo que
+  // o que o usuário registra (vendas, OS, etc.) conta pro colaborador.
+  colaborador Colaborador?
 }
 
 // etapa: solicitante | aprovacao | autorizacao
@@ -976,4 +980,36 @@ model Certificado {
   atualizadoEm DateTime @updatedAt
 
   assinaturas Assinatura[]
+}
+
+model Colaborador {
+  id               Int      @id @default(autoincrement())
+  nome             String
+  cpf              String?  @unique
+  // cpf: só dígitos
+  emailPessoal     String?
+  emailCorporativo String?
+  funcao           String
+  // funcao: gerente | tecnico | vendedor | auxiliar | estagiario
+  ativo            Boolean  @default(true)
+  criadoEm         DateTime @default(now())
+  atualizadoEm     DateTime @updatedAt
+
+  // Login do sistema correspondente a este colaborador (1:1, opcional)
+  usuario   Usuario? @relation(fields: [usuarioId], references: [id])
+  usuarioId Int?     @unique
+
+  documentos DocumentoColaborador[]
+}
+
+// Documentos pessoais do colaborador (PDF). Ficam fora da pasta uploads/ pública
+// e só são servidos para admin/gerente — ver routes/colaboradores.js
+model DocumentoColaborador {
+  id            Int         @id @default(autoincrement())
+  colaborador   Colaborador @relation(fields: [colaboradorId], references: [id])
+  colaboradorId Int
+  titulo        String
+  nomeOriginal  String
+  nomeArquivo   String
+  criadoEm      DateTime    @default(now())
 }

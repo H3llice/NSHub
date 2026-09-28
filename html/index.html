@@ -122,22 +122,26 @@
                 </div>
             </div>
 
-            <a href="#" onclick="toggleMenu(event,'cadastros')" data-perm="admin">🗂️ Cadastros</a>
+            <a href="#" onclick="toggleMenu(event,'cadastros')" data-perm="admin,gerente,usuario,tecnico,financeiro">🗂️ Cadastros</a>
 
-            <div id="cadastros" class="submenu" data-perm="admin">
+            <div id="cadastros" class="submenu" data-perm="admin,gerente,usuario,tecnico,financeiro">
                 <div class="menu-item">
+                    <a href="#" onclick="abrirPagina(event,'colaboradores')" style="flex: 1;">Colaboradores</a>
+                    <button class="star-btn" onclick="toggleFavorito(event, 'colaboradores', 'Colaboradores')">☆</button>
+                </div>
+                <div class="menu-item" data-perm="admin">
                     <a href="#" onclick="abrirPagina(event,'pessoas')" style="flex: 1;">Clientes</a>
                     <button class="star-btn" onclick="toggleFavorito(event, 'pessoas', 'Pessoas')">☆</button>
                 </div>
-                <div class="menu-item">
+                <div class="menu-item" data-perm="admin">
                     <a href="#" onclick="abrirPagina(event,'fornecedores')" style="flex: 1;">Fornecedores</a>
                     <button class="star-btn" onclick="toggleFavorito(event, 'fornecedores', 'Fornecedores')">☆</button>
                 </div>
-                <div class="menu-item">
+                <div class="menu-item" data-perm="admin">
                     <a href="#" onclick="abrirPagina(event,'embarcacoes')" style="flex: 1;">Embarcações</a>
                     <button class="star-btn" onclick="toggleFavorito(event, 'embarcacoes', 'Embarcações')">☆</button>
                 </div>
-                <div class="menu-item">
+                <div class="menu-item" data-perm="admin">
                     <a href="#" onclick="abrirPagina(event,'produtosServicos')" style="flex: 1;">Produtos e Serviços</a>
                     <button class="star-btn" onclick="toggleFavorito(event, 'produtosServicos', 'Produtos e Serviços')">☆</button>
                 </div>
@@ -163,6 +167,7 @@
                         <a href="#" onclick="novoRegistroOC(event)" data-perm="admin,gerente,usuario,financeiro">Ordem de Compra</a>
                         <a href="#" onclick="novoRegistroSC(event)" data-perm="admin,gerente,financeiro">Solicitação de Compra</a>
                         <a href="#" onclick="abrirPagina(event, 'pessoas')" data-perm="admin">Cliente</a>
+                        <a href="#" onclick="novoRegistroColaborador(event)" data-perm="admin,gerente">Colaborador</a>
                         <a href="#" onclick="novoRegistroProdutoAlmox(event)" data-perm="admin">Produto</a>
                         <a href="#" onclick="novoRegistroPedidoAlmox(event)" data-perm="admin,gerente,usuario,tecnico">Pedido de Almoxarifado</a>
 
@@ -279,6 +284,8 @@
             <div class="tab">Fornecedores</div>
             <button class="btn btn-success">Novo fornecedor</button>
         </div>
+
+        <div id="colaboradores" class="page"></div>
 
         <div id="embarcacoes" class="page">
             <div class="tab">Embarcações</div>

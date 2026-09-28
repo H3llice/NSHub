@@ -6,6 +6,7 @@ import { inicializarOrcamentos } from './modules/orcamentos.js'
 import { inicializarVendasOrcamento } from './modules/vendas-orcamento.js'
 import { inicializarContasReceber, renderizarDashboardInicio } from './modules/pagamentos.js'
 import { inicializarFornecedores } from './modules/fornecedores.js'
+import { inicializarColaboradores } from './modules/colaboradores.js'
 import { inicializarSolicitacoes } from './modules/solicitacoes.js'
 import { inicializarAlmoxarifado, renderizarDashboardAlmoxarifado } from './modules/almoxarifado.js'
 import { inicializarProdutosServicos } from './modules/produtos-servicos.js'
@@ -135,6 +136,10 @@ window.abrirPagina = function (event, id) {
 
     if (id === 'fornecedores') {
         inicializarFornecedores()
+    }
+
+    if (id === 'colaboradores') {
+        inicializarColaboradores()
     }
 
     if (id === 'solicitacoes') {
