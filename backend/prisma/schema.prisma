@@ -1035,7 +1035,7 @@ model Colaborador {
   funcao           String
   // funcao: gerente_operacional | gerente_comercial | gerente_administrativo |
   // gerente_financeiro | auxiliar_manutencao | assistente_administrativo |
-  // assistente_comercial | tecnico_n1 | tecnico_n2 | tecnico_n3 | estagiario
+  // assistente_comercial | tecnico_n1 | tecnico_n2 | tecnico_n3 | engenheiro | estagiario
   // (lista e regras de vendedor/técnico em routes/colaboradores.js)
   // Desconto mensal do plano de saúde (R$), opcional — a Folha de pagamento
   // puxa esse valor ao ser gerada (a coparticipação é digitada na própria folha)
@@ -1049,6 +1049,9 @@ model Colaborador {
   valeTransporte          Float?
   // Optou pelo vale-transporte → desconta 6% do salário (aparece na Folha)
   descontoValeTransporte  Boolean  @default(false)
+  // Recebe auxílio moradia → valor (R$/mês) obrigatório; a Folha puxa o valor
+  auxilioMoradia          Boolean  @default(false)
+  valorAuxilioMoradia     Float?
   // Próximo período de férias (datas puras, meia-noite UTC, inclusivas), opcional.
   // Admin/gerente veem aviso na página inicial e em Colaboradores de 30 dias
   // antes do início até o fim (GET /colaboradores/ferias-avisos)
@@ -1166,6 +1169,8 @@ model ItemFolhaPagamento {
 
   // Valores (R$) — descontoPlanoSaude e comissao vêm preenchidos, todos editáveis
   descontoPlanoSaude       Float?
+  // Cópia do valor do auxílio moradia do cadastro (null = não recebe), editável
+  auxilioMoradia           Float?
   coparticipacaoPlanoSaude Float?
   ajudaCusto               Float?
   premio                   Float?

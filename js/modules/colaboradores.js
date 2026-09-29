@@ -276,6 +276,14 @@ async function formularioColaboradorHtml(c = {}) {
         </div>
         <small style="color:#999;">Desconta 6% do salário. Aparece na Folha de pagamento.</small>
       </div>
+      <div style="padding-top:24px;">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <input type="checkbox" id="colaborador-auxilioMoradia" ${c.auxilioMoradia ? 'checked' : ''} onchange="alternarAuxilioMoradia()">
+          <label for="colaborador-auxilioMoradia" style="margin:0;">Recebe auxílio moradia</label>
+        </div>
+        <input type="number" id="colaborador-valorAuxilioMoradia" class="form-control" min="0" step="0.01" placeholder="Valor (R$/mês) *"
+          value="${c.valorAuxilioMoradia ?? ''}" style="margin-top:6px; display:${c.auxilioMoradia ? 'block' : 'none'};">
+      </div>
       <div>
         <label>Usuário do sistema</label>
         <select id="colaborador-usuarioId" class="form-control">
@@ -291,7 +299,6 @@ async function formularioColaboradorHtml(c = {}) {
         </div>
         <small style="color:#999;">Desmarcar também desativa o login vinculado.</small>
       </div>
-      <div></div>
       <div><label>Início das férias</label><input type="date" id="colaborador-feriasInicio" class="form-control" value="${c.feriasInicio ? c.feriasInicio.slice(0, 10) : ''}"></div>
       <div>
         <label>Fim das férias</label><input type="date" id="colaborador-feriasFim" class="form-control" value="${c.feriasFim ? c.feriasFim.slice(0, 10) : ''}">
@@ -299,6 +306,12 @@ async function formularioColaboradorHtml(c = {}) {
       </div>
     </div>
   `
+}
+
+// Campo de valor só aparece com a caixa marcada
+window.alternarAuxilioMoradia = function () {
+  const marcado = document.getElementById('colaborador-auxilioMoradia').checked
+  document.getElementById('colaborador-valorAuxilioMoradia').style.display = marcado ? 'block' : 'none'
 }
 
 function lerFormularioColaborador() {
@@ -311,6 +324,8 @@ function lerFormularioColaborador() {
     descontoPlanoSaude: document.getElementById('colaborador-descontoPlanoSaude').value,
     salario: document.getElementById('colaborador-salario').value,
     descontoValeTransporte: document.getElementById('colaborador-descontoValeTransporte').checked,
+    auxilioMoradia: document.getElementById('colaborador-auxilioMoradia').checked,
+    valorAuxilioMoradia: document.getElementById('colaborador-valorAuxilioMoradia').value,
     feriasInicio: document.getElementById('colaborador-feriasInicio').value,
     feriasFim: document.getElementById('colaborador-feriasFim').value,
     usuarioId: document.getElementById('colaborador-usuarioId').value || null,
@@ -438,6 +453,7 @@ window.salvarColaborador = async function (id) {
     !confirm('Colaborador inativo: o login vinculado também será desativado e a pessoa não conseguirá mais entrar no sistema. Continuar?')) return
   if (!body.funcao) { alert('Selecione a função!'); return }
   if (!(parseFloat(body.salario) > 0)) { alert('Informe o salário!'); return }
+  if (body.auxilioMoradia && !(parseFloat(body.valorAuxilioMoradia) > 0)) { alert('Informe o valor do auxílio moradia!'); return }
   if (!body.feriasInicio !== !body.feriasFim) { alert('Informe início e fim das férias (ou deixe os dois vazios)!'); return }
   if (body.feriasInicio && body.feriasFim < body.feriasInicio) { alert('O fim das férias não pode ser antes do início!'); return }
   if (body.cpf && body.cpf.length !== 11) { alert('CPF deve ter 11 dígitos.'); return }

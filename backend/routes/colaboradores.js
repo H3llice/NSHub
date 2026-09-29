@@ -15,7 +15,7 @@ const PERFIS_GESTAO = ['admin', 'gerente']
 const FUNCOES = [
   'gerente_operacional', 'gerente_comercial', 'gerente_administrativo', 'gerente_financeiro',
   'auxiliar_manutencao', 'assistente_administrativo', 'assistente_comercial',
-  'tecnico_n1', 'tecnico_n2', 'tecnico_n3', 'estagiario'
+  'tecnico_n1', 'tecnico_n2', 'tecnico_n3', 'engenheiro', 'estagiario'
 ]
 // Quem aparece como "Vendedor Responsável" em Orçamento/Vendas
 const FUNCOES_VENDEDOR = ['gerente_comercial', 'assistente_comercial']
@@ -60,7 +60,7 @@ const podeGerir = req => PERFIS_GESTAO.includes(req.usuario?.perfil)
 // Remove os campos pessoais para quem não é admin/gerente
 function filtrarCampos(colaborador, completo) {
   if (completo) return colaborador
-  const { cpf, emailPessoal, descontoPlanoSaude, salario, valeTransporte, descontoValeTransporte, documentos, usuario, ...publico } = colaborador
+  const { cpf, emailPessoal, descontoPlanoSaude, salario, valeTransporte, descontoValeTransporte, auxilioMoradia, valorAuxilioMoradia, documentos, usuario, ...publico } = colaborador
   return { ...publico, usuario: usuario && { id: usuario.id, nome: usuario.nome } }
 }
 
@@ -87,6 +87,9 @@ function lerCorpo(body) {
   }
   const descontoPlanoSaude = lerValor(body.descontoPlanoSaude)
   const salario = lerValor(body.salario)
+  // Auxílio moradia: marcou → valor obrigatório; desmarcou → valor descartado
+  const auxilioMoradia = body.auxilioMoradia === true
+  const valorAuxilioMoradia = auxilioMoradia ? lerValor(body.valorAuxilioMoradia) : null
   // Datas "AAAA-MM-DD" → meia-noite UTC; vazio → null; inválida → undefined
   const lerData = v => {
     if (!v) return null
@@ -101,6 +104,7 @@ function lerCorpo(body) {
   if (salario === null) return { erro: 'Salário é obrigatório' }
   if (!(salario > 0)) return { erro: 'Salário inválido' }
   if (descontoPlanoSaude !== null && !(descontoPlanoSaude >= 0)) return { erro: 'Desconto do plano de saúde inválido' }
+  if (auxilioMoradia && !(valorAuxilioMoradia > 0)) return { erro: 'Informe o valor do auxílio moradia' }
   if (feriasInicio === undefined || feriasFim === undefined) return { erro: 'Data de férias inválida' }
   if (!feriasInicio !== !feriasFim) return { erro: 'Informe início e fim das férias (ou deixe os dois vazios)' }
   if (feriasInicio && feriasFim < feriasInicio) return { erro: 'O fim das férias não pode ser antes do início' }
@@ -115,6 +119,8 @@ function lerCorpo(body) {
       descontoPlanoSaude,
       salario,
       descontoValeTransporte: body.descontoValeTransporte === true,
+      auxilioMoradia,
+      valorAuxilioMoradia,
       feriasInicio,
       feriasFim,
       ativo: body.ativo !== false,

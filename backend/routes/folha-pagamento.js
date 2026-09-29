@@ -14,7 +14,7 @@ const grupoDaFuncao = funcao => (FUNCOES_TECNICO.includes(funcao) ? 'tecnicos' :
 
 // Campos em R$ digitados na tela (descontoPlanoSaude e comissao vêm
 // preenchidos pela geração, mas também são editáveis)
-const CAMPOS_VALOR = ['descontoPlanoSaude', 'coparticipacaoPlanoSaude', 'ajudaCusto', 'premio', 'comissao']
+const CAMPOS_VALOR = ['descontoPlanoSaude', 'coparticipacaoPlanoSaude', 'auxilioMoradia', 'ajudaCusto', 'premio', 'comissao']
 
 const INCLUDE_ITENS = { itens: { orderBy: [{ grupo: 'asc' }, { nome: 'asc' }] } }
 
@@ -86,6 +86,7 @@ async function dadosAutomaticos(colaboradores, mes, ano) {
       grupo: grupoDaFuncao(c.funcao),
       ...resumoEmbarquesDoMes(embarques, inicioChave, fimChave),
       valeTransporte: c.descontoValeTransporte,
+      auxilioMoradia: c.auxilioMoradia ? c.valorAuxilioMoradia : null,
       descontoPlanoSaude: c.descontoPlanoSaude ?? null,
       comissao: c.usuarioId ? (comissoes.get(c.usuarioId) ?? null) : null
     })

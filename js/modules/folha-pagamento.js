@@ -60,6 +60,7 @@ const GRUPOS = [
 // Colunas de valor (R$) editáveis — mesmos nomes dos campos de ItemFolhaPagamento
 const CAMPOS_VALOR = [
   { campo: 'descontoPlanoSaude', titulo: 'Desc. plano de saúde' },
+  { campo: 'auxilioMoradia', titulo: 'Auxílio moradia' },
   { campo: 'coparticipacaoPlanoSaude', titulo: 'Coparticipação plano' },
   { campo: 'ajudaCusto', titulo: 'Ajuda de custo' },
   { campo: 'premio', titulo: 'Prêmio' },
@@ -186,7 +187,7 @@ function renderizarFolha(folha) {
       </div>
       <p style="font-size:12px; color:#999; margin:0 0 16px;">
         ${aberta
-          ? 'Embarques, dobras, desconto do plano de saúde e comissões vêm preenchidos. "Atualizar dados automáticos" puxa de novo esses dados (e inclui colaboradores novos), sem mexer em coparticipação, ajuda de custo, prêmio e observações.'
+          ? 'Embarques, dobras, vale-transporte, desconto do plano de saúde, auxílio moradia e comissões vêm preenchidos. "Atualizar dados automáticos" puxa de novo esses dados (e inclui colaboradores novos), sem mexer em coparticipação, ajuda de custo, prêmio e observações.'
           : `Fechada em ${new Date(folha.fechadaEm).toLocaleDateString('pt-BR')} — valores congelados.`}
       </p>
 
@@ -295,7 +296,7 @@ window.salvarFolhaPagamento = async function () {
 }
 
 window.atualizarAutomaticosFolha = async function () {
-  if (!confirm('Puxar de novo embarques, dobras, desconto do plano de saúde e comissões? Se você editou desconto do plano ou comissão à mão, esses dois voltam pro valor calculado.')) return
+  if (!confirm('Puxar de novo embarques, dobras, vale-transporte, desconto do plano de saúde, auxílio moradia e comissões? Se você editou desconto do plano, auxílio moradia ou comissão à mão, eles voltam pro valor do cadastro/vendas.')) return
   // Salva antes pra não perder coparticipação/ajuda/prêmio digitados agora
   if (!(await salvarItensFolha())) return
 
