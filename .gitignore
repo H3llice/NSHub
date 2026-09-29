@@ -4,7 +4,7 @@ backend/uploads-privado
 backend/.env
 backend/migracao
 backend/prisma
-backend/scripts/relatorio-migracao.json
+backend/scripts/relatorio-*.json
 *.log
 .DS_Store
 Thumbs.db

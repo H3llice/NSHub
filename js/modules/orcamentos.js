@@ -567,11 +567,16 @@ async function abrirFormularioOrcamentoBase(o = null) {
   orcItensContador = 0
 
   const [usuarios, produtos, servicos] = await Promise.all([
-    apiFetch(`${API}/auth/simples`).then(r => r.json()),
+    apiFetch(`${API}/colaboradores/vendedores`).then(r => r.json()),
     apiFetch(`${API}/almoxarifado/produtos?todas=1`).then(r => r.json()),
     apiFetch(`${API}/servicos?todas=1`).then(r => r.json()),
   ])
   usuariosCacheOrc = usuarios
+  // Só vêm colaboradores que hoje são vendedores — se o vendedor deste orçamento
+  // deixou de ser (ou saiu), mantém ele como opção pra não trocar ao salvar
+  if (o?.vendedor && !usuariosCacheOrc.some(u => u.id === o.vendedor.id)) {
+    usuariosCacheOrc = [...usuariosCacheOrc, { id: o.vendedor.id, nome: o.vendedor.nome }]
+  }
   orcCatalogoProdutos = produtos
   orcCatalogoServicos = servicos
 

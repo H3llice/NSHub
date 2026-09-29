@@ -335,7 +335,7 @@ window.abrirFormularioVenda = async function () {
 
   const [balsas, usuarios] = await Promise.all([
     apiFetch(`${API}/estoque?finalidade=venda`).then(r => r.json()),
-    apiFetch(`${API}/auth/simples`).then(r => r.json())
+    apiFetch(`${API}/colaboradores/vendedores`).then(r => r.json())
   ])
   balsasDisponiveisVendaCache = balsas
   usuariosCacheVenda = usuarios

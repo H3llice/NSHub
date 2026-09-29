@@ -129,6 +129,19 @@ router.get('/', autenticar, async (req, res) => {
   })
 })
 
+// ─── Vendedores (dropdown "Vendedor Responsável" de Orçamento/Venda) ──────────
+// Só colaborador ativo com função vendedor E login ativo vinculado — o campo
+// vendedorId de Orçamento/Venda aponta pra Usuario, não pra Colaborador, então
+// devolve o usuário (id/nome) de cada um. Declarada antes de /:id pra não cair nela.
+router.get('/vendedores', autenticar, async (req, res) => {
+  const colaboradores = await prisma.colaborador.findMany({
+    where: { funcao: 'vendedor', ativo: true, usuario: { ativo: true } },
+    select: { usuario: { select: { id: true, nome: true } } },
+    orderBy: { nome: 'asc' }
+  })
+  res.json(colaboradores.map(c => c.usuario))
+})
+
 // ─── Detalhe de um colaborador ─────────────────────────────────────────────────
 router.get('/:id', autenticar, async (req, res) => {
   const completo = podeGerir(req)

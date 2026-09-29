@@ -408,7 +408,7 @@ window.abrirVendaAvulsa = async function () {
   vaItensContador = 0
 
   const [usuarios, produtos, servicos] = await Promise.all([
-    apiFetch(`${API}/auth/simples`).then(r => r.json()),
+    apiFetch(`${API}/colaboradores/vendedores`).then(r => r.json()),
     apiFetch(`${API}/almoxarifado/produtos?todas=1`).then(r => r.json()),
     apiFetch(`${API}/servicos?todas=1`).then(r => r.json()),
   ])
