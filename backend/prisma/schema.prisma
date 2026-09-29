@@ -172,6 +172,11 @@ model ItemOC {
   unidade     String?
   descricao   String
   valorUni    Float?
+  // Desconto do item (antes do IPI) — valorTotal já vem com ele aplicado; guardado
+  // pra que editar a OC mostre e recalcule o mesmo desconto
+  descontoTipo  String?
+  descontoValor Float?
+  // descontoTipo: percentual | fixo
   ipi         Float?
   valorTotal  Float?
 }

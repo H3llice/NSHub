@@ -716,9 +716,35 @@ window.abrirFormularioOC = async function () {
   anexosPendentes = []
 }
 
+// Os ids dos campos de cada linha levam o número com que a linha foi criada
+// (item-qtd-3...). Depois de remover uma linha do meio, esse número deixa de
+// bater com a posição na tabela — por isso a leitura é feita linha a linha
+// (tr.querySelector) e a linha nova pega o maior número + 1, nunca a posição.
+function lerItensOC() {
+  return Array.from(document.getElementById('itens-oc').children).map(tr => {
+    const campo = nome => tr.querySelector(`[id^="item-${nome}-"]`)
+    const descontoValor = parseFloat(campo('descValor')?.value) || 0
+    return {
+      quantidade: parseFloat(campo('qtd')?.value) || 0,
+      unidade: campo('unid')?.value || '',
+      descricao: campo('desc')?.value || '',
+      valorUni: parseFloat(campo('vuni')?.value) || 0,
+      descontoTipo: descontoValor ? (campo('descTipo')?.value || 'percentual') : null,
+      descontoValor: descontoValor || null,
+      ipi: parseFloat(campo('ipi')?.value) || 0,
+      valorTotal: parseFloat(campo('vtotal')?.value) || 0,
+    }
+  })
+}
+
+function proximoIndiceItemOC(tbody) {
+  const usados = Array.from(tbody.querySelectorAll('[id^="item-qtd-"]')).map(el => parseInt(el.id.slice('item-qtd-'.length)))
+  return usados.length ? Math.max(...usados) + 1 : 0
+}
+
 window.adicionarItemOC = function () {
   const tbody = document.getElementById('itens-oc')
-  const index = tbody.children.length
+  const index = proximoIndiceItemOC(tbody)
   const tr = document.createElement('tr')
   tr.innerHTML = `
     <td><input type="number" class="form-control" id="item-qtd-${index}" min="0" step="1" oninput="calcularTotal(${index})"></td>
@@ -771,15 +797,7 @@ window.salvarOC = async function () {
     fornecedorId = novoFornecedor.id
   }
 
-  const tbody = document.getElementById('itens-oc')
-  const itens = Array.from(tbody.children).map((tr, i) => ({
-    quantidade: parseFloat(document.getElementById(`item-qtd-${i}`)?.value) || 0,
-    unidade: document.getElementById(`item-unid-${i}`)?.value || '',
-    descricao: document.getElementById(`item-desc-${i}`)?.value || '',
-    valorUni: parseFloat(document.getElementById(`item-vuni-${i}`)?.value) || 0,
-    ipi: parseFloat(document.getElementById(`item-ipi-${i}`)?.value) || 0,
-    valorTotal: parseFloat(document.getElementById(`item-vtotal-${i}`)?.value) || 0,
-  }))
+  const itens = lerItensOC()
 
   const body = {
     empresaId, fornecedorId, vendedorId: null,
@@ -845,6 +863,13 @@ window.editarOC = async function (id) {
     `<option value="${e.id}" ${e.id === oc.empresaId ? 'selected' : ''}>${e.nome} (${e.sigla})</option>`
   ).join('')
 
+  // Declaradas antes de anexosHtml, que já usa podeRemoverAnexo — declaradas
+  // depois, OC com anexo quebrava aqui (TDZ) e o formulário de edição nem abria
+  const somenteLeitura = ['aprovada', 'aguardando_autorizacao'].includes(oc.status)
+  const podeAdicionarAnexo = ['aberta', 'aguardando_aprovacao', 'recusada', 'aprovada'].includes(oc.status)
+  const podeRemoverAnexo = ['aberta', 'aguardando_aprovacao', 'recusada'].includes(oc.status)
+  const apenasAnexo = oc.status === 'aprovada'
+
   const anexosHtml = oc.anexos?.length > 0
     ? oc.anexos.map(a => `
         <li style="padding: 6px 0; border-bottom: 1px solid #eee; display:flex; justify-content:space-between;">
@@ -870,11 +895,6 @@ window.editarOC = async function (id) {
         </ul>
       </div>`
     : ''
-
-  const somenteLeitura = ['aprovada', 'aguardando_autorizacao'].includes(oc.status)
-  const podeAdicionarAnexo = ['aberta', 'aguardando_aprovacao', 'recusada', 'aprovada'].includes(oc.status)
-  const podeRemoverAnexo = ['aberta', 'aguardando_aprovacao', 'recusada'].includes(oc.status)
-  const apenasAnexo = oc.status === 'aprovada'
 
   document.getElementById('ocs').innerHTML = `
     <div id="formulario-oc" style="margin-top: 20px;">
@@ -1228,15 +1248,7 @@ window.atualizarOC = async function (id) {
     fornecedorId = novoFornecedor.id
   }
 
-  const tbody = document.getElementById('itens-oc')
-  const itens = Array.from(tbody.children).map((tr, i) => ({
-    quantidade: parseInt(document.getElementById(`item-qtd-${i}`)?.value) || 0,
-    unidade: document.getElementById(`item-unid-${i}`)?.value || '',
-    descricao: document.getElementById(`item-desc-${i}`)?.value || '',
-    valorUni: parseFloat(document.getElementById(`item-vuni-${i}`)?.value) || 0,
-    ipi: parseFloat(document.getElementById(`item-ipi-${i}`)?.value) || 0,
-    valorTotal: parseFloat(document.getElementById(`item-vtotal-${i}`)?.value) || 0,
-  }))
+  const itens = lerItensOC()
 
   const body = {
     empresaId, fornecedorId, vendedorId: null,

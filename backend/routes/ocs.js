@@ -148,6 +148,24 @@ router.get('/:id', autenticar, async (req, res) => {
   res.json(oc)
 })
 
+// Só os campos de ItemOC, com tipos certos, em vez de mandar os itens do corpo
+// direto pro create (campo a mais ou número como texto faria o Prisma recusar)
+function normalizarItensOC(itens) {
+  return (Array.isArray(itens) ? itens : []).map(i => {
+    const descontoValor = parseFloat(i.descontoValor) || 0
+    return {
+      quantidade: parseFloat(i.quantidade) || 0,
+      unidade: i.unidade || null,
+      descricao: i.descricao || '',
+      valorUni: parseFloat(i.valorUni) || 0,
+      descontoTipo: descontoValor ? (i.descontoTipo === 'fixo' ? 'fixo' : 'percentual') : null,
+      descontoValor: descontoValor || null,
+      ipi: parseFloat(i.ipi) || 0,
+      valorTotal: parseFloat(i.valorTotal) || 0
+    }
+  })
+}
+
 // ─── Criar nova OC ────────────────────────────────────────────────────────────
 // Técnico não mexe com compras.
 router.post('/', autenticar, exigirPerfil('usuario', 'gerente', 'financeiro', 'admin'), async (req, res) => {
@@ -194,7 +212,7 @@ router.post('/', autenticar, exigirPerfil('usuario', 'gerente', 'financeiro', 'a
       fornecedorId,
       vendedorId,
       criadoPorId: req.usuario.id,
-      itens: { create: itens }
+      itens: { create: normalizarItensOC(itens) }
     },
     include: { itens: true, fornecedor: true, empresa: true }
   })
@@ -297,7 +315,7 @@ router.put('/:id', autenticar, exigirPerfil('usuario', 'gerente', 'financeiro', 
 
   const oc = await prisma.ordemCompra.update({
     where: { id },
-    data: { ...dadosLimpos, itens: { create: itens } },
+    data: { ...dadosLimpos, itens: { create: normalizarItensOC(itens) } },
     include: { itens: true, anexos: true }
   })
   res.json(oc)
