@@ -142,6 +142,17 @@ router.get('/vendedores', autenticar, async (req, res) => {
   res.json(colaboradores.map(c => c.usuario))
 })
 
+// ─── Lista simples de colaboradores ativos (seleção em Embarques) ─────────────
+// Só id/nome/função — sem dados pessoais, sem paginação. Antes de /:id.
+router.get('/simples', autenticar, async (req, res) => {
+  const colaboradores = await prisma.colaborador.findMany({
+    where: { ativo: true },
+    select: { id: true, nome: true, funcao: true },
+    orderBy: { nome: 'asc' }
+  })
+  res.json(colaboradores)
+})
+
 // ─── Detalhe de um colaborador ─────────────────────────────────────────────────
 router.get('/:id', autenticar, async (req, res) => {
   const completo = podeGerir(req)

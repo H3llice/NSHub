@@ -94,6 +94,8 @@ model Usuario {
   // Ficha de colaborador vinculada a este login (opcional) — é por esse vínculo que
   // o que o usuário registra (vendas, OS, etc.) conta pro colaborador.
   colaborador Colaborador?
+
+  embarquesCriados Embarque[]
 }
 
 // etapa: solicitante | aprovacao | autorizacao
@@ -296,6 +298,7 @@ model Cliente {
   ordensServico   OrdemServico[]
   orcamentos      Orcamento[]
   vendasOrcamento VendaOrcamento[]
+  embarques       Embarque[]
 }
 
 model Embarcacao {
@@ -312,6 +315,7 @@ model Embarcacao {
   relatorios    Relatorio[]
   ordensServico OrdemServico[]
   certificados  Certificado[]
+  embarques     Embarque[]
 }
 
 model Contrato {
@@ -1027,6 +1031,7 @@ model Colaborador {
   usuarioId Int?     @unique
 
   documentos DocumentoColaborador[]
+  embarques  EmbarqueColaborador[]
 }
 
 // Documentos pessoais do colaborador (PDF). Ficam fora da pasta uploads/ pública
@@ -1039,4 +1044,41 @@ model DocumentoColaborador {
   nomeOriginal  String
   nomeArquivo   String
   criadoEm      DateTime    @default(now())
+}
+
+// ─── Embarque (Serviços → Embarques) ──────────────────────────────────────────
+// Período em que colaboradores ficam embarcados numa embarcação. dataInicio e
+// dataFim são datas puras (meia-noite UTC), ambas inclusivas: 10/09 → 12/09 = 3 dias.
+// Folgas e dobras NÃO são gravadas — são calculadas a partir dos embarques de
+// cada colaborador (ver calcularDiasColaborador em routes/embarques.js), pra que
+// editar/excluir um embarque antigo recalcule tudo o que vem depois. A folha de
+// pagamento, quando existir, é que deve congelar os valores de um período fechado.
+// armador é cópia do armador da embarcação no momento do embarque (editável).
+model Embarque {
+  id           Int        @id @default(autoincrement())
+  embarcacao   Embarcacao @relation(fields: [embarcacaoId], references: [id])
+  embarcacaoId Int
+  armador      Cliente    @relation(fields: [armadorId], references: [id])
+  armadorId    Int
+
+  dataInicio  DateTime
+  dataFim     DateTime
+  observacoes String?
+
+  criadoPor    Usuario? @relation(fields: [criadoPorId], references: [id])
+  criadoPorId  Int?
+  criadoEm     DateTime @default(now())
+  atualizadoEm DateTime @updatedAt
+
+  colaboradores EmbarqueColaborador[]
+}
+
+model EmbarqueColaborador {
+  id            Int         @id @default(autoincrement())
+  embarque      Embarque    @relation(fields: [embarqueId], references: [id], onDelete: Cascade)
+  embarqueId    Int
+  colaborador   Colaborador @relation(fields: [colaboradorId], references: [id])
+  colaboradorId Int
+
+  @@unique([embarqueId, colaboradorId])
 }

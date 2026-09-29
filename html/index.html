@@ -78,6 +78,10 @@
                     <a href="#" onclick="abrirPagina(event,'certificados')" style="flex: 1;">Certificados</a>
                     <button class="star-btn" onclick="toggleFavorito(event, 'certificados', 'Certificados')">☆</button>
                 </div>
+                <div class="menu-item" data-perm="admin,gerente">
+                    <a href="#" onclick="abrirPagina(event,'embarques')" style="flex: 1;">Embarques</a>
+                    <button class="star-btn" onclick="toggleFavorito(event, 'embarques', 'Embarques')">☆</button>
+                </div>
             </div>
 
             <a href="#" onclick="toggleMenu(event,'financeiro')" data-perm="admin,gerente,usuario,financeiro">💰 Financeiro</a>
@@ -286,6 +290,8 @@
         </div>
 
         <div id="colaboradores" class="page"></div>
+
+        <div id="embarques" class="page"></div>
 
         <div id="embarcacoes" class="page">
             <div class="tab">Embarcações</div>
