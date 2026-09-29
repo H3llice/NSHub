@@ -34,7 +34,7 @@ const podeGerir = req => PERFIS_GESTAO.includes(req.usuario?.perfil)
 // Remove os campos pessoais para quem não é admin/gerente
 function filtrarCampos(colaborador, completo) {
   if (completo) return colaborador
-  const { cpf, emailPessoal, documentos, usuario, ...publico } = colaborador
+  const { cpf, emailPessoal, descontoPlanoSaude, documentos, usuario, ...publico } = colaborador
   return { ...publico, usuario: usuario && { id: usuario.id, nome: usuario.nome } }
 }
 
@@ -54,10 +54,14 @@ function lerCorpo(body) {
   const nome = (body.nome || '').trim()
   const funcao = body.funcao
   const cpf = (body.cpf || '').replace(/\D/g, '') || null
+  // Opcional; vazio = sem plano. Aceita "123,45"
+  const desconto = String(body.descontoPlanoSaude ?? '').trim().replace(',', '.')
+  const descontoPlanoSaude = desconto === '' ? null : Number(desconto)
 
   if (!nome) return { erro: 'Nome é obrigatório' }
   if (!FUNCOES.includes(funcao)) return { erro: 'Função inválida' }
   if (cpf && !cpfValido(cpf)) return { erro: 'CPF inválido' }
+  if (descontoPlanoSaude !== null && !(descontoPlanoSaude >= 0)) return { erro: 'Desconto do plano de saúde inválido' }
 
   return {
     dados: {
@@ -66,6 +70,7 @@ function lerCorpo(body) {
       cpf,
       emailPessoal: (body.emailPessoal || '').trim() || null,
       emailCorporativo: (body.emailCorporativo || '').trim() || null,
+      descontoPlanoSaude,
       ativo: body.ativo !== false,
       usuarioId: body.usuarioId ? Number(body.usuarioId) : null
     }

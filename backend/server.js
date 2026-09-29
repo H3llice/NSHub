@@ -29,6 +29,7 @@ import almoxarifadoRouter from './routes/almoxarifado.js'
 import servicosRouter from './routes/servicos.js'
 import colaboradoresRouter from './routes/colaboradores.js'
 import embarquesRouter from './routes/embarques.js'
+import folhaPagamentoRouter from './routes/folha-pagamento.js'
 import { notificarPagamentoAtrasado } from './email.js'
 
 const __filename = fileURLToPath(import.meta.url)
@@ -100,6 +101,7 @@ app.use('/almoxarifado', almoxarifadoRouter)
 app.use('/servicos', servicosRouter)
 app.use('/colaboradores', colaboradoresRouter)
 app.use('/embarques', embarquesRouter)
+app.use('/folha-pagamento', folhaPagamentoRouter)
 
 app.get('/api', (req, res) => {
   res.json({ mensagem: 'API do Portal NS funcionando!' })

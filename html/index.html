@@ -96,6 +96,11 @@
                         onclick="toggleFavorito(event, 'contasReceber', 'Contas a Receber')">☆</button>
                 </div>
                 <div class="menu-item" data-perm="admin,gerente,financeiro">
+                    <a href="#" onclick="abrirPagina(event,'folhaPagamento')" style="flex: 1;">Folha de pagamento</a>
+                    <button class="star-btn"
+                        onclick="toggleFavorito(event, 'folhaPagamento', 'Folha de pagamento')">☆</button>
+                </div>
+                <div class="menu-item" data-perm="admin,gerente,financeiro">
                     <a href="#" onclick="abrirPagina(event,'solicitacoes')" style="flex: 1;">Solicitações de Compra</a>
                     <button class="star-btn"
                         onclick="toggleFavorito(event, 'solicitacoes', 'Solicitações de Compra')">☆</button>
@@ -292,6 +297,8 @@
         <div id="colaboradores" class="page"></div>
 
         <div id="embarques" class="page"></div>
+
+        <div id="folhaPagamento" class="page"></div>
 
         <div id="embarcacoes" class="page">
             <div class="tab">Embarcações</div>

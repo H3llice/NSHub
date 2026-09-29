@@ -8,6 +8,7 @@ import { inicializarContasReceber, renderizarDashboardInicio } from './modules/p
 import { inicializarFornecedores } from './modules/fornecedores.js'
 import { inicializarColaboradores } from './modules/colaboradores.js'
 import { inicializarEmbarques } from './modules/embarques.js'
+import { inicializarFolhaPagamento } from './modules/folha-pagamento.js'
 import { inicializarSolicitacoes } from './modules/solicitacoes.js'
 import { inicializarAlmoxarifado, renderizarDashboardAlmoxarifado } from './modules/almoxarifado.js'
 import { inicializarProdutosServicos } from './modules/produtos-servicos.js'
@@ -145,6 +146,10 @@ window.abrirPagina = function (event, id) {
 
     if (id === 'embarques') {
         inicializarEmbarques()
+    }
+
+    if (id === 'folhaPagamento') {
+        inicializarFolhaPagamento()
     }
 
     if (id === 'solicitacoes') {

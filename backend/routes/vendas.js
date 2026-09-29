@@ -50,9 +50,17 @@ router.get('/:id', autenticar, async (req, res) => {
 })
 
 // ─── Criar venda (só admin e gerente) ───────────────────────────────────────────
+// Comissão do vendedor (R$), opcional — somada na Folha de pagamento do mês
+// da venda. "" / null → null; aceita "123,45". Retorna undefined se inválida.
+function lerComissao(v) {
+  if (v === '' || v === null || v === undefined) return null
+  const n = Number(String(v).replace(',', '.'))
+  return n >= 0 ? Math.round(n * 100) / 100 : undefined
+}
+
 router.post('/', autenticar, exigirPerfil('admin', 'gerente'), async (req, res) => {
   const {
-    clienteId, balsas, dataVenda, vendedorId,
+    clienteId, balsas, dataVenda, vendedorId, comissao,
     valor, frete, descontoTipo, descontoValor, formaPagamento, condicoesPagto, observacoes,
     periodicidadePagamento, dataVencimento
   } = req.body
@@ -60,6 +68,7 @@ router.post('/', autenticar, exigirPerfil('admin', 'gerente'), async (req, res) 
   if (!clienteId || !Array.isArray(balsas) || balsas.length === 0 || !dataVenda || !vendedorId) {
     return res.status(400).json({ erro: 'Cliente, vendedor responsável, ao menos uma balsa e data da venda são obrigatórios' })
   }
+  if (lerComissao(comissao) === undefined) return res.status(400).json({ erro: 'Comissão inválida' })
 
   const balsaIds = balsas.map(b => b.balsaId)
 
@@ -116,6 +125,7 @@ router.post('/', autenticar, exigirPerfil('admin', 'gerente'), async (req, res) 
         formaPagamento: formaPagamento || null,
         condicoesPagto: condicoesPagto || null,
         observacoes: observacoes || null,
+        comissao: lerComissao(comissao),
         periodicidadePagamento: periodicidade,
         criadoPorId: req.usuario.id,
         balsas: {
@@ -155,7 +165,8 @@ router.post('/', autenticar, exigirPerfil('admin', 'gerente'), async (req, res) 
 // Não permite trocar as balsas vinculadas aqui — só dados da venda, o valor individual delas e status.
 router.put('/:id', autenticar, exigirPerfil('admin', 'gerente'), async (req, res) => {
   const id = Number(req.params.id)
-  const { dataVenda, valor, frete, descontoTipo, descontoValor, balsas, formaPagamento, condicoesPagto, observacoes, status } = req.body
+  const { dataVenda, valor, frete, descontoTipo, descontoValor, balsas, formaPagamento, condicoesPagto, observacoes, status, comissao } = req.body
+  if (comissao !== undefined && lerComissao(comissao) === undefined) return res.status(400).json({ erro: 'Comissão inválida' })
 
   const vendaAtual = await prisma.venda.findUnique({
     where: { id },
@@ -174,6 +185,7 @@ router.put('/:id', autenticar, exigirPerfil('admin', 'gerente'), async (req, res
   if (formaPagamento !== undefined) dados.formaPagamento = formaPagamento || null
   if (condicoesPagto !== undefined) dados.condicoesPagto = condicoesPagto || null
   if (observacoes !== undefined) dados.observacoes = observacoes || null
+  if (comissao !== undefined) dados.comissao = lerComissao(comissao)
 
   if (status) {
     if (!STATUS_VALIDOS.includes(status)) {

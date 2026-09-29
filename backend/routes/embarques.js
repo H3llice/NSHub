@@ -291,5 +291,5 @@ router.delete('/:id', autenticar, exigirPerfil(...PERFIS_GESTAO), async (req, re
   res.json({ ok: true })
 })
 
-export { calcularDiasColaborador }
+export { calcularDiasColaborador, embarquesPorColaborador, chaveDia, somarDias }
 export default router

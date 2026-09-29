@@ -48,6 +48,14 @@ function gerarParcelas(valorTotal, numeroParcelas, primeiroVencimento) {
   return parcelas
 }
 
+// Comissão do vendedor (R$), opcional — somada na Folha de pagamento do mês
+// da venda. "" / null → null; aceita "123,45". Retorna undefined se inválida.
+function lerComissao(v) {
+  if (v === '' || v === null || v === undefined) return null
+  const n = Number(String(v).replace(',', '.'))
+  return n >= 0 ? Math.round(n * 100) / 100 : undefined
+}
+
 // Valida e normaliza os itens de uma venda avulsa. Todo item aponta pro
 // catálogo (produto ou serviço), mesma regra do Orçamento.
 // Retorna { itens } ou { erro }.
@@ -129,6 +137,8 @@ router.post('/', autenticar, exigirPerfil('admin', 'gerente'), async (req, res) 
   if (!formaPagamento || !dataVencimento) {
     return res.status(400).json({ erro: 'Forma de pagamento e data de vencimento são obrigatórias' })
   }
+  const comissao = lerComissao(req.body.comissao)
+  if (comissao === undefined) return res.status(400).json({ erro: 'Comissão inválida' })
   if (!FORMAS_PAGAMENTO.includes(formaPagamento)) {
     return res.status(400).json({ erro: `Forma de pagamento inválida. Use: ${FORMAS_PAGAMENTO.join(', ')}` })
   }
@@ -199,6 +209,7 @@ router.post('/', autenticar, exigirPerfil('admin', 'gerente'), async (req, res) 
           formaPagamento,
           numeroParcelas: parcelas,
           observacoes: observacoes || null,
+          comissao,
           criadoPorId: req.usuario.id,
           pagamentos: { create: parcelasGeradas }
         },
@@ -224,13 +235,17 @@ router.post('/', autenticar, exigirPerfil('admin', 'gerente'), async (req, res) 
 // quem cuida delas dali pra frente é a tela de Contas a Receber).
 router.put('/:id', autenticar, exigirPerfil('admin', 'gerente'), async (req, res) => {
   const id = Number(req.params.id)
-  const { status, observacoes } = req.body
+  const { status, observacoes, comissao } = req.body
 
   const atual = await prisma.vendaOrcamento.findUnique({ where: { id } })
   if (!atual) return res.status(404).json({ erro: 'Venda não encontrada' })
 
   const dados = {}
   if (observacoes !== undefined) dados.observacoes = observacoes || null
+  if (comissao !== undefined) {
+    dados.comissao = lerComissao(comissao)
+    if (dados.comissao === undefined) return res.status(400).json({ erro: 'Comissão inválida' })
+  }
   if (status !== undefined) {
     if (!STATUS_VALIDOS.includes(status)) {
       return res.status(400).json({ erro: `Status inválido. Use: ${STATUS_VALIDOS.join(', ')}` })

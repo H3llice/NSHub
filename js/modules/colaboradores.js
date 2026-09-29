@@ -222,6 +222,12 @@ async function formularioColaboradorHtml(c = {}) {
       <div><label>Email pessoal</label><input type="email" id="colaborador-emailPessoal" class="form-control" value="${esc(c.emailPessoal)}"></div>
       <div><label>Email corporativo</label><input type="email" id="colaborador-emailCorporativo" class="form-control" value="${esc(c.emailCorporativo)}"></div>
       <div>
+        <label>Desconto do plano de saúde (R$/mês)</label>
+        <input type="number" id="colaborador-descontoPlanoSaude" class="form-control" min="0" step="0.01" value="${c.descontoPlanoSaude ?? ''}" placeholder="Vazio = sem plano">
+        <small style="color:#999;">Puxado automaticamente na Folha de pagamento.</small>
+      </div>
+      <div></div>
+      <div>
         <label>Usuário do sistema</label>
         <select id="colaborador-usuarioId" class="form-control">
           <option value="">Sem login vinculado</option>
@@ -247,6 +253,7 @@ function lerFormularioColaborador() {
     funcao: document.getElementById('colaborador-funcao').value,
     emailPessoal: document.getElementById('colaborador-emailPessoal').value.trim(),
     emailCorporativo: document.getElementById('colaborador-emailCorporativo').value.trim(),
+    descontoPlanoSaude: document.getElementById('colaborador-descontoPlanoSaude').value,
     usuarioId: document.getElementById('colaborador-usuarioId').value || null,
     ativo: document.getElementById('colaborador-ativo').checked,
   }

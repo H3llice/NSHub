@@ -175,6 +175,16 @@ function renderizarTabelaVendas(vendas) {
   }).join('')
 }
 
+// Comissão pode ser lançada/corrigida depois da venda (vale pra folha que
+// ainda estiver aberta — ao atualizar os dados automáticos dela)
+window.editarComissaoVenda = async function (id, atual) {
+  const valor = prompt('Comissão do vendedor (R$) — deixe vazio pra remover:', atual ?? '')
+  if (valor === null) return
+  const res = await apiJson(`${API}/vendas/${id}`, { method: 'PUT', body: JSON.stringify({ comissao: valor.trim() }) })
+  if (res.ok) verVenda(id)
+  else alert('Erro ao salvar comissão: ' + ((await res.json()).erro || ''))
+}
+
 window.cancelarVenda = async function (id) {
   if (!confirm('Cancelar esta venda? As balsas vinculadas voltarão a ficar disponíveis.')) return
   const res = await apiJson(`${API}/vendas/${id}`, { method: 'PUT', body: JSON.stringify({ status: 'cancelado' }) })
@@ -227,6 +237,9 @@ window.verVenda = async function (id) {
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px; font-size:13px;">
           <div><span style="color:#999;">Data da Venda</span><br><strong>${data}</strong></div>
           <div><span style="color:#999;">Vendedor Responsável</span><br><strong>${v.vendedor?.nome || '-'}</strong></div>
+          <div style="grid-column:span 2;"><span style="color:#999;">Comissão do vendedor</span><br><strong>${v.comissao != null ? 'R$ ' + v.comissao.toFixed(2) : '-'}</strong>
+            ${podeGerenciarVendas ? `<a href="#" onclick="editarComissaoVenda(${v.id}, ${v.comissao ?? 'null'}); return false;" style="font-size:12px; margin-left:6px;">editar</a>` : ''}
+          </div>
           <div><span style="color:#999;">Frete</span><br><strong>${frete}</strong></div>
           <div><span style="color:#999;">Desconto</span><br><strong>${desconto}</strong></div>
           <div><span style="color:#999;">Valor</span><br><strong>${valor}</strong></div>
@@ -399,6 +412,7 @@ window.abrirFormularioVenda = async function () {
             ${usuariosCacheVenda.map(u => `<option value="${u.id}">${u.nome}</option>`).join('')}
           </select>
         </div>
+        <div><label>Comissão do vendedor (R$) <small style="color:#999;">(opcional — entra na Folha de pagamento)</small></label><input type="number" id="venda-comissao" class="form-control" step="0.01" min="0"></div>
         <div><label>Frete</label><input type="number" id="venda-frete" class="form-control" step="0.01" min="0" oninput="recalcularValorVenda()"></div>
         <div>
           <label>Desconto</label>
@@ -551,6 +565,7 @@ window.salvarVenda = async function () {
     formaPagamento: document.getElementById('venda-formaPagamento').value,
     condicoesPagto: document.getElementById('venda-condicoesPagto').value,
     observacoes: document.getElementById('venda-observacoes').value,
+    comissao: document.getElementById('venda-comissao').value,
   }
 
   const res = await apiJson(`${API}/vendas`, { method: 'POST', body: JSON.stringify(body) })

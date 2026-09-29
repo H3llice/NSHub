@@ -96,6 +96,7 @@ model Usuario {
   colaborador Colaborador?
 
   embarquesCriados Embarque[]
+  folhasCriadas    FolhaPagamento[]
 }
 
 // etapa: solicitante | aprovacao | autorizacao
@@ -375,6 +376,9 @@ model Venda {
   formaPagamento         String?
   condicoesPagto         String?
   periodicidadePagamento String   @default("unico")
+  // Comissão do vendedor (R$), digitada à mão por enquanto — somada na Folha de
+  // pagamento do mês da venda (ver routes/folha-pagamento.js)
+  comissao               Float?
   observacoes            String?
   status                 String   @default("ativo")
   // status: ativo | cancelado
@@ -574,6 +578,9 @@ model VendaOrcamento {
   formaPagamento String
   // formaPagamento: avista | parcelado
   numeroParcelas Int      @default(1)
+  // Comissão do vendedor (R$), digitada à mão por enquanto — somada na Folha de
+  // pagamento do mês da venda (ver routes/folha-pagamento.js)
+  comissao       Float?
 
   observacoes String?
   status      String  @default("ativo")
@@ -1022,6 +1029,9 @@ model Colaborador {
   emailCorporativo String?
   funcao           String
   // funcao: gerente | tecnico | vendedor | auxiliar | estagiario
+  // Desconto mensal do plano de saúde (R$), opcional — a Folha de pagamento
+  // puxa esse valor ao ser gerada (a coparticipação é digitada na própria folha)
+  descontoPlanoSaude Float?
   ativo            Boolean  @default(true)
   criadoEm         DateTime @default(now())
   atualizadoEm     DateTime @updatedAt
@@ -1032,6 +1042,7 @@ model Colaborador {
 
   documentos DocumentoColaborador[]
   embarques  EmbarqueColaborador[]
+  itensFolha ItemFolhaPagamento[]
 }
 
 // Documentos pessoais do colaborador (PDF). Ficam fora da pasta uploads/ pública
@@ -1081,4 +1092,60 @@ model EmbarqueColaborador {
   colaboradorId Int
 
   @@unique([embarqueId, colaboradorId])
+}
+
+// ─── Folha de pagamento (Financeiro → Folha de pagamento) ─────────────────────
+// Uma por mês. Ao gerar, cria um ItemFolhaPagamento por colaborador ativo com o
+// que dá pra puxar sozinho (embarques/dobras do mês, desconto do plano de saúde
+// do cadastro, comissões das vendas do mês); o resto é digitado na tela.
+// Os itens são CÓPIA (nome, função, embarques...) — enquanto a folha está
+// "aberta" dá pra atualizar os dados automáticos; "fechada" congela tudo, mesmo
+// que embarques/vendas/cadastros mudem depois.
+model FolhaPagamento {
+  id     Int    @id @default(autoincrement())
+  mes    Int
+  ano    Int
+  status String @default("aberta")
+  // status: aberta | fechada
+
+  criadoPor    Usuario?  @relation(fields: [criadoPorId], references: [id])
+  criadoPorId  Int?
+  criadoEm     DateTime  @default(now())
+  atualizadoEm DateTime  @updatedAt
+  fechadaEm    DateTime?
+
+  itens ItemFolhaPagamento[]
+
+  @@unique([ano, mes])
+}
+
+model ItemFolhaPagamento {
+  id            Int            @id @default(autoincrement())
+  folha         FolhaPagamento @relation(fields: [folhaId], references: [id], onDelete: Cascade)
+  folhaId       Int
+  colaborador   Colaborador    @relation(fields: [colaboradorId], references: [id])
+  colaboradorId Int
+
+  // Cópias do cadastro no momento da geração
+  nome   String
+  funcao String
+  grupo  String
+  // grupo: base | tecnicos | estagiarios (técnico → tecnicos, estagiário →
+  // estagiarios, o resto → base)
+
+  // Automáticos (vêm de Embarques — ver calcularDiasColaborador em routes/embarques.js)
+  embarques      String?
+  // embarques: períodos embarcados no mês, ex.: "10/09 a 12/09 (NAVIO X); 20/09 a 22/09 (NAVIO Y)"
+  diasEmbarcados Int     @default(0)
+  diasDobra      Int     @default(0)
+
+  // Valores (R$) — descontoPlanoSaude e comissao vêm preenchidos, todos editáveis
+  descontoPlanoSaude       Float?
+  coparticipacaoPlanoSaude Float?
+  ajudaCusto               Float?
+  premio                   Float?
+  comissao                 Float?
+  observacoes              String?
+
+  @@unique([folhaId, colaboradorId])
 }

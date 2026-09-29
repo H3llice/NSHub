@@ -208,6 +208,9 @@ window.verVendaOrcamento = async function (id) {
           <div><span style="color:#999;">Data da venda</span><br><strong>${formatarDataVO(v.dataVenda)}</strong></div>
           <div><span style="color:#999;">Forma de pagamento</span><br><strong>${labelFormaPagamento(v)}</strong></div>
           <div><span style="color:#999;">Valor total</span><br><strong>${formatarMoedaVO(v.valorTotal)}</strong></div>
+          <div><span style="color:#999;">Comissão do vendedor</span><br><strong>${v.comissao != null ? formatarMoedaVO(v.comissao) : '-'}</strong>
+            ${podeGerenciarVendasOrc ? `<a href="#" onclick="editarComissaoVendaOrcamento(${v.id}, ${v.comissao ?? 'null'}); return false;" style="font-size:12px; margin-left:6px;">editar</a>` : ''}
+          </div>
           <div><span style="color:#999;">Orçamento de origem</span><br>
             ${v.orcamento
               ? `<a href="#" onclick="verOrcamentoDeVenda(${v.orcamento.id}); return false;">Orçamento ${v.orcamento.numero}.${v.orcamento.ano}</a>`
@@ -277,6 +280,16 @@ window.verOrcamentoDeVenda = function (orcamentoId) {
   window.verOrcamento(orcamentoId)
 }
 
+// Comissão pode ser lançada/corrigida depois da venda (vale pra folha que
+// ainda estiver aberta — ao atualizar os dados automáticos dela)
+window.editarComissaoVendaOrcamento = async function (id, atual) {
+  const valor = prompt('Comissão do vendedor (R$) — deixe vazio pra remover:', atual ?? '')
+  if (valor === null) return
+  const res = await apiJson(`${API}/vendas-orcamento/${id}`, { method: 'PUT', body: JSON.stringify({ comissao: valor.trim() }) })
+  if (res.ok) verVendaOrcamento(id)
+  else alert('Erro ao salvar comissão: ' + ((await res.json()).erro || ''))
+}
+
 window.cancelarVendaOrcamento = async function (id) {
   if (!confirm('Cancelar esta venda? As contas a receber já geradas continuam existindo — gerencie-as separadamente se precisar.')) return
   const res = await apiJson(`${API}/vendas-orcamento/${id}`, { method: 'PUT', body: JSON.stringify({ status: 'cancelado' }) })
@@ -343,6 +356,11 @@ function camposPagamentoVendaHtml() {
       </div>
 
       <div id="vo-previa-parcelas" style="margin-top:12px; font-size:13px; color:#666;"></div>
+
+      <div style="margin-top:16px;">
+        <label>Comissão do vendedor (R$) <small style="color:#999;">(opcional — entra na Folha de pagamento do mês da venda)</small></label>
+        <input type="number" id="vo-comissao" class="form-control" min="0" step="0.01">
+      </div>
 
       <div style="margin-top:16px;">
         <label>Observações</label>
@@ -803,6 +821,7 @@ window.salvarVendaOrcamento = async function () {
     numeroParcelas: forma === 'parcelado' ? numeroParcelas : 1,
     dataVencimento,
     observacoes: document.getElementById('vo-observacoes').value.trim(),
+    comissao: document.getElementById('vo-comissao').value,
   }
 
   const res = await apiJson(`${API}/vendas-orcamento`, { method: 'POST', body: JSON.stringify(body) })
