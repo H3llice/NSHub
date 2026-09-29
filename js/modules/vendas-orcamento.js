@@ -76,9 +76,9 @@ function badgeStatusParcela(status) {
   return `<span style="background:${s.fundo}; color:${s.cor}; padding:2px 8px; border-radius:12px; font-size:12px;">${s.texto}</span>`
 }
 
-const TIPO_ITEM_VENDA_LABEL = { servico: 'Serviço', produto: 'Produto', avulso: 'Avulso' }
+const TIPO_ITEM_VENDA_LABEL = { servico: 'Serviço', produto: 'Produto' }
 
-// Texto livre digitado pelo usuário (itens avulsos) — escapa antes de ir pro innerHTML
+// Texto vindo de cadastro (nomes de cliente/catálogo, detalhes) — escapa antes de ir pro innerHTML
 function escVO(texto) {
   return String(texto ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
 }
@@ -390,9 +390,9 @@ window.atualizarPreviaParcelasVenda = function () {
 }
 
 // ===== VENDA AVULSA (sem Orçamento) =============================================
-// Cliente, vendedor e itens preenchidos direto aqui. Cada item é do catálogo
-// (serviço/produto, com busca — mesmo padrão do Orçamento) ou avulso (texto e
-// valor digitados na hora, sem vínculo com o catálogo).
+// Cliente, vendedor e itens preenchidos direto aqui. Itens funcionam igual aos
+// do Orçamento: busca no catálogo (serviço/produto) e, se não achar,
+// "+ Cadastrar novo..." cadastra no catálogo e já usa na linha.
 let vaClienteId = null
 let vaClientesBusca = []
 let vaCatalogoProdutos = []
@@ -454,7 +454,7 @@ window.abrirVendaAvulsa = async function () {
       <div class="table-scroll">
         <table class="table-certificados">
           <thead>
-            <tr><th>Tipo</th><th>Produto/Serviço/Descrição</th><th>Detalhes</th><th>Qtd</th><th>Valor Unit. (R$)</th><th>Subtotal</th><th></th></tr>
+            <tr><th>Tipo</th><th>Produto/Serviço</th><th>Detalhes</th><th>Qtd</th><th>Valor Unit. (R$)</th><th>Subtotal</th><th></th></tr>
           </thead>
           <tbody id="va-itens-tbody"></tbody>
         </table>
@@ -506,13 +506,13 @@ window.adicionarItemVendaAvulsa = function () {
         <select class="form-control form-control-sm" id="va-item-tipo-${i}" onchange="mudarTipoItemVendaAvulsa(${i})">
           <option value="servico">Serviço</option>
           <option value="produto">Produto</option>
-          <option value="avulso">Avulso</option>
         </select>
       </td>
       <td style="min-width:200px;">
         <input type="text" class="form-control form-control-sm" id="va-item-nome-${i}" placeholder="Digite pra buscar..." autocomplete="off"
           oninput="buscarCatalogoItemVendaAvulsa(${i})" onfocus="buscarCatalogoItemVendaAvulsa(${i})">
         <input type="hidden" id="va-item-catalogo-${i}">
+        <div id="va-item-novo-${i}" style="display:none;"></div>
       </td>
       <td><input type="text" class="form-control form-control-sm" id="va-item-detalhes-${i}" placeholder="Opcional"></td>
       <td><input type="number" class="form-control form-control-sm" id="va-item-qtd-${i}" min="0" step="0.01" value="1" style="width:80px;" oninput="recalcularVendaAvulsa()"></td>
@@ -531,14 +531,13 @@ window.removerItemVendaAvulsa = function (i) {
   window.recalcularVendaAvulsa()
 }
 
-// Avulso não tem catálogo: o campo vira texto livre (sem sugestões)
 window.mudarTipoItemVendaAvulsa = function (i) {
-  const tipo = document.getElementById(`va-item-tipo-${i}`).value
-  const nome = document.getElementById(`va-item-nome-${i}`)
-  nome.value = ''
-  nome.placeholder = tipo === 'avulso' ? 'Descreva o item...' : 'Digite pra buscar...'
+  document.getElementById(`va-item-nome-${i}`).value = ''
   document.getElementById(`va-item-catalogo-${i}`).value = ''
   document.getElementById(`va-item-valor-${i}`).value = ''
+  const novoDiv = document.getElementById(`va-item-novo-${i}`)
+  novoDiv.style.display = 'none'
+  novoDiv.innerHTML = ''
   esconderSugestoesCatalogoVendaAvulsa()
   window.recalcularVendaAvulsa()
 }
@@ -563,8 +562,6 @@ function esconderSugestoesCatalogoVendaAvulsa() {
 
 window.buscarCatalogoItemVendaAvulsa = function (i) {
   const tipo = document.getElementById(`va-item-tipo-${i}`).value
-  if (tipo === 'avulso') return
-
   const input = document.getElementById(`va-item-nome-${i}`)
   const q = input.value.trim().toLowerCase()
   const lista = tipo === 'produto' ? vaCatalogoProdutos : vaCatalogoServicos
@@ -578,14 +575,17 @@ window.buscarCatalogoItemVendaAvulsa = function (i) {
 
   const div = elementoSugestoesCatalogoVendaAvulsa()
   div.dataset.linha = i
-  div.innerHTML = filtrados.length === 0
-    ? `<div style="padding:8px 12px; color:#999;">Nenhum resultado — use o tipo "Avulso" pra digitar livremente</div>`
+  div.innerHTML = (filtrados.length === 0
+    ? `<div style="padding:8px 12px; color:#999;">Nenhum resultado</div>`
     : filtrados.map(c => `
       <div onclick="selecionarCatalogoItemVendaAvulsa(${i}, '${c.id}')" style="padding:8px 12px; cursor:pointer; border-bottom:1px solid #eee;"
         onmouseover="this.style.background='#f5f5f5'" onmouseout="this.style.background='white'">
         ${escVO(c.nome)} <span style="color:#999; font-size:12px;">${formatarMoedaVO(c.valor)}</span>
       </div>
-    `).join('')
+    `).join('')) + `
+    <div onclick="mostrarNovoItemCatalogoVendaAvulsa(${i})" style="padding:8px 12px; cursor:pointer; color:var(--acento); font-weight:600;"
+      onmouseover="this.style.background='#f5f5f5'" onmouseout="this.style.background='white'">+ Cadastrar novo...</div>
+  `
 
   const rect = input.getBoundingClientRect()
   div.style.left = `${rect.left}px`
@@ -604,6 +604,60 @@ window.selecionarCatalogoItemVendaAvulsa = function (i, id) {
   document.getElementById(`va-item-catalogo-${i}`).value = item.id
   document.getElementById(`va-item-valor-${i}`).value = item.valor ?? ''
   esconderSugestoesCatalogoVendaAvulsa()
+  window.recalcularVendaAvulsa()
+}
+
+// Mesmos campos do "cadastrar novo" do Orçamento (produto pede código e
+// unidade, que são obrigatórios no Almoxarifado)
+window.mostrarNovoItemCatalogoVendaAvulsa = function (i) {
+  const tipo = document.getElementById(`va-item-tipo-${i}`).value
+  esconderSugestoesCatalogoVendaAvulsa()
+
+  const novoDiv = document.getElementById(`va-item-novo-${i}`)
+  novoDiv.style.display = 'block'
+  novoDiv.innerHTML = tipo === 'produto' ? `
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:4px; margin-top:6px;">
+      <input type="text" class="form-control form-control-sm" id="va-item-novo-codigo-${i}" placeholder="Código *">
+      <input type="text" class="form-control form-control-sm" id="va-item-novo-nome-${i}" placeholder="Nome *">
+      <input type="text" class="form-control form-control-sm" id="va-item-novo-unidade-${i}" placeholder="Unidade *">
+      <input type="number" step="0.01" class="form-control form-control-sm" id="va-item-novo-valor-${i}" placeholder="Valor (R$)">
+    </div>
+    <button type="button" class="btn btn-sm btn-secondary" style="margin-top:4px;" onclick="criarItemCatalogoVendaAvulsa(${i}, 'produto')">Cadastrar e usar</button>
+  ` : `
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:4px; margin-top:6px;">
+      <input type="text" class="form-control form-control-sm" id="va-item-novo-nome-${i}" placeholder="Nome *" style="grid-column:span 2;">
+      <input type="number" step="0.01" class="form-control form-control-sm" id="va-item-novo-valor-${i}" placeholder="Valor (R$)">
+    </div>
+    <button type="button" class="btn btn-sm btn-secondary" style="margin-top:4px;" onclick="criarItemCatalogoVendaAvulsa(${i}, 'servico')">Cadastrar e usar</button>
+  `
+}
+
+window.criarItemCatalogoVendaAvulsa = async function (i, tipo) {
+  const nome = document.getElementById(`va-item-novo-nome-${i}`).value.trim()
+  const valor = document.getElementById(`va-item-novo-valor-${i}`).value
+  if (!nome) { alert('Nome é obrigatório!'); return }
+
+  let novo
+  if (tipo === 'produto') {
+    const codigo = document.getElementById(`va-item-novo-codigo-${i}`).value.trim()
+    const unidade = document.getElementById(`va-item-novo-unidade-${i}`).value.trim()
+    if (!codigo || !unidade) { alert('Código e unidade são obrigatórios!'); return }
+    const res = await apiJson(`${API}/almoxarifado/produtos`, { method: 'POST', body: JSON.stringify({ codigo, nome, unidade, valor }) })
+    novo = await res.json()
+    if (!res.ok) { alert('Erro ao cadastrar produto: ' + (novo.erro || '')); return }
+    vaCatalogoProdutos.push(novo)
+  } else {
+    const res = await apiJson(`${API}/servicos`, { method: 'POST', body: JSON.stringify({ nome, valor }) })
+    novo = await res.json()
+    if (!res.ok) { alert('Erro ao cadastrar serviço: ' + (novo.erro || '')); return }
+    vaCatalogoServicos.push(novo)
+  }
+
+  document.getElementById(`va-item-nome-${i}`).value = novo.nome
+  document.getElementById(`va-item-catalogo-${i}`).value = novo.id
+  document.getElementById(`va-item-novo-${i}`).style.display = 'none'
+  document.getElementById(`va-item-novo-${i}`).innerHTML = ''
+  document.getElementById(`va-item-valor-${i}`).value = novo.valor ?? ''
   window.recalcularVendaAvulsa()
 }
 
@@ -661,16 +715,18 @@ async function montarOrigemVendaAvulsa() {
   const itens = []
   for (const i of vaItensAtivos) {
     const tipo = document.getElementById(`va-item-tipo-${i}`).value
-    const nome = document.getElementById(`va-item-nome-${i}`).value.trim()
     const catalogoId = document.getElementById(`va-item-catalogo-${i}`).value
     const valorUnitario = document.getElementById(`va-item-valor-${i}`).value
 
-    if (tipo !== 'avulso' && !catalogoId) {
-      alert('Selecione o produto/serviço do catálogo em todos os itens (ou mude o tipo pra "Avulso")!')
+    if (!catalogoId) {
+      alert('Selecione (ou cadastre) o produto/serviço de todos os itens!')
       return null
     }
-    if (!nome) { alert('Descreva todos os itens avulsos!'); return null }
     if (valorUnitario === '') { alert('Informe o valor unitário de todos os itens!'); return null }
+
+    // Nome vem do catálogo, não do campo de busca (que pode ter sido editado)
+    const lista = tipo === 'produto' ? vaCatalogoProdutos : vaCatalogoServicos
+    const nome = lista.find(c => String(c.id) === catalogoId)?.nome || ''
 
     itens.push({
       tipo,

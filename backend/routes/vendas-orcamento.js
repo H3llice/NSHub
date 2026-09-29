@@ -7,7 +7,7 @@ const router = Router()
 
 const FORMAS_PAGAMENTO = ['avista', 'parcelado']
 const STATUS_VALIDOS = ['ativo', 'cancelado']
-const TIPOS_ITEM = ['produto', 'servico', 'avulso']
+const TIPOS_ITEM = ['produto', 'servico']
 
 const INCLUDE_PADRAO = {
   orcamento: { include: { itens: { include: { produto: true, servico: true }, orderBy: { id: 'asc' } } } },
@@ -48,8 +48,8 @@ function gerarParcelas(valorTotal, numeroParcelas, primeiroVencimento) {
   return parcelas
 }
 
-// Valida e normaliza os itens de uma venda avulsa. Produto/serviço precisam
-// apontar pro catálogo; avulso é só texto + valor digitados na hora.
+// Valida e normaliza os itens de uma venda avulsa. Todo item aponta pro
+// catálogo (produto ou serviço), mesma regra do Orçamento.
 // Retorna { itens } ou { erro }.
 function lerItensAvulsa(itens) {
   if (!Array.isArray(itens) || itens.length === 0) {

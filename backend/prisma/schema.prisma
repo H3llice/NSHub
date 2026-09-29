@@ -585,16 +585,16 @@ model VendaOrcamento {
   itens      ItemVendaOrcamento[]
 }
 
-// Item de venda avulsa (sem Orçamento). Pode apontar pro catálogo (produto/
-// servico, como no Orçamento) ou ser texto livre (avulso — sem produtoId/
-// servicoId, só nome e valor digitados). nome/valorUnitario ficam copiados.
+// Item de venda avulsa (sem Orçamento). Sempre aponta pro catálogo (produto/
+// servico), igual ao ItemOrcamento — item que não existe é cadastrado no
+// catálogo na hora, pela própria tela. nome/valorUnitario ficam copiados.
 model ItemVendaOrcamento {
   id      Int            @id @default(autoincrement())
   venda   VendaOrcamento @relation(fields: [vendaId], references: [id], onDelete: Cascade)
   vendaId Int
 
   tipo      String
-  // tipo: produto | servico | avulso
+  // tipo: produto | servico
   produto   Produto? @relation(fields: [produtoId], references: [id])
   produtoId Int?
   servico   Servico? @relation(fields: [servicoId], references: [id])
