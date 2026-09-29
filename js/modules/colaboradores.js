@@ -74,7 +74,7 @@ export function inicializarColaboradores() {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'))
   document.getElementById('colaboradores').classList.add('active')
 
-  const colunas = podeGerir ? 6 : 4
+  const colunas = podeGerir ? 5 : 4
   document.getElementById('colaboradores').innerHTML = `
     <div class="tab">Colaboradores</div>
     ${podeGerir ? `<button class="btn btn-success" onclick="abrirFormularioColaborador()">+ Novo Colaborador</button>` : ''}
@@ -108,7 +108,7 @@ export function inicializarColaboradores() {
             <th>Nome</th>
             <th>Função</th>
             <th>Email corporativo</th>
-            ${podeGerir ? '<th>CPF</th><th>Usuário do sistema</th>' : ''}
+            ${podeGerir ? '<th>Usuário do sistema</th>' : ''}
             <th>Ações</th>
           </tr>
         </thead>
@@ -155,7 +155,7 @@ window.carregarColaboradores = async function (pagina = 1) {
     }
   } catch {
     document.getElementById('tabela-colaboradores').innerHTML = `
-      <tr><td colspan="${podeGerir ? 6 : 4}" style="text-align:center; color:red; padding:30px;">Erro ao conectar com o servidor</td></tr>
+      <tr><td colspan="${podeGerir ? 5 : 4}" style="text-align:center; color:red; padding:30px;">Erro ao conectar com o servidor</td></tr>
     `
   }
 }
@@ -164,7 +164,7 @@ function renderizarTabelaColaboradores(colaboradores) {
   const tabela = document.getElementById('tabela-colaboradores')
 
   if (colaboradores.length === 0) {
-    tabela.innerHTML = `<tr><td colspan="${podeGerir ? 6 : 4}" style="text-align:center; color:#999; padding:30px;">Nenhum colaborador encontrado</td></tr>`
+    tabela.innerHTML = `<tr><td colspan="${podeGerir ? 5 : 4}" style="text-align:center; color:#999; padding:30px;">Nenhum colaborador encontrado</td></tr>`
     return
   }
 
@@ -173,7 +173,7 @@ function renderizarTabelaColaboradores(colaboradores) {
       <td>${esc(c.nome)}${c.ativo ? '' : ' <small>(inativo)</small>'}</td>
       <td>${FUNCOES[c.funcao] || esc(c.funcao)}</td>
       <td>${esc(c.emailCorporativo) || '-'}</td>
-      ${podeGerir ? `<td>${formatarCpf(c.cpf)}</td><td>${esc(c.usuario?.nome) || '-'}</td>` : ''}
+      ${podeGerir ? `<td>${esc(c.usuario?.nome) || '-'}</td>` : ''}
       <td>
         <button class="btn btn-sm btn-info" onclick="${podeGerir ? 'editarColaborador' : 'verColaborador'}(${c.id})">
           ${podeGerir ? 'Editar' : 'Ver'}

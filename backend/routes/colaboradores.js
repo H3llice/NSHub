@@ -116,8 +116,13 @@ router.get('/', autenticar, async (req, res) => {
     prisma.colaborador.count({ where })
   ])
 
+  // CPF nunca vai na listagem, nem pra admin/gerente — só no detalhe (GET /:id),
+  // que é o que o formulário de edição usa
   res.json({
-    colaboradores: colaboradores.map(c => filtrarCampos(c, podeGerir(req))),
+    colaboradores: colaboradores.map(c => {
+      const { cpf, ...semCpf } = filtrarCampos(c, podeGerir(req))
+      return semCpf
+    }),
     total,
     pagina: paginaNum,
     totalPaginas: Math.ceil(total / porPagina)
