@@ -87,7 +87,6 @@ function lerCorpo(body) {
   }
   const descontoPlanoSaude = lerValor(body.descontoPlanoSaude)
   const salario = lerValor(body.salario)
-  const valeTransporte = lerValor(body.valeTransporte)
 
   if (!nome) return { erro: 'Nome é obrigatório' }
   if (!FUNCOES.includes(funcao)) return { erro: 'Função inválida' }
@@ -95,7 +94,6 @@ function lerCorpo(body) {
   if (salario === null) return { erro: 'Salário é obrigatório' }
   if (!(salario > 0)) return { erro: 'Salário inválido' }
   if (descontoPlanoSaude !== null && !(descontoPlanoSaude >= 0)) return { erro: 'Desconto do plano de saúde inválido' }
-  if (valeTransporte !== null && !(valeTransporte >= 0)) return { erro: 'Vale-transporte inválido' }
 
   return {
     dados: {
@@ -106,7 +104,6 @@ function lerCorpo(body) {
       emailCorporativo: (body.emailCorporativo || '').trim() || null,
       descontoPlanoSaude,
       salario,
-      valeTransporte,
       descontoValeTransporte: body.descontoValeTransporte === true,
       ativo: body.ativo !== false,
       usuarioId: body.usuarioId ? Number(body.usuarioId) : null

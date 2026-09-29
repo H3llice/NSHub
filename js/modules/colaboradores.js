@@ -221,15 +221,12 @@ async function formularioColaboradorHtml(c = {}) {
         <input type="number" id="colaborador-descontoPlanoSaude" class="form-control" min="0" step="0.01" value="${c.descontoPlanoSaude ?? ''}" placeholder="Vazio = sem plano">
         <small style="color:#999;">Puxado automaticamente na Folha de pagamento.</small>
       </div>
-      <div>
-        <label>Vale-transporte (R$/mês)</label>
-        <input type="number" id="colaborador-valeTransporte" class="form-control" min="0" step="0.01" value="${c.valeTransporte ?? ''}" placeholder="Vazio = não recebe">
-      </div>
       <div style="padding-top:24px;">
         <div style="display:flex; align-items:center; gap:8px;">
           <input type="checkbox" id="colaborador-descontoValeTransporte" ${c.descontoValeTransporte ? 'checked' : ''}>
           <label for="colaborador-descontoValeTransporte" style="margin:0;">Descontar vale-transporte</label>
         </div>
+        <small style="color:#999;">Desconta 6% do salário. Aparece na Folha de pagamento.</small>
       </div>
       <div>
         <label>Usuário do sistema</label>
@@ -259,7 +256,6 @@ function lerFormularioColaborador() {
     emailCorporativo: document.getElementById('colaborador-emailCorporativo').value.trim(),
     descontoPlanoSaude: document.getElementById('colaborador-descontoPlanoSaude').value,
     salario: document.getElementById('colaborador-salario').value,
-    valeTransporte: document.getElementById('colaborador-valeTransporte').value,
     descontoValeTransporte: document.getElementById('colaborador-descontoValeTransporte').checked,
     usuarioId: document.getElementById('colaborador-usuarioId').value || null,
     ativo: document.getElementById('colaborador-ativo').checked,

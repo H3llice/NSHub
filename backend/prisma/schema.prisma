@@ -1038,8 +1038,11 @@ model Colaborador {
   // Salário (R$/mês) — obrigatório no cadastro (validado em routes/colaboradores.js),
   // mas opcional no banco porque colaboradores cadastrados antes do campo não têm
   salario            Float?
-  // Vale-transporte (R$/mês), opcional, e se ele é descontado do colaborador
+  // Obsoleto, não usado: valor do VT (o desconto é sempre 6% do salário). Mantido
+  // no banco só porque apagar coluna com dados faz o `prisma db push` do deploy
+  // falhar (roda sem --accept-data-loss) — pode sair quando estiver vazia em prod.
   valeTransporte          Float?
+  // Optou pelo vale-transporte → desconta 6% do salário (aparece na Folha)
   descontoValeTransporte  Boolean  @default(false)
   ativo            Boolean  @default(true)
   criadoEm         DateTime @default(now())
