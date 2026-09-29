@@ -42,6 +42,11 @@ async function apiJson(url, options = {}) {
 }
 
 
+const usuarioAtual = JSON.parse(localStorage.getItem('ns_usuario') || 'null')
+// Todos veem; só admin/gerente criam, editam e excluem (backend também bloqueia)
+const podeEditarEmbarques = ['admin', 'gerente'].includes(usuarioAtual?.perfil)
+const colunasEmbarques = podeEditarEmbarques ? 7 : 6
+
 function esc(texto) {
   return String(texto ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
 }
@@ -89,7 +94,7 @@ function cabecalhoEmbarques(abaAtiva) {
   `
   return `
     <div class="tab">Embarques</div>
-    <button class="btn btn-success" onclick="abrirFormularioEmbarque()">+ Novo Embarque</button>
+    ${podeEditarEmbarques ? `<button class="btn btn-success" onclick="abrirFormularioEmbarque()">+ Novo Embarque</button>` : ''}
     <div style="display:flex; gap:8px; flex-wrap:wrap; margin:16px 0;">
       ${botao('lista', 'Embarques')}
       ${botao('folgas', 'Folgas e dobras')}
@@ -140,11 +145,11 @@ function renderizarAbaLista() {
             <th>Fim</th>
             <th>Dias</th>
             <th>Colaboradores</th>
-            <th>Ações</th>
+            ${podeEditarEmbarques ? '<th>Ações</th>' : ''}
           </tr>
         </thead>
         <tbody id="tabela-embarques">
-          <tr><td colspan="7" style="text-align:center; color:#999; padding:30px;">Carregando...</td></tr>
+          <tr><td colspan="${colunasEmbarques}" style="text-align:center; color:#999; padding:30px;">Carregando...</td></tr>
         </tbody>
       </table>
     </div>
@@ -170,7 +175,7 @@ window.carregarEmbarques = async function (pagina = 1) {
     const embarques = dados.embarques || []
 
     tabela.innerHTML = embarques.length === 0
-      ? `<tr><td colspan="7" style="text-align:center; color:#999; padding:30px;">Nenhum embarque encontrado</td></tr>`
+      ? `<tr><td colspan="${colunasEmbarques}" style="text-align:center; color:#999; padding:30px;">Nenhum embarque encontrado</td></tr>`
       : embarques.map(e => `
         <tr>
           <td>${esc(e.embarcacao.nome)}</td>
@@ -179,10 +184,11 @@ window.carregarEmbarques = async function (pagina = 1) {
           <td>${formatarDataEmb(e.dataFim)}</td>
           <td>${diasEntre(e.dataInicio.slice(0, 10), e.dataFim.slice(0, 10))}</td>
           <td>${e.colaboradores.map(c => esc(c.colaborador.nome)).join(', ')}</td>
+          ${podeEditarEmbarques ? `
           <td style="white-space:nowrap;">
             <button class="btn btn-sm btn-info" onclick="editarEmbarque(${e.id})">Editar</button>
             <button class="btn btn-sm btn-danger" onclick="excluirEmbarque(${e.id})">Excluir</button>
-          </td>
+          </td>` : ''}
         </tr>
       `).join('')
 
@@ -197,7 +203,7 @@ window.carregarEmbarques = async function (pagina = 1) {
       </div>
     `
   } catch {
-    tabela.innerHTML = `<tr><td colspan="7" style="text-align:center; color:red; padding:30px;">Erro ao conectar com o servidor</td></tr>`
+    tabela.innerHTML = `<tr><td colspan="${colunasEmbarques}" style="text-align:center; color:red; padding:30px;">Erro ao conectar com o servidor</td></tr>`
   }
 }
 

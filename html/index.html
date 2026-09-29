@@ -63,9 +63,9 @@
                 </div>
             </div>
 
-            <a href="#" onclick="toggleMenu(event,'servicos')" data-perm="admin,gerente,usuario,tecnico">🧰 Serviços</a>
+            <a href="#" onclick="toggleMenu(event,'servicos')" data-perm="admin,gerente,usuario,tecnico,financeiro">🧰 Serviços</a>
 
-            <div id="servicos" class="submenu" data-perm="admin,gerente,usuario,tecnico">
+            <div id="servicos" class="submenu" data-perm="admin,gerente,usuario,tecnico,financeiro">
                 <div class="menu-item" data-perm="admin,gerente,usuario,tecnico">
                     <a href="#" onclick="abrirPagina(event,'os')" style="flex: 1;">Ordens de serviço</a>
                     <button class="star-btn" onclick="toggleFavorito(event, 'os', 'Ordens de serviço')">☆</button>
@@ -78,7 +78,7 @@
                     <a href="#" onclick="abrirPagina(event,'certificados')" style="flex: 1;">Certificados</a>
                     <button class="star-btn" onclick="toggleFavorito(event, 'certificados', 'Certificados')">☆</button>
                 </div>
-                <div class="menu-item" data-perm="admin,gerente">
+                <div class="menu-item" data-perm="admin,gerente,usuario,tecnico,financeiro">
                     <a href="#" onclick="abrirPagina(event,'embarques')" style="flex: 1;">Embarques</a>
                     <button class="star-btn" onclick="toggleFavorito(event, 'embarques', 'Embarques')">☆</button>
                 </div>

@@ -4,8 +4,8 @@ import { autenticar, exigirPerfil } from '../middleware/auth.js'
 
 const router = Router()
 
-// Embarque mexe com folga/dobra (vira pagamento na folha) — só admin/gerente
-// veem e editam, mesma regra dos dados pessoais de Colaboradores.
+// Qualquer perfil logado vê embarques e folgas/dobras; só admin/gerente criam,
+// editam e excluem (folga/dobra vira pagamento na folha).
 const PERFIS_GESTAO = ['admin', 'gerente']
 
 const UM_DIA = 24 * 60 * 60 * 1000
@@ -157,7 +157,7 @@ function erroFk(err, res) {
 
 // ─── Listar embarques (paginado, filtros opcionais) ────────────────────────────
 // de/ate (AAAA-MM-DD): embarques que tocam o período; colaboradorId: só os dele
-router.get('/', autenticar, exigirPerfil(...PERFIS_GESTAO), async (req, res) => {
+router.get('/', autenticar, async (req, res) => {
   const { colaboradorId, de, ate, pagina = 1 } = req.query
   const porPagina = 50
   const paginaNum = parseInt(pagina)
@@ -185,7 +185,7 @@ router.get('/', autenticar, exigirPerfil(...PERFIS_GESTAO), async (req, res) => 
 // Base da futura folha de pagamento. O cálculo usa o histórico inteiro de cada
 // colaborador (folga de um embarque anterior ao período pode cair dentro dele),
 // e só o resultado é recortado em de/ate.
-router.get('/resumo', autenticar, exigirPerfil(...PERFIS_GESTAO), async (req, res) => {
+router.get('/resumo', autenticar, async (req, res) => {
   const de = lerData(req.query.de)
   const ate = lerData(req.query.ate)
   if (!de || !ate) return res.status(400).json({ erro: 'Informe o período (de e ate, AAAA-MM-DD)' })
@@ -222,7 +222,7 @@ router.get('/resumo', autenticar, exigirPerfil(...PERFIS_GESTAO), async (req, re
 })
 
 // ─── Buscar um embarque pelo ID ────────────────────────────────────────────────
-router.get('/:id', autenticar, exigirPerfil(...PERFIS_GESTAO), async (req, res) => {
+router.get('/:id', autenticar, async (req, res) => {
   const embarque = await prisma.embarque.findUnique({ where: { id: Number(req.params.id) }, include: INCLUDE_PADRAO })
   if (!embarque) return res.status(404).json({ erro: 'Embarque não encontrado' })
   res.json(embarque)
