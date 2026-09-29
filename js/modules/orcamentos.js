@@ -370,7 +370,7 @@ window.mudarTipoItemOrcamento = function (i) {
   document.getElementById(`orc-item-catalogo-busca-${i}`).value = ''
   document.getElementById(`orc-item-catalogo-${i}`).value = ''
   document.getElementById(`orc-item-valor-${i}`).value = ''
-  document.getElementById(`orc-item-catalogo-sugestoes-${i}`).style.display = 'none'
+  esconderSugestoesCatalogoOrcamento()
   const novoDiv = document.getElementById(`orc-item-novo-${i}`)
   novoDiv.style.display = 'none'
   novoDiv.innerHTML = ''

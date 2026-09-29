@@ -446,6 +446,7 @@ model Produto {
 
   itensPedido    ItemPedidoAlmoxarifado[]
   itensOrcamento ItemOrcamento[]
+  itensVenda     ItemVendaOrcamento[]
 }
 
 // Catálogo de serviços precificáveis (ex.: pintura de casulo, inspeção em balsa)
@@ -460,6 +461,7 @@ model Servico {
   atualizadoEm DateTime @updatedAt
 
   itensOrcamento ItemOrcamento[]
+  itensVenda     ItemVendaOrcamento[]
 }
 
 // ─── Orçamento (proposta comercial genérica — produtos e/ou serviços do
@@ -538,21 +540,24 @@ model ItemOrcamento {
   // descontoTipo/descontoValor só usados quando Orcamento.descontoModo = item
 }
 
-// ─── Venda (gerada ao aprovar um Orçamento — "Criar Venda") ───────────────────
-// Não confundir com Venda (venda de balsa, com VendaBalsa) — essa aqui nasce
-// sempre de um Orcamento aprovado, 1:1 (orcamentoId é @unique: um orçamento só
-// vira venda uma vez — ao criar, o Orcamento.status vira "convertido").
-// valorTotal é o total líquido do Orçamento no momento da conversão (cópia —
-// se o Orçamento for editado depois, a Venda não muda). Cada parcela gera uma
-// linha própria em Pagamento (contas a receber), com o valor correspondente.
+// ─── Venda (de um Orçamento aprovado — "Criar Venda" — ou avulsa) ─────────────
+// Não confundir com Venda (venda de balsa, com VendaBalsa). Dois jeitos de nascer:
+// - de um Orcamento aprovado, 1:1 (orcamentoId é @unique: um orçamento só vira
+//   venda uma vez — ao criar, o Orcamento.status vira "convertido"). valorTotal é
+//   o total líquido do Orçamento no momento da conversão (cópia — se o Orçamento
+//   for editado depois, a Venda não muda). Os itens ficam no próprio Orçamento.
+// - avulsa (orcamentoId null): itens próprios em ItemVendaOrcamento, e
+//   valorTotal é a soma deles.
+// Cada parcela gera uma linha própria em Pagamento (contas a receber), com o
+// valor correspondente.
 model VendaOrcamento {
   id Int @id @default(autoincrement())
 
   numero Int
   ano    Int
 
-  orcamento   Orcamento @relation(fields: [orcamentoId], references: [id])
-  orcamentoId Int       @unique
+  orcamento   Orcamento? @relation(fields: [orcamentoId], references: [id])
+  orcamentoId Int?       @unique
 
   cliente   Cliente @relation(fields: [clienteId], references: [id])
   clienteId Int
@@ -577,6 +582,28 @@ model VendaOrcamento {
   atualizadoEm DateTime @updatedAt
 
   pagamentos Pagamento[]
+  itens      ItemVendaOrcamento[]
+}
+
+// Item de venda avulsa (sem Orçamento). Pode apontar pro catálogo (produto/
+// servico, como no Orçamento) ou ser texto livre (avulso — sem produtoId/
+// servicoId, só nome e valor digitados). nome/valorUnitario ficam copiados.
+model ItemVendaOrcamento {
+  id      Int            @id @default(autoincrement())
+  venda   VendaOrcamento @relation(fields: [vendaId], references: [id], onDelete: Cascade)
+  vendaId Int
+
+  tipo      String
+  // tipo: produto | servico | avulso
+  produto   Produto? @relation(fields: [produtoId], references: [id])
+  produtoId Int?
+  servico   Servico? @relation(fields: [servicoId], references: [id])
+  servicoId Int?
+
+  nome          String
+  detalhes      String?
+  quantidade    Float   @default(1)
+  valorUnitario Float
 }
 
 model PedidoAlmoxarifado {

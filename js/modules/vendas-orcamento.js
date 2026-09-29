@@ -52,7 +52,7 @@ function formatarDataVO(data) {
 }
 
 // ══════════════════════════════════════════════════════════════════════════
-// VENDAS (aba Produtos → Vendas) — gerada ao aprovar um Orçamento
+// VENDAS (aba Produtos → Vendas) — gerada ao aprovar um Orçamento, ou avulsa
 // ══════════════════════════════════════════════════════════════════════════
 
 const STATUS_VENDA_ORC_LABEL = {
@@ -76,6 +76,13 @@ function badgeStatusParcela(status) {
   return `<span style="background:${s.fundo}; color:${s.cor}; padding:2px 8px; border-radius:12px; font-size:12px;">${s.texto}</span>`
 }
 
+const TIPO_ITEM_VENDA_LABEL = { servico: 'Serviço', produto: 'Produto', avulso: 'Avulso' }
+
+// Texto livre digitado pelo usuário (itens avulsos) — escapa antes de ir pro innerHTML
+function escVO(texto) {
+  return String(texto ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
+}
+
 function labelFormaPagamento(v) {
   return v.formaPagamento === 'parcelado' ? `Parcelado (${v.numeroParcelas}x)` : 'À vista'
 }
@@ -87,9 +94,7 @@ export function inicializarVendasOrcamento() {
   const container = document.getElementById('vendasOrcamento')
   container.innerHTML = `
     <div class="tab">Vendas</div>
-    <p style="color:#999; font-size:13px; margin: 4px 0 16px;">
-      Vendas nascem de um Orçamento aprovado — vá em Orçamentos e use "Criar Venda".
-    </p>
+    ${podeGerenciarVendasOrc ? `<button class="btn btn-success" onclick="abrirVendaAvulsa()">+ Nova Venda</button>` : ''}
 
     <div style="display:flex; gap:16px; margin-bottom: 16px; max-width:280px;">
       <div style="flex:1;">
@@ -204,10 +209,32 @@ window.verVendaOrcamento = async function (id) {
           <div><span style="color:#999;">Forma de pagamento</span><br><strong>${labelFormaPagamento(v)}</strong></div>
           <div><span style="color:#999;">Valor total</span><br><strong>${formatarMoedaVO(v.valorTotal)}</strong></div>
           <div><span style="color:#999;">Orçamento de origem</span><br>
-            <a href="#" onclick="verOrcamentoDeVenda(${v.orcamento.id}); return false;">Orçamento ${v.orcamento.numero}.${v.orcamento.ano}</a>
+            ${v.orcamento
+              ? `<a href="#" onclick="verOrcamentoDeVenda(${v.orcamento.id}); return false;">Orçamento ${v.orcamento.numero}.${v.orcamento.ano}</a>`
+              : '<strong>Venda avulsa</strong>'}
           </div>
         </div>
       </div>
+
+      ${v.itens?.length > 0 ? `
+        <div style="background:white; border-radius:6px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06); margin-bottom:16px;">
+          <div style="font-weight:700; color:var(--acento); margin-bottom:10px;">Itens</div>
+          <table class="table-certificados" style="margin:0;">
+            <thead><tr><th>Tipo</th><th>Item</th><th>Qtd</th><th>Valor Unit.</th><th>Subtotal</th></tr></thead>
+            <tbody>
+              ${v.itens.map(i => `
+                <tr>
+                  <td>${TIPO_ITEM_VENDA_LABEL[i.tipo] || i.tipo}</td>
+                  <td>${escVO(i.nome)}${i.detalhes ? `<br><small style="color:#999;">${escVO(i.detalhes)}</small>` : ''}</td>
+                  <td>${i.quantidade}</td>
+                  <td>${formatarMoedaVO(i.valorUnitario)}</td>
+                  <td>${formatarMoedaVO(i.quantidade * i.valorUnitario)}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      ` : ''}
 
       <div style="background:white; border-radius:6px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06); margin-bottom:16px;">
         <div style="font-weight:700; color:var(--acento); margin-bottom:10px;">Contas a receber</div>
@@ -259,11 +286,14 @@ window.cancelarVendaOrcamento = async function (id) {
 
 // ===== CRIAR VENDA (a partir de um Orçamento aprovado) ==========================
 let voOrcamentoAtual = null
+// true quando o formulário aberto é o de venda avulsa (sem Orçamento)
+let voModoAvulsa = false
 
 // Chamada pelo botão "Criar Venda" na tela de detalhe do Orçamento (aprovado).
 export async function abrirCriarVendaOrcamento(orcamentoId) {
   const o = await apiFetch(`${API}/orcamentos/${orcamentoId}`).then(r => r.json())
   voOrcamentoAtual = o
+  voModoAvulsa = false
 
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'))
   document.getElementById('vendasOrcamento').classList.add('active')
@@ -280,6 +310,19 @@ export async function abrirCriarVendaOrcamento(orcamentoId) {
 
       <div><label>Data da Venda</label><input type="date" id="vo-dataVenda" class="form-control" value="${new Date().toISOString().split('T')[0]}"></div>
 
+      ${camposPagamentoVendaHtml()}
+
+      <button type="button" class="btn btn-success" style="margin-top:20px;" onclick="salvarVendaOrcamento()">Criar Venda</button>
+    </div>
+  `
+
+  window.alternarFormaPagamentoVenda()
+}
+
+// Forma de pagamento, vencimento, prévia das parcelas e observações — igual
+// na venda de Orçamento e na avulsa (mesmos ids vo-*, lidos por salvarVendaOrcamento)
+function camposPagamentoVendaHtml() {
+  return `
       <div style="margin-top:16px; display:flex; gap:20px;">
         <label style="display:flex; align-items:center; gap:6px; font-weight:400;">
           <input type="radio" name="vo-formaPagamento" value="avista" checked onchange="alternarFormaPagamentoVenda()"> À vista
@@ -305,12 +348,7 @@ export async function abrirCriarVendaOrcamento(orcamentoId) {
         <label>Observações</label>
         <textarea id="vo-observacoes" class="form-control" rows="3"></textarea>
       </div>
-
-      <button type="button" class="btn btn-success" style="margin-top:20px;" onclick="salvarVendaOrcamento()">Criar Venda</button>
-    </div>
   `
-
-  window.alternarFormaPagamentoVenda()
 }
 
 window.abrirCriarVendaOrcamento = abrirCriarVendaOrcamento
@@ -328,7 +366,7 @@ window.atualizarPreviaParcelasVenda = function () {
   const div = document.getElementById('vo-previa-parcelas')
   const forma = document.querySelector('input[name="vo-formaPagamento"]:checked').value
   const dataVencimento = document.getElementById('vo-dataVencimento').value
-  const valorTotal = voOrcamentoAtual?.totalLiquido || 0
+  const valorTotal = voModoAvulsa ? totalItensVendaAvulsa() : (voOrcamentoAtual?.totalLiquido || 0)
 
   if (!dataVencimento) { div.innerHTML = ''; return }
 
@@ -351,6 +389,335 @@ window.atualizarPreviaParcelasVenda = function () {
   div.innerHTML = linhas.join('<br>')
 }
 
+// ===== VENDA AVULSA (sem Orçamento) =============================================
+// Cliente, vendedor e itens preenchidos direto aqui. Cada item é do catálogo
+// (serviço/produto, com busca — mesmo padrão do Orçamento) ou avulso (texto e
+// valor digitados na hora, sem vínculo com o catálogo).
+let vaClienteId = null
+let vaClientesBusca = []
+let vaCatalogoProdutos = []
+let vaCatalogoServicos = []
+let vaItensAtivos = []
+let vaItensContador = 0
+
+window.abrirVendaAvulsa = async function () {
+  voModoAvulsa = true
+  voOrcamentoAtual = null
+  vaClienteId = null
+  vaItensAtivos = []
+  vaItensContador = 0
+
+  const [usuarios, produtos, servicos] = await Promise.all([
+    apiFetch(`${API}/auth/simples`).then(r => r.json()),
+    apiFetch(`${API}/almoxarifado/produtos?todas=1`).then(r => r.json()),
+    apiFetch(`${API}/servicos?todas=1`).then(r => r.json()),
+  ])
+  vaCatalogoProdutos = produtos
+  vaCatalogoServicos = servicos
+
+  document.getElementById('vendasOrcamento').innerHTML = `
+    <div style="margin-top:20px;">
+      <button class="btn btn-secondary" onclick="inicializarVendasOrcamento()">← Voltar</button>
+      <h3 style="margin:20px 0;">Nova Venda avulsa</h3>
+
+      <div style="position:relative; margin-bottom:16px;">
+        <label>Cliente * <small style="color:#999;">(busca por nome ou CPF/CNPJ — se não achar, preencha os dados abaixo para cadastrar um novo)</small></label>
+        <input type="text" id="va-cliente-busca" class="form-control" placeholder="Digite nome ou CPF/CNPJ..."
+          oninput="buscarClienteVendaAvulsa(this.value)" autocomplete="off">
+        <div id="va-sugestoes-cliente" style="position:absolute; background:white; border:1px solid #ccc; border-radius:4px; width:100%; z-index:999; display:none; top:100%;"></div>
+      </div>
+
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px;">
+        <div>
+          <label>Tipo</label>
+          <select id="va-cliente-tipoPessoa" class="form-control">
+            <option value="fisica">Pessoa Física</option>
+            <option value="juridica">Pessoa Jurídica</option>
+          </select>
+        </div>
+        <div><label>CPF/CNPJ</label><input type="text" id="va-cliente-cpfCnpj" class="form-control" placeholder="Somente números"></div>
+        <div style="grid-column:span 2;"><label>Nome / Razão Social</label><input type="text" id="va-cliente-nome" class="form-control"></div>
+      </div>
+
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; max-width:600px;">
+        <div>
+          <label>Vendedor Responsável</label>
+          <select id="va-vendedorId" class="form-control">
+            <option value="">Selecione...</option>
+            ${usuarios.map(u => `<option value="${u.id}" ${usuarioAtual?.id === u.id ? 'selected' : ''}>${escVO(u.nome)}</option>`).join('')}
+          </select>
+        </div>
+        <div><label>Data da Venda</label><input type="date" id="vo-dataVenda" class="form-control" value="${new Date().toISOString().split('T')[0]}"></div>
+      </div>
+
+      <h5 style="margin: 24px 0 10px;">Itens</h5>
+      <div class="table-scroll">
+        <table class="table-certificados">
+          <thead>
+            <tr><th>Tipo</th><th>Produto/Serviço/Descrição</th><th>Detalhes</th><th>Qtd</th><th>Valor Unit. (R$)</th><th>Subtotal</th><th></th></tr>
+          </thead>
+          <tbody id="va-itens-tbody"></tbody>
+        </table>
+      </div>
+      <button type="button" class="btn btn-secondary" style="margin-top:8px;" onclick="adicionarItemVendaAvulsa()">+ Item</button>
+
+      <div style="background:white; border-radius:6px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06); margin-top:20px; text-align:right; font-size:14px;">
+        Valor total: <strong id="va-total" style="color:#198754; font-size:16px;">R$ 0,00</strong>
+      </div>
+
+      <div style="max-width:600px;">
+        ${camposPagamentoVendaHtml()}
+      </div>
+
+      <button type="button" class="btn btn-success" style="margin-top:20px;" onclick="salvarVendaOrcamento()">Criar Venda</button>
+    </div>
+  `
+
+  window.adicionarItemVendaAvulsa()
+  window.alternarFormaPagamentoVenda()
+}
+
+function totalItensVendaAvulsa() {
+  return Math.round(vaItensAtivos.reduce((soma, i) => {
+    const qtd = parseFloat(document.getElementById(`va-item-qtd-${i}`)?.value) || 0
+    const valor = parseFloat(document.getElementById(`va-item-valor-${i}`)?.value) || 0
+    return soma + qtd * valor
+  }, 0) * 100) / 100
+}
+
+window.recalcularVendaAvulsa = function () {
+  vaItensAtivos.forEach(i => {
+    const qtd = parseFloat(document.getElementById(`va-item-qtd-${i}`).value) || 0
+    const valor = parseFloat(document.getElementById(`va-item-valor-${i}`).value) || 0
+    document.getElementById(`va-item-subtotal-${i}`).textContent = formatarMoedaVO(qtd * valor)
+  })
+  document.getElementById('va-total').textContent = formatarMoedaVO(totalItensVendaAvulsa())
+  // Na abertura do formulário os campos de pagamento ainda não existem quando
+  // o 1º item é adicionado — a prévia é montada logo depois por alternarFormaPagamentoVenda
+  if (document.querySelector('input[name="vo-formaPagamento"]:checked')) window.atualizarPreviaParcelasVenda()
+}
+
+window.adicionarItemVendaAvulsa = function () {
+  const i = vaItensContador++
+  vaItensAtivos.push(i)
+  document.getElementById('va-itens-tbody').insertAdjacentHTML('beforeend', `
+    <tr id="va-item-row-${i}">
+      <td>
+        <select class="form-control form-control-sm" id="va-item-tipo-${i}" onchange="mudarTipoItemVendaAvulsa(${i})">
+          <option value="servico">Serviço</option>
+          <option value="produto">Produto</option>
+          <option value="avulso">Avulso</option>
+        </select>
+      </td>
+      <td style="min-width:200px;">
+        <input type="text" class="form-control form-control-sm" id="va-item-nome-${i}" placeholder="Digite pra buscar..." autocomplete="off"
+          oninput="buscarCatalogoItemVendaAvulsa(${i})" onfocus="buscarCatalogoItemVendaAvulsa(${i})">
+        <input type="hidden" id="va-item-catalogo-${i}">
+      </td>
+      <td><input type="text" class="form-control form-control-sm" id="va-item-detalhes-${i}" placeholder="Opcional"></td>
+      <td><input type="number" class="form-control form-control-sm" id="va-item-qtd-${i}" min="0" step="0.01" value="1" style="width:80px;" oninput="recalcularVendaAvulsa()"></td>
+      <td><input type="number" class="form-control form-control-sm" id="va-item-valor-${i}" min="0" step="0.01" style="width:100px;" oninput="recalcularVendaAvulsa()"></td>
+      <td id="va-item-subtotal-${i}" style="text-align:right; font-weight:600; white-space:nowrap;">R$ 0,00</td>
+      <td><button type="button" class="btn btn-sm btn-danger" onclick="removerItemVendaAvulsa(${i})">✕</button></td>
+    </tr>
+  `)
+  window.recalcularVendaAvulsa()
+}
+
+window.removerItemVendaAvulsa = function (i) {
+  document.getElementById(`va-item-row-${i}`)?.remove()
+  vaItensAtivos = vaItensAtivos.filter(x => x !== i)
+  esconderSugestoesCatalogoVendaAvulsa()
+  window.recalcularVendaAvulsa()
+}
+
+// Avulso não tem catálogo: o campo vira texto livre (sem sugestões)
+window.mudarTipoItemVendaAvulsa = function (i) {
+  const tipo = document.getElementById(`va-item-tipo-${i}`).value
+  const nome = document.getElementById(`va-item-nome-${i}`)
+  nome.value = ''
+  nome.placeholder = tipo === 'avulso' ? 'Descreva o item...' : 'Digite pra buscar...'
+  document.getElementById(`va-item-catalogo-${i}`).value = ''
+  document.getElementById(`va-item-valor-${i}`).value = ''
+  esconderSugestoesCatalogoVendaAvulsa()
+  window.recalcularVendaAvulsa()
+}
+
+// Dropdown flutuante no <body>, pelo mesmo motivo do Orçamento: dentro do
+// .table-scroll (overflow:auto) ele ficaria recortado.
+function elementoSugestoesCatalogoVendaAvulsa() {
+  let div = document.getElementById('va-catalogo-sugestoes-flutuante')
+  if (!div) {
+    div = document.createElement('div')
+    div.id = 'va-catalogo-sugestoes-flutuante'
+    div.style.cssText = 'display:none; position:fixed; background:white; border:1px solid #ccc; border-radius:4px; z-index:2000; max-height:220px; overflow-y:auto; box-shadow:0 2px 8px rgba(0,0,0,0.15);'
+    document.body.appendChild(div)
+  }
+  return div
+}
+
+function esconderSugestoesCatalogoVendaAvulsa() {
+  const div = document.getElementById('va-catalogo-sugestoes-flutuante')
+  if (div) div.style.display = 'none'
+}
+
+window.buscarCatalogoItemVendaAvulsa = function (i) {
+  const tipo = document.getElementById(`va-item-tipo-${i}`).value
+  if (tipo === 'avulso') return
+
+  const input = document.getElementById(`va-item-nome-${i}`)
+  const q = input.value.trim().toLowerCase()
+  const lista = tipo === 'produto' ? vaCatalogoProdutos : vaCatalogoServicos
+
+  // Só esquece a seleção se o texto mudou de fato (onfocus também chama aqui)
+  const hidden = document.getElementById(`va-item-catalogo-${i}`)
+  const atual = hidden.value ? lista.find(c => String(c.id) === hidden.value) : null
+  if (!atual || atual.nome.toLowerCase() !== q) hidden.value = ''
+
+  const filtrados = (q ? lista.filter(c => c.nome.toLowerCase().includes(q)) : lista).slice(0, 50)
+
+  const div = elementoSugestoesCatalogoVendaAvulsa()
+  div.dataset.linha = i
+  div.innerHTML = filtrados.length === 0
+    ? `<div style="padding:8px 12px; color:#999;">Nenhum resultado — use o tipo "Avulso" pra digitar livremente</div>`
+    : filtrados.map(c => `
+      <div onclick="selecionarCatalogoItemVendaAvulsa(${i}, '${c.id}')" style="padding:8px 12px; cursor:pointer; border-bottom:1px solid #eee;"
+        onmouseover="this.style.background='#f5f5f5'" onmouseout="this.style.background='white'">
+        ${escVO(c.nome)} <span style="color:#999; font-size:12px;">${formatarMoedaVO(c.valor)}</span>
+      </div>
+    `).join('')
+
+  const rect = input.getBoundingClientRect()
+  div.style.left = `${rect.left}px`
+  div.style.top = `${rect.bottom}px`
+  div.style.width = `${rect.width}px`
+  div.style.display = 'block'
+}
+
+window.selecionarCatalogoItemVendaAvulsa = function (i, id) {
+  const tipo = document.getElementById(`va-item-tipo-${i}`).value
+  const lista = tipo === 'produto' ? vaCatalogoProdutos : vaCatalogoServicos
+  const item = lista.find(c => String(c.id) === String(id))
+  if (!item) return
+
+  document.getElementById(`va-item-nome-${i}`).value = item.nome
+  document.getElementById(`va-item-catalogo-${i}`).value = item.id
+  document.getElementById(`va-item-valor-${i}`).value = item.valor ?? ''
+  esconderSugestoesCatalogoVendaAvulsa()
+  window.recalcularVendaAvulsa()
+}
+
+document.addEventListener('click', (e) => {
+  const div = document.getElementById('va-catalogo-sugestoes-flutuante')
+  if (div && div.style.display !== 'none') {
+    const input = document.getElementById(`va-item-nome-${div.dataset.linha}`)
+    if (!div.contains(e.target) && e.target !== input) div.style.display = 'none'
+  }
+
+  const sugCliente = document.getElementById('va-sugestoes-cliente')
+  if (sugCliente && !sugCliente.contains(e.target) && e.target.id !== 'va-cliente-busca') {
+    sugCliente.style.display = 'none'
+  }
+})
+
+window.buscarClienteVendaAvulsa = async function (q) {
+  const div = document.getElementById('va-sugestoes-cliente')
+  vaClienteId = null
+
+  if (q.length < 2) { div.style.display = 'none'; return }
+
+  vaClientesBusca = await apiFetch(`${API}/clientes/buscar?q=${encodeURIComponent(q)}`).then(r => r.json())
+  if (vaClientesBusca.length === 0) { div.style.display = 'none'; return }
+
+  div.style.display = 'block'
+  div.innerHTML = vaClientesBusca.map(c => `
+    <div onclick="selecionarClienteVendaAvulsa(${c.id})" style="padding:8px 12px; cursor:pointer; border-bottom:1px solid #eee;"
+      onmouseover="this.style.background='#f5f5f5'" onmouseout="this.style.background='white'">
+      <strong>${escVO(c.nome)}</strong>
+    </div>
+  `).join('')
+}
+
+window.selecionarClienteVendaAvulsa = function (id) {
+  const c = vaClientesBusca.find(x => x.id === id)
+  if (!c) return
+  vaClienteId = c.id
+  document.getElementById('va-cliente-busca').value = c.nome
+  document.getElementById('va-cliente-tipoPessoa').value = c.tipoPessoa
+  document.getElementById('va-cliente-cpfCnpj').value = c.cpfCnpj
+  document.getElementById('va-cliente-nome').value = c.nome
+  document.getElementById('va-sugestoes-cliente').style.display = 'none'
+}
+
+// Monta cliente/vendedor/itens da venda avulsa pro corpo do POST. Valida os
+// itens ANTES de cadastrar cliente novo, pra um erro de item não deixar um
+// cliente cadastrado à toa. Retorna null (já avisando) se algo estiver faltando.
+async function montarOrigemVendaAvulsa() {
+  if (vaItensAtivos.length === 0) {
+    alert('Adicione ao menos um item!')
+    return null
+  }
+
+  const itens = []
+  for (const i of vaItensAtivos) {
+    const tipo = document.getElementById(`va-item-tipo-${i}`).value
+    const nome = document.getElementById(`va-item-nome-${i}`).value.trim()
+    const catalogoId = document.getElementById(`va-item-catalogo-${i}`).value
+    const valorUnitario = document.getElementById(`va-item-valor-${i}`).value
+
+    if (tipo !== 'avulso' && !catalogoId) {
+      alert('Selecione o produto/serviço do catálogo em todos os itens (ou mude o tipo pra "Avulso")!')
+      return null
+    }
+    if (!nome) { alert('Descreva todos os itens avulsos!'); return null }
+    if (valorUnitario === '') { alert('Informe o valor unitário de todos os itens!'); return null }
+
+    itens.push({
+      tipo,
+      produtoId: tipo === 'produto' ? catalogoId : null,
+      servicoId: tipo === 'servico' ? catalogoId : null,
+      nome,
+      detalhes: document.getElementById(`va-item-detalhes-${i}`).value.trim(),
+      quantidade: document.getElementById(`va-item-qtd-${i}`).value || 1,
+      valorUnitario,
+    })
+  }
+
+  if (totalItensVendaAvulsa() <= 0) {
+    alert('O valor total da venda precisa ser maior que zero!')
+    return null
+  }
+
+  let clienteId = vaClienteId
+  if (!clienteId) {
+    const cpfCnpj = document.getElementById('va-cliente-cpfCnpj').value.trim()
+    const nome = document.getElementById('va-cliente-nome').value.trim()
+    if (!cpfCnpj || !nome) {
+      alert('Selecione um cliente existente ou preencha CPF/CNPJ e nome para cadastrar um novo.')
+      return null
+    }
+
+    const novoCliente = await apiJson(`${API}/clientes`, {
+      method: 'POST',
+      body: JSON.stringify({ tipoPessoa: document.getElementById('va-cliente-tipoPessoa').value, cpfCnpj, nome })
+    }).then(r => r.json())
+
+    if (!novoCliente.id) {
+      alert('Erro ao cadastrar cliente: ' + (novoCliente.erro || ''))
+      return null
+    }
+    // Se a venda der erro depois, a próxima tentativa reaproveita esse
+    // cliente em vez de tentar cadastrar de novo (e bater no CPF/CNPJ repetido)
+    vaClienteId = clienteId = novoCliente.id
+  }
+
+  return {
+    clienteId,
+    vendedorId: document.getElementById('va-vendedorId').value || null,
+    itens,
+  }
+}
+
 window.salvarVendaOrcamento = async function () {
   const forma = document.querySelector('input[name="vo-formaPagamento"]:checked').value
   const numeroParcelas = document.getElementById('vo-numeroParcelas').value
@@ -365,8 +732,16 @@ window.salvarVendaOrcamento = async function () {
     return
   }
 
+  let origem
+  if (voModoAvulsa) {
+    origem = await montarOrigemVendaAvulsa()
+    if (!origem) return
+  } else {
+    origem = { orcamentoId: voOrcamentoAtual.id }
+  }
+
   const body = {
-    orcamentoId: voOrcamentoAtual.id,
+    ...origem,
     dataVenda: document.getElementById('vo-dataVenda').value,
     formaPagamento: forma,
     numeroParcelas: forma === 'parcelado' ? numeroParcelas : 1,

@@ -7,13 +7,15 @@ const router = Router()
 
 const FORMAS_PAGAMENTO = ['avista', 'parcelado']
 const STATUS_VALIDOS = ['ativo', 'cancelado']
+const TIPOS_ITEM = ['produto', 'servico', 'avulso']
 
 const INCLUDE_PADRAO = {
   orcamento: { include: { itens: { include: { produto: true, servico: true }, orderBy: { id: 'asc' } } } },
   cliente: true,
   vendedor: { select: { id: true, nome: true } },
   criadoPor: { select: { id: true, nome: true } },
-  pagamentos: { orderBy: { dataVencimento: 'asc' } }
+  pagamentos: { orderBy: { dataVencimento: 'asc' } },
+  itens: { include: { produto: true, servico: true }, orderBy: { id: 'asc' } }
 }
 
 // Divide o valor em N parcelas exatas (evita sobra/falta de centavos por
@@ -44,6 +46,41 @@ function gerarParcelas(valorTotal, numeroParcelas, primeiroVencimento) {
   }
 
   return parcelas
+}
+
+// Valida e normaliza os itens de uma venda avulsa. Produto/serviço precisam
+// apontar pro catálogo; avulso é só texto + valor digitados na hora.
+// Retorna { itens } ou { erro }.
+function lerItensAvulsa(itens) {
+  if (!Array.isArray(itens) || itens.length === 0) {
+    return { erro: 'Ao menos um item é obrigatório' }
+  }
+
+  const normalizados = []
+  for (const item of itens) {
+    if (!TIPOS_ITEM.includes(item.tipo)) {
+      return { erro: `Tipo de item inválido. Use: ${TIPOS_ITEM.join(', ')}` }
+    }
+    const nome = (item.nome || '').trim()
+    const quantidade = parseFloat(item.quantidade) || 1
+    const valorUnitario = parseFloat(item.valorUnitario)
+    if (!nome || isNaN(valorUnitario) || valorUnitario < 0) {
+      return { erro: 'Nome e valor unitário são obrigatórios em todos os itens' }
+    }
+    if (item.tipo === 'produto' && !item.produtoId) return { erro: 'Selecione o produto do catálogo' }
+    if (item.tipo === 'servico' && !item.servicoId) return { erro: 'Selecione o serviço do catálogo' }
+
+    normalizados.push({
+      tipo: item.tipo,
+      produtoId: item.tipo === 'produto' ? parseInt(item.produtoId) : null,
+      servicoId: item.tipo === 'servico' ? parseInt(item.servicoId) : null,
+      nome,
+      detalhes: (item.detalhes || '').trim() || null,
+      quantidade,
+      valorUnitario
+    })
+  }
+  return { itens: normalizados }
 }
 
 // ─── Listar vendas (paginado) ──────────────────────────────────────────────────
@@ -79,16 +116,18 @@ router.get('/:id', autenticar, async (req, res) => {
   res.json(venda)
 })
 
-// ─── Criar venda a partir de um Orçamento aprovado ("Criar Venda") ─────────────
+// ─── Criar venda — de um Orçamento aprovado ("Criar Venda") ou avulsa ─────────
 // Só admin/gerente, mesma regra de Orçamento/Venda de balsa. Gera 1 Pagamento
 // (à vista) ou N Pagamentos (parcelado) — contas a receber de verdade, iguais
 // às de Contrato/Venda de balsa (aparecem juntas em Financeiro → Contas a
-// Receber). O Orçamento vira "convertido" e trava pra edição (ver routes/orcamentos.js).
+// Receber). Com orcamentoId, o Orçamento vira "convertido" e trava pra edição
+// (ver routes/orcamentos.js). Sem orcamentoId é venda avulsa: cliente, vendedor
+// e itens vêm direto no corpo.
 router.post('/', autenticar, exigirPerfil('admin', 'gerente'), async (req, res) => {
   const { orcamentoId, dataVenda, formaPagamento, numeroParcelas, dataVencimento, observacoes } = req.body
 
-  if (!orcamentoId || !formaPagamento || !dataVencimento) {
-    return res.status(400).json({ erro: 'Orçamento, forma de pagamento e data de vencimento são obrigatórios' })
+  if (!formaPagamento || !dataVencimento) {
+    return res.status(400).json({ erro: 'Forma de pagamento e data de vencimento são obrigatórias' })
   }
   if (!FORMAS_PAGAMENTO.includes(formaPagamento)) {
     return res.status(400).json({ erro: `Forma de pagamento inválida. Use: ${FORMAS_PAGAMENTO.join(', ')}` })
@@ -99,52 +138,83 @@ router.post('/', autenticar, exigirPerfil('admin', 'gerente'), async (req, res) 
     return res.status(400).json({ erro: 'Informe ao menos 2 parcelas' })
   }
 
-  const orcamento = await prisma.orcamento.findUnique({
-    where: { id: parseInt(orcamentoId) },
-    include: { itens: true }
-  })
-  if (!orcamento) return res.status(400).json({ erro: 'Orçamento não encontrado' })
-  if (orcamento.status !== 'aprovado') {
-    return res.status(400).json({ erro: 'Só é possível criar venda a partir de um orçamento aprovado' })
-  }
+  // Campos que dependem da origem da venda (Orçamento ou avulsa)
+  let origem
 
-  const vendaExistente = await prisma.vendaOrcamento.findUnique({ where: { orcamentoId: orcamento.id } })
-  if (vendaExistente) return res.status(400).json({ erro: 'Esse orçamento já tem uma venda' })
+  if (orcamentoId) {
+    const orcamento = await prisma.orcamento.findUnique({
+      where: { id: parseInt(orcamentoId) },
+      include: { itens: true }
+    })
+    if (!orcamento) return res.status(400).json({ erro: 'Orçamento não encontrado' })
+    if (orcamento.status !== 'aprovado') {
+      return res.status(400).json({ erro: 'Só é possível criar venda a partir de um orçamento aprovado' })
+    }
 
-  const valorTotal = totalLiquidoOrcamento(orcamento)
-  if (!valorTotal || valorTotal <= 0) {
-    return res.status(400).json({ erro: 'O orçamento precisa ter um valor total maior que zero' })
+    const vendaExistente = await prisma.vendaOrcamento.findUnique({ where: { orcamentoId: orcamento.id } })
+    if (vendaExistente) return res.status(400).json({ erro: 'Esse orçamento já tem uma venda' })
+
+    const valorTotal = totalLiquidoOrcamento(orcamento)
+    if (!valorTotal || valorTotal <= 0) {
+      return res.status(400).json({ erro: 'O orçamento precisa ter um valor total maior que zero' })
+    }
+
+    origem = { orcamentoId: orcamento.id, clienteId: orcamento.clienteId, vendedorId: orcamento.vendedorId, valorTotal }
+  } else {
+    const clienteId = parseInt(req.body.clienteId)
+    if (!clienteId) return res.status(400).json({ erro: 'Cliente é obrigatório' })
+
+    const { itens, erro } = lerItensAvulsa(req.body.itens)
+    if (erro) return res.status(400).json({ erro })
+
+    const valorTotal = Math.round(itens.reduce((soma, i) => soma + i.quantidade * i.valorUnitario, 0) * 100) / 100
+    if (valorTotal <= 0) return res.status(400).json({ erro: 'A venda precisa ter um valor total maior que zero' })
+
+    origem = {
+      orcamentoId: null,
+      clienteId,
+      vendedorId: req.body.vendedorId ? parseInt(req.body.vendedorId) : null,
+      valorTotal,
+      itens: { create: itens }
+    }
   }
 
   const ano = new Date().getFullYear()
   const ultima = await prisma.vendaOrcamento.findFirst({ where: { ano }, orderBy: { numero: 'desc' } })
   const proximoNumero = ultima ? ultima.numero + 1 : 1
 
-  const parcelasGeradas = gerarParcelas(valorTotal, parcelas, dataVencimento)
+  const parcelasGeradas = gerarParcelas(origem.valorTotal, parcelas, dataVencimento)
 
-  const venda = await prisma.$transaction(async (tx) => {
-    const novaVenda = await tx.vendaOrcamento.create({
-      data: {
-        numero: proximoNumero,
-        ano,
-        orcamentoId: orcamento.id,
-        clienteId: orcamento.clienteId,
-        vendedorId: orcamento.vendedorId,
-        dataVenda: dataVenda ? new Date(dataVenda).toISOString() : undefined,
-        valorTotal,
-        formaPagamento,
-        numeroParcelas: parcelas,
-        observacoes: observacoes || null,
-        criadoPorId: req.usuario.id,
-        pagamentos: { create: parcelasGeradas }
-      },
-      include: INCLUDE_PADRAO
+  // Na venda avulsa, cliente/vendedor/itens do catálogo vêm por id do corpo —
+  // id inexistente estoura FK (P2003) e vira 400 em vez de 500
+  let venda
+  try {
+    venda = await prisma.$transaction(async (tx) => {
+      const novaVenda = await tx.vendaOrcamento.create({
+        data: {
+          ...origem,
+          numero: proximoNumero,
+          ano,
+          dataVenda: dataVenda ? new Date(dataVenda).toISOString() : undefined,
+          formaPagamento,
+          numeroParcelas: parcelas,
+          observacoes: observacoes || null,
+          criadoPorId: req.usuario.id,
+          pagamentos: { create: parcelasGeradas }
+        },
+        include: INCLUDE_PADRAO
+      })
+
+      if (origem.orcamentoId) {
+        await tx.orcamento.update({ where: { id: origem.orcamentoId }, data: { status: 'convertido' } })
+      }
+
+      return novaVenda
     })
-
-    await tx.orcamento.update({ where: { id: orcamento.id }, data: { status: 'convertido' } })
-
-    return novaVenda
-  })
+  } catch (err) {
+    if (err.code !== 'P2003') throw err
+    return res.status(400).json({ erro: 'Cliente, vendedor ou item do catálogo não encontrado' })
+  }
 
   res.json(venda)
 })
