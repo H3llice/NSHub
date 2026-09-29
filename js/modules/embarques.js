@@ -353,6 +353,8 @@ async function abrirFormularioEmbarqueBase(e = null) {
             value="${esc(e?.armador?.nome)}" oninput="buscarArmadorEmbarque(this.value)" autocomplete="off">
           <input type="hidden" id="emb-armadorId" value="${e?.armadorId || ''}">
           <div id="emb-sugestoes-armador" style="position:absolute; background:white; border:1px solid #ccc; border-radius:4px; width:100%; z-index:999; display:none; top:100%;"></div>
+          <input type="text" id="emb-armador-cpfCnpj" class="form-control form-control-sm" style="margin-top:6px;"
+            placeholder="CPF/CNPJ — só se o armador for novo">
         </div>
         <div><label>Data de embarque *</label><input type="date" id="emb-dataInicio" class="form-control" value="${e ? e.dataInicio.slice(0, 10) : ''}" oninput="atualizarDiasEmbarque()"></div>
         <div><label>Data de desembarque *</label><input type="date" id="emb-dataFim" class="form-control" value="${e ? e.dataFim.slice(0, 10) : ''}" oninput="atualizarDiasEmbarque()"></div>
@@ -438,7 +440,7 @@ window.buscarEmbarcacaoEmbarque = async function (q) {
   embEmbarcacoesBusca = await apiFetch(`${API}/embarcacoes/buscar?q=${encodeURIComponent(q)}`).then(r => r.json())
   div.style.display = 'block'
   div.innerHTML = embEmbarcacoesBusca.length === 0
-    ? `<div style="padding:8px 12px; color:#999;">Nenhuma embarcação encontrada — cadastre em Cadastros → Embarcações</div>`
+    ? `<div style="padding:8px 12px; color:#999;">Nenhuma embarcação encontrada — será cadastrada ao salvar o embarque</div>`
     : embEmbarcacoesBusca.map(e => sugestaoHtml(`selecionarEmbarcacaoEmbarque(${e.id})`, e.nome, e.armador?.nome)).join('')
 }
 
@@ -451,6 +453,7 @@ window.selecionarEmbarcacaoEmbarque = function (id) {
   if (e.armador) {
     document.getElementById('emb-armador-busca').value = e.armador.nome
     document.getElementById('emb-armadorId').value = e.armador.id
+    document.getElementById('emb-armador-cpfCnpj').value = e.armador.cpfCnpj || ''
   }
   document.getElementById('emb-sugestoes-embarcacao').style.display = 'none'
 }
@@ -463,7 +466,7 @@ window.buscarArmadorEmbarque = async function (q) {
   embArmadoresBusca = await apiFetch(`${API}/clientes/buscar?q=${encodeURIComponent(q)}`).then(r => r.json())
   div.style.display = 'block'
   div.innerHTML = embArmadoresBusca.length === 0
-    ? `<div style="padding:8px 12px; color:#999;">Nenhum cliente encontrado</div>`
+    ? `<div style="padding:8px 12px; color:#999;">Nenhum cliente encontrado — informe o CPF/CNPJ abaixo pra cadastrar ao salvar</div>`
     : embArmadoresBusca.map(c => sugestaoHtml(`selecionarArmadorEmbarque(${c.id})`, c.nome)).join('')
 }
 
@@ -472,6 +475,7 @@ window.selecionarArmadorEmbarque = function (id) {
   if (!c) return
   document.getElementById('emb-armador-busca').value = c.nome
   document.getElementById('emb-armadorId').value = c.id
+  document.getElementById('emb-armador-cpfCnpj').value = c.cpfCnpj || ''
   document.getElementById('emb-sugestoes-armador').style.display = 'none'
 }
 
@@ -482,22 +486,69 @@ document.addEventListener('click', (ev) => {
   }
 })
 
+// ─── Armador/embarcação digitados e não encontrados → cadastra na hora ────────
+// Mesmo padrão da OS (js/modules/ordens-servico.js): armador novo precisa de
+// CPF/CNPJ (obrigatório no cadastro de Cliente); embarcação nova é criada com
+// esse armador. Os ids ficam gravados nos campos ocultos — se o embarque em si
+// falhar depois (ex.: conflito de datas), a próxima tentativa reaproveita o
+// que já foi cadastrado em vez de duplicar. Retorna false (já avisando) se falhar.
+async function garantirArmadorEEmbarcacao() {
+  let armadorId = document.getElementById('emb-armadorId').value
+  const armadorNome = document.getElementById('emb-armador-busca').value.trim()
+
+  if (!armadorId) {
+    if (!armadorNome) { alert('Informe o armador!'); return false }
+
+    const cpfCnpj = document.getElementById('emb-armador-cpfCnpj').value.replace(/\D/g, '')
+    if (cpfCnpj.length !== 11 && cpfCnpj.length !== 14) {
+      alert(`Armador "${armadorNome}" não encontrado — informe o CPF (11 dígitos) ou CNPJ (14 dígitos) dele pra cadastrá-lo ao salvar`)
+      return false
+    }
+
+    const res = await apiJson(`${API}/clientes`, {
+      method: 'POST',
+      body: JSON.stringify({ tipoPessoa: cpfCnpj.length === 11 ? 'fisica' : 'juridica', cpfCnpj, nome: armadorNome })
+    })
+    const data = await res.json()
+
+    if (res.ok) armadorId = data.id
+    // Já existe cliente com esse CPF/CNPJ — aproveita em vez de travar
+    else if (data.cliente) armadorId = data.cliente.id
+    else { alert('Erro ao cadastrar armador: ' + (data.erro || '')); return false }
+    document.getElementById('emb-armadorId').value = armadorId
+  }
+
+  if (!document.getElementById('emb-embarcacaoId').value) {
+    const nome = document.getElementById('emb-embarcacao-busca').value.trim()
+    if (!nome) { alert('Informe a embarcação!'); return false }
+
+    const res = await apiJson(`${API}/embarcacoes`, { method: 'POST', body: JSON.stringify({ nome, armadorId }) })
+    const data = await res.json()
+    if (!res.ok) { alert('Erro ao cadastrar embarcação: ' + (data.erro || '')); return false }
+    document.getElementById('emb-embarcacaoId').value = data.id
+  }
+
+  return true
+}
+
 // ─── Salvar ───────────────────────────────────────────────────────────────────
 window.salvarEmbarque = async function () {
   const body = {
-    embarcacaoId: document.getElementById('emb-embarcacaoId').value,
-    armadorId: document.getElementById('emb-armadorId').value,
     dataInicio: document.getElementById('emb-dataInicio').value,
     dataFim: document.getElementById('emb-dataFim').value,
     colaboradorIds: [...document.querySelectorAll('.emb-colaborador-check:checked')].map(el => Number(el.value)),
     observacoes: document.getElementById('emb-observacoes').value.trim(),
   }
 
-  if (!body.embarcacaoId) { alert('Selecione a embarcação na lista de sugestões!'); return }
-  if (!body.armadorId) { alert('Selecione o armador na lista de sugestões!'); return }
   if (!body.dataInicio || !body.dataFim) { alert('Informe as datas de embarque e desembarque!'); return }
   if (body.dataFim < body.dataInicio) { alert('A data de desembarque não pode ser antes da de embarque!'); return }
   if (body.colaboradorIds.length === 0) { alert('Selecione ao menos um colaborador!'); return }
+
+  // Só cadastra armador/embarcação novos depois das validações acima, pra um
+  // erro de data/colaborador não deixar cadastro criado à toa
+  if (!(await garantirArmadorEEmbarcacao())) return
+  body.embarcacaoId = document.getElementById('emb-embarcacaoId').value
+  body.armadorId = document.getElementById('emb-armadorId').value
 
   const url = embarqueEmEdicaoId ? `${API}/embarques/${embarqueEmEdicaoId}` : `${API}/embarques`
   const res = await apiJson(url, { method: embarqueEmEdicaoId ? 'PUT' : 'POST', body: JSON.stringify(body) })
