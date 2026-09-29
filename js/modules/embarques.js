@@ -94,10 +94,10 @@ function cabecalhoEmbarques(abaAtiva) {
   `
   return `
     <div class="tab">Embarques</div>
-    <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px;">
+    <button class="btn btn-success" onclick="abrirFormularioEmbarque()">+ Novo Embarque</button>
+    <div style="display:flex; gap:8px; flex-wrap:wrap; margin:16px 0;">
       ${botao('lista', 'Embarques')}
       ${botao('folgas', 'Folgas e dobras')}
-      <button class="btn btn-success" onclick="abrirFormularioEmbarque()" style="margin-left:auto;">+ Novo Embarque</button>
     </div>
   `
 }
