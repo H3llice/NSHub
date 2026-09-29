@@ -1,3 +1,5 @@
+import { FUNCOES, labelFuncao } from './funcoes-colaborador.js'
+
 const API = 'https://override-steerable-professed.ngrok-free.dev'
 
 // ─── Auth helper (mesmo padrão dos outros módulos) ────────────────────────────
@@ -45,14 +47,6 @@ const perfil = usuarioAtual?.perfil || 'usuario'
 // O backend já omite esses campos pros outros perfis — aqui é só a interface.
 const podeGerir = ['admin', 'gerente'].includes(perfil)
 const tokenAtual = localStorage.getItem('ns_token')
-
-const FUNCOES = {
-  gerente: 'Gerente',
-  tecnico: 'Técnico',
-  vendedor: 'Vendedor',
-  auxiliar: 'Auxiliar',
-  estagiario: 'Estagiário',
-}
 
 function esc(texto) {
   return String(texto ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
@@ -171,7 +165,7 @@ function renderizarTabelaColaboradores(colaboradores) {
   tabela.innerHTML = colaboradores.map(c => `
     <tr${c.ativo ? '' : ' style="opacity:0.55;"'}>
       <td>${esc(c.nome)}${c.ativo ? '' : ' <small>(inativo)</small>'}</td>
-      <td>${FUNCOES[c.funcao] || esc(c.funcao)}</td>
+      <td>${esc(labelFuncao(c.funcao))}</td>
       <td>${esc(c.emailCorporativo) || '-'}</td>
       ${podeGerir ? `<td>${esc(c.usuario?.nome) || '-'}</td>` : ''}
       <td>
@@ -193,7 +187,7 @@ window.verColaborador = function (id) {
       <button class="btn btn-secondary" onclick="inicializarColaboradores()">← Voltar</button>
       <h3 style="margin:20px 0;">${esc(c.nome)}</h3>
       <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
-        <div><span style="color:#999;">Função</span><br><strong>${FUNCOES[c.funcao] || esc(c.funcao)}</strong></div>
+        <div><span style="color:#999;">Função</span><br><strong>${esc(labelFuncao(c.funcao))}</strong></div>
         <div><span style="color:#999;">Email corporativo</span><br><strong>${esc(c.emailCorporativo) || '-'}</strong></div>
         <div><span style="color:#999;">Situação</span><br><strong>${c.ativo ? 'Ativo' : 'Inativo'}</strong></div>
       </div>

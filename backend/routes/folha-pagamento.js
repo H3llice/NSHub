@@ -2,14 +2,15 @@ import { Router } from 'express'
 import { prisma } from '../server.js'
 import { autenticar, exigirPerfil } from '../middleware/auth.js'
 import { calcularDiasColaborador, embarquesPorColaborador, chaveDia } from './embarques.js'
+import { FUNCOES_TECNICO } from './colaboradores.js'
 
 const router = Router()
 
 // Folha tem valores pagos a cada colaborador — admin, gerente e financeiro
 const PERFIS_FOLHA = ['admin', 'gerente', 'financeiro']
 
-// Tópico da folha: técnico → tecnicos, estagiário → estagiarios, resto → base
-const grupoDaFuncao = funcao => (funcao === 'tecnico' ? 'tecnicos' : funcao === 'estagiario' ? 'estagiarios' : 'base')
+// Tópico da folha: técnicos N1/N2/N3 → tecnicos, estagiário → estagiarios, resto → base
+const grupoDaFuncao = funcao => (FUNCOES_TECNICO.includes(funcao) ? 'tecnicos' : funcao === 'estagiario' ? 'estagiarios' : 'base')
 
 // Campos em R$ digitados na tela (descontoPlanoSaude e comissao vêm
 // preenchidos pela geração, mas também são editáveis)

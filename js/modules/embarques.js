@@ -1,3 +1,5 @@
+import { labelFuncao } from './funcoes-colaborador.js'
+
 const API = 'https://override-steerable-professed.ngrok-free.dev'
 
 // ─── Auth helper (mesmo padrão dos outros módulos) ────────────────────────────
@@ -39,13 +41,6 @@ async function apiJson(url, options = {}) {
   return tratarSessaoExpirada(res)
 }
 
-const FUNCOES = {
-  gerente: 'Gerente',
-  tecnico: 'Técnico',
-  vendedor: 'Vendedor',
-  auxiliar: 'Auxiliar',
-  estagiario: 'Estagiário',
-}
 
 function esc(texto) {
   return String(texto ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
@@ -273,7 +268,7 @@ window.carregarResumoFolgas = async function () {
       : resumo.map(r => `
         <tr>
           <td>${esc(r.colaborador.nome)}</td>
-          <td>${FUNCOES[r.colaborador.funcao] || esc(r.colaborador.funcao)}</td>
+          <td>${esc(labelFuncao(r.colaborador.funcao))}</td>
           <td>${r.diasEmbarcados}</td>
           <td>${r.dobras > 0 ? `<strong style="color:#dc3545;">${r.dobras}</strong>` : '0'}</td>
           <td>${r.folgas}</td>
@@ -369,7 +364,7 @@ async function abrirFormularioEmbarqueBase(e = null) {
           : lista.map(c => `
             <label class="emb-colaborador-item" data-nome="${esc(c.nome.toLowerCase())}" style="display:flex; align-items:center; gap:8px; padding:4px 0; font-weight:400; cursor:pointer;">
               <input type="checkbox" class="emb-colaborador-check" value="${c.id}" ${selecionados.has(c.id) ? 'checked' : ''} onchange="atualizarContadorColaboradoresEmbarque()">
-              ${esc(c.nome)} <span style="color:#999; font-size:12px;">${FUNCOES[c.funcao] || esc(c.funcao)}</span>
+              ${esc(c.nome)} <span style="color:#999; font-size:12px;">${esc(labelFuncao(c.funcao))}</span>
             </label>
           `).join('')}
       </div>

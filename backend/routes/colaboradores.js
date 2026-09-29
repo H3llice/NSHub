@@ -11,7 +11,33 @@ const router = Router()
 // Perfis que podem editar e ver dados pessoais (CPF, email pessoal, documentos).
 // Os demais perfis só enxergam nome, email corporativo e função.
 const PERFIS_GESTAO = ['admin', 'gerente']
-const FUNCOES = ['gerente', 'tecnico', 'vendedor', 'auxiliar', 'estagiario']
+// Funções (cargos) — mesmas chaves de js/modules/funcoes-colaborador.js
+const FUNCOES = [
+  'gerente_operacional', 'gerente_comercial', 'gerente_administrativo', 'gerente_financeiro',
+  'auxiliar_manutencao', 'assistente_administrativo', 'assistente_comercial',
+  'tecnico_n1', 'tecnico_n2', 'tecnico_n3', 'estagiario'
+]
+// Quem aparece como "Vendedor Responsável" em Orçamento/Vendas
+const FUNCOES_VENDEDOR = ['gerente_comercial', 'assistente_comercial']
+// Tópico "Técnicos" da Folha de pagamento
+const FUNCOES_TECNICO = ['tecnico_n1', 'tecnico_n2', 'tecnico_n3']
+
+// Funções da lista antiga → nova. Convertidas uma vez ao subir o servidor
+// (converterFuncoesAntigas, chamada em server.js) — idempotente, então rodar
+// de novo a cada deploy não faz nada.
+const FUNCOES_ANTIGAS = {
+  gerente: 'gerente_operacional',
+  tecnico: 'tecnico_n1',
+  vendedor: 'assistente_comercial',
+  auxiliar: 'auxiliar_manutencao'
+}
+
+async function converterFuncoesAntigas() {
+  for (const [antiga, nova] of Object.entries(FUNCOES_ANTIGAS)) {
+    const { count } = await prisma.colaborador.updateMany({ where: { funcao: antiga }, data: { funcao: nova } })
+    if (count > 0) console.log(`Colaboradores: função "${antiga}" → "${nova}" (${count})`)
+  }
+}
 
 // Documentos pessoais NÃO vão pra backend/uploads — essa pasta é servida estaticamente
 // pra qualquer usuário logado (server.js). Aqui ficam numa pasta própria, entregues só
@@ -135,12 +161,12 @@ router.get('/', autenticar, async (req, res) => {
 })
 
 // ─── Vendedores (dropdown "Vendedor Responsável" de Orçamento/Venda) ──────────
-// Só colaborador ativo com função vendedor E login ativo vinculado — o campo
+// Só colaborador ativo com função comercial (FUNCOES_VENDEDOR) E login ativo vinculado — o campo
 // vendedorId de Orçamento/Venda aponta pra Usuario, não pra Colaborador, então
 // devolve o usuário (id/nome) de cada um. Declarada antes de /:id pra não cair nela.
 router.get('/vendedores', autenticar, async (req, res) => {
   const colaboradores = await prisma.colaborador.findMany({
-    where: { funcao: 'vendedor', ativo: true, usuario: { ativo: true } },
+    where: { funcao: { in: FUNCOES_VENDEDOR }, ativo: true, usuario: { ativo: true } },
     select: { usuario: { select: { id: true, nome: true } } },
     orderBy: { nome: 'asc' }
   })
@@ -262,4 +288,5 @@ router.delete('/documentos/:docId', autenticar, exigirPerfil(...PERFIS_GESTAO), 
   res.json({ ok: true })
 })
 
+export { FUNCOES_TECNICO, converterFuncoesAntigas }
 export default router

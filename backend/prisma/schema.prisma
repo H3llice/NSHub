@@ -1028,7 +1028,10 @@ model Colaborador {
   emailPessoal     String?
   emailCorporativo String?
   funcao           String
-  // funcao: gerente | tecnico | vendedor | auxiliar | estagiario
+  // funcao: gerente_operacional | gerente_comercial | gerente_administrativo |
+  // gerente_financeiro | auxiliar_manutencao | assistente_administrativo |
+  // assistente_comercial | tecnico_n1 | tecnico_n2 | tecnico_n3 | estagiario
+  // (lista e regras de vendedor/técnico em routes/colaboradores.js)
   // Desconto mensal do plano de saúde (R$), opcional — a Folha de pagamento
   // puxa esse valor ao ser gerada (a coparticipação é digitada na própria folha)
   descontoPlanoSaude Float?

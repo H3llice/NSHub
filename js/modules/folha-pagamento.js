@@ -1,3 +1,5 @@
+import { labelFuncao } from './funcoes-colaborador.js'
+
 const API = 'https://override-steerable-professed.ngrok-free.dev'
 
 // ─── Auth helper (mesmo padrão dos outros módulos) ────────────────────────────
@@ -46,16 +48,9 @@ const podeReabrirFolha = perfil === 'admin'
 
 const MESES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
 
-const FUNCOES = {
-  gerente: 'Gerente',
-  tecnico: 'Técnico',
-  vendedor: 'Vendedor',
-  auxiliar: 'Auxiliar',
-  estagiario: 'Estagiário',
-}
 
-// Os 3 tópicos da folha, nessa ordem (grupo vem do backend: técnico →
-// tecnicos, estagiário → estagiarios, o resto → base)
+// Os 3 tópicos da folha, nessa ordem (grupo vem do backend: técnicos N1/N2/N3
+// → tecnicos, estagiário → estagiarios, o resto → base)
 const GRUPOS = [
   { id: 'base', titulo: 'Funcionários da base' },
   { id: 'tecnicos', titulo: 'Técnicos' },
@@ -233,7 +228,7 @@ function secaoGrupoHtml(grupo, itens, aberta) {
         <tbody>
           ${itens.map(i => `
             <tr>
-              <td style="white-space:nowrap;"><strong>${esc(i.nome)}</strong><br><small style="color:#999;">${FUNCOES[i.funcao] || esc(i.funcao)}</small></td>
+              <td style="white-space:nowrap;"><strong>${esc(i.nome)}</strong><br><small style="color:#999;">${esc(labelFuncao(i.funcao))}</small></td>
               <td style="min-width:180px;">
                 ${i.diasEmbarcados > 0
                   ? `${esc(i.embarques)}<br><small style="color:#999;">${i.diasEmbarcados} ${i.diasEmbarcados === 1 ? 'dia' : 'dias'}</small>`

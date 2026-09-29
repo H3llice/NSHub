@@ -27,7 +27,7 @@ import pagamentosRouter from './routes/pagamentos.js'
 import contasPagarRouter from './routes/contas-pagar.js'
 import almoxarifadoRouter from './routes/almoxarifado.js'
 import servicosRouter from './routes/servicos.js'
-import colaboradoresRouter from './routes/colaboradores.js'
+import colaboradoresRouter, { converterFuncoesAntigas } from './routes/colaboradores.js'
 import embarquesRouter from './routes/embarques.js'
 import folhaPagamentoRouter from './routes/folha-pagamento.js'
 import { notificarPagamentoAtrasado } from './email.js'
@@ -203,6 +203,7 @@ setInterval(async () => {
 const PORT = 3000
 app.listen(PORT, () => {
   console.log(`Servidor rodando em http://localhost:${PORT}`)
+  converterFuncoesAntigas().catch(err => console.error('Erro ao converter funções antigas de colaboradores:', err))
 })
 
 export { prisma }
