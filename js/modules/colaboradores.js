@@ -72,6 +72,7 @@ export function inicializarColaboradores() {
   document.getElementById('colaboradores').innerHTML = `
     <div class="tab">Colaboradores</div>
     ${podeGerir ? `<button class="btn btn-success" onclick="abrirFormularioColaborador()">+ Novo Colaborador</button>` : ''}
+    <div id="avisos-ferias-colaboradores" style="margin-top:16px;"></div>
 
     <div class="filtros-grid">
       <div>
@@ -115,6 +116,53 @@ export function inicializarColaboradores() {
   `
 
   carregarColaboradores()
+  renderizarAvisosFerias(document.getElementById('avisos-ferias-colaboradores'))
+}
+
+// ─── Aviso de férias (30 dias antes do início até o fim) — admin/gerente ─────
+// Mesmo aviso na página inicial (renderizarDashboardFerias) e no topo de Colaboradores.
+const formatarDataUTC = d => new Date(d).toLocaleDateString('pt-BR', { timeZone: 'UTC' })
+
+async function renderizarAvisosFerias(painel) {
+  if (!painel || !podeGerir) return
+  try {
+    const avisos = await apiFetch(`${API}/colaboradores/ferias-avisos`).then(r => r.json())
+    if (!Array.isArray(avisos) || avisos.length === 0) { painel.innerHTML = ''; return }
+
+    painel.innerHTML = `
+      <div style="background:#cfe2ff; border:1px solid #9ec5fe; border-radius:6px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06);">
+        <div style="font-weight:700; color:#084298; margin-bottom:10px;">🌴 Férias de colaboradores</div>
+        <ul style="list-style:none; padding:0; margin:0;">
+          ${avisos.map(a => `
+            <li style="padding:6px 0; border-bottom:1px solid #9ec5fe; font-size:13px; display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap;">
+              <span><strong>${esc(a.nome)}</strong> — ${esc(labelFuncao(a.funcao))}</span>
+              <span>
+                ${formatarDataUTC(a.feriasInicio)} a ${formatarDataUTC(a.feriasFim)} ·
+                <strong>${a.emFerias ? `em férias até ${formatarDataUTC(a.feriasFim)}`
+                  : `começam em ${a.diasParaInicio} ${a.diasParaInicio === 1 ? 'dia' : 'dias'}`}</strong>
+              </span>
+            </li>
+          `).join('')}
+        </ul>
+      </div>
+    `
+  } catch {
+    painel.innerHTML = ''
+  }
+}
+
+export async function renderizarDashboardFerias() {
+  const container = document.getElementById('inicio')
+  if (!container || !podeGerir) return
+
+  let painel = document.getElementById('painel-ferias-inicio')
+  if (!painel) {
+    painel = document.createElement('div')
+    painel.id = 'painel-ferias-inicio'
+    painel.style = 'margin-top:20px;'
+    container.appendChild(painel)
+  }
+  renderizarAvisosFerias(painel)
 }
 
 window.carregarColaboradores = async function (pagina = 1) {
@@ -243,6 +291,12 @@ async function formularioColaboradorHtml(c = {}) {
         </div>
         <small style="color:#999;">Desmarcar também desativa o login vinculado.</small>
       </div>
+      <div></div>
+      <div><label>Início das férias</label><input type="date" id="colaborador-feriasInicio" class="form-control" value="${c.feriasInicio ? c.feriasInicio.slice(0, 10) : ''}"></div>
+      <div>
+        <label>Fim das férias</label><input type="date" id="colaborador-feriasFim" class="form-control" value="${c.feriasFim ? c.feriasFim.slice(0, 10) : ''}">
+        <small style="color:#999;">Aviso na página inicial 30 dias antes do início.</small>
+      </div>
     </div>
   `
 }
@@ -257,6 +311,8 @@ function lerFormularioColaborador() {
     descontoPlanoSaude: document.getElementById('colaborador-descontoPlanoSaude').value,
     salario: document.getElementById('colaborador-salario').value,
     descontoValeTransporte: document.getElementById('colaborador-descontoValeTransporte').checked,
+    feriasInicio: document.getElementById('colaborador-feriasInicio').value,
+    feriasFim: document.getElementById('colaborador-feriasFim').value,
     usuarioId: document.getElementById('colaborador-usuarioId').value || null,
     ativo: document.getElementById('colaborador-ativo').checked,
   }
@@ -382,6 +438,8 @@ window.salvarColaborador = async function (id) {
     !confirm('Colaborador inativo: o login vinculado também será desativado e a pessoa não conseguirá mais entrar no sistema. Continuar?')) return
   if (!body.funcao) { alert('Selecione a função!'); return }
   if (!(parseFloat(body.salario) > 0)) { alert('Informe o salário!'); return }
+  if (!body.feriasInicio !== !body.feriasFim) { alert('Informe início e fim das férias (ou deixe os dois vazios)!'); return }
+  if (body.feriasInicio && body.feriasFim < body.feriasInicio) { alert('O fim das férias não pode ser antes do início!'); return }
   if (body.cpf && body.cpf.length !== 11) { alert('CPF deve ter 11 dígitos.'); return }
 
   const res = await apiJson(id ? `${API}/colaboradores/${id}` : `${API}/colaboradores`, {

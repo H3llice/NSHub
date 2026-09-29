@@ -87,6 +87,13 @@ function lerCorpo(body) {
   }
   const descontoPlanoSaude = lerValor(body.descontoPlanoSaude)
   const salario = lerValor(body.salario)
+  // Datas "AAAA-MM-DD" → meia-noite UTC; vazio → null; inválida → undefined
+  const lerData = v => {
+    if (!v) return null
+    return /^\d{4}-\d{2}-\d{2}$/.test(v) ? new Date(v + 'T00:00:00Z') : undefined
+  }
+  const feriasInicio = lerData(body.feriasInicio)
+  const feriasFim = lerData(body.feriasFim)
 
   if (!nome) return { erro: 'Nome é obrigatório' }
   if (!FUNCOES.includes(funcao)) return { erro: 'Função inválida' }
@@ -94,6 +101,9 @@ function lerCorpo(body) {
   if (salario === null) return { erro: 'Salário é obrigatório' }
   if (!(salario > 0)) return { erro: 'Salário inválido' }
   if (descontoPlanoSaude !== null && !(descontoPlanoSaude >= 0)) return { erro: 'Desconto do plano de saúde inválido' }
+  if (feriasInicio === undefined || feriasFim === undefined) return { erro: 'Data de férias inválida' }
+  if (!feriasInicio !== !feriasFim) return { erro: 'Informe início e fim das férias (ou deixe os dois vazios)' }
+  if (feriasInicio && feriasFim < feriasInicio) return { erro: 'O fim das férias não pode ser antes do início' }
 
   return {
     dados: {
@@ -105,6 +115,8 @@ function lerCorpo(body) {
       descontoPlanoSaude,
       salario,
       descontoValeTransporte: body.descontoValeTransporte === true,
+      feriasInicio,
+      feriasFim,
       ativo: body.ativo !== false,
       usuarioId: body.usuarioId ? Number(body.usuarioId) : null
     }
@@ -179,6 +191,29 @@ router.get('/vendedores', autenticar, async (req, res) => {
     orderBy: { nome: 'asc' }
   })
   res.json(colaboradores.map(c => c.usuario))
+})
+
+// ─── Avisos de férias (página inicial e Colaboradores, admin/gerente) ─────────
+// Colaboradores ativos com férias começando nos próximos 30 dias ou em
+// andamento. "Hoje" é a data local do servidor (America/Sao_Paulo) como
+// meia-noite UTC, mesmo formato das datas de férias. Antes de /:id.
+const DIAS_AVISO_FERIAS = 30
+router.get('/ferias-avisos', autenticar, exigirPerfil(...PERFIS_GESTAO), async (req, res) => {
+  const agora = new Date()
+  const hoje = new Date(Date.UTC(agora.getFullYear(), agora.getMonth(), agora.getDate()))
+  const limite = new Date(hoje.getTime() + DIAS_AVISO_FERIAS * 24 * 60 * 60 * 1000)
+
+  const colaboradores = await prisma.colaborador.findMany({
+    where: { ativo: true, feriasInicio: { lte: limite }, feriasFim: { gte: hoje } },
+    select: { id: true, nome: true, funcao: true, feriasInicio: true, feriasFim: true },
+    orderBy: { feriasInicio: 'asc' }
+  })
+
+  res.json(colaboradores.map(c => ({
+    ...c,
+    emFerias: c.feriasInicio <= hoje,
+    diasParaInicio: Math.round((c.feriasInicio - hoje) / (24 * 60 * 60 * 1000))
+  })))
 })
 
 // ─── Lista simples de colaboradores ativos (seleção em Embarques) ─────────────

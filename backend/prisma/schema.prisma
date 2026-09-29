@@ -1044,6 +1044,11 @@ model Colaborador {
   valeTransporte          Float?
   // Optou pelo vale-transporte → desconta 6% do salário (aparece na Folha)
   descontoValeTransporte  Boolean  @default(false)
+  // Próximo período de férias (datas puras, meia-noite UTC, inclusivas), opcional.
+  // Admin/gerente veem aviso na página inicial e em Colaboradores de 30 dias
+  // antes do início até o fim (GET /colaboradores/ferias-avisos)
+  feriasInicio DateTime?
+  feriasFim    DateTime?
   ativo            Boolean  @default(true)
   criadoEm         DateTime @default(now())
   atualizadoEm     DateTime @updatedAt

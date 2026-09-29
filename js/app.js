@@ -6,7 +6,7 @@ import { inicializarOrcamentos } from './modules/orcamentos.js'
 import { inicializarVendasOrcamento } from './modules/vendas-orcamento.js'
 import { inicializarContasReceber, renderizarDashboardInicio } from './modules/pagamentos.js'
 import { inicializarFornecedores } from './modules/fornecedores.js'
-import { inicializarColaboradores } from './modules/colaboradores.js'
+import { inicializarColaboradores, renderizarDashboardFerias } from './modules/colaboradores.js'
 import { inicializarEmbarques } from './modules/embarques.js'
 import { inicializarFolhaPagamento } from './modules/folha-pagamento.js'
 import { inicializarSolicitacoes } from './modules/solicitacoes.js'
@@ -270,6 +270,7 @@ window.addEventListener('load', () => {
     renderizarDashboardContratos();
     renderizarDashboardEstoque();
     renderizarDashboardAlmoxarifado();
+    renderizarDashboardFerias();
 
     // ── Abre OC direto se vier do link do email ──────────────
     const hash = window.location.hash // ex: #oc-42
