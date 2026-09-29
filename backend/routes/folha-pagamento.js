@@ -85,6 +85,7 @@ async function dadosAutomaticos(colaboradores, mes, ano) {
       funcao: c.funcao,
       grupo: grupoDaFuncao(c.funcao),
       ...resumoEmbarquesDoMes(embarques, inicioChave, fimChave),
+      valeTransporte: c.descontoValeTransporte,
       descontoPlanoSaude: c.descontoPlanoSaude ?? null,
       comissao: c.usuarioId ? (comissoes.get(c.usuarioId) ?? null) : null
     })

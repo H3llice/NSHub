@@ -221,6 +221,7 @@ function secaoGrupoHtml(grupo, itens, aberta) {
             <th>Colaborador</th>
             <th>Embarcado</th>
             <th>Dobras</th>
+            <th>Vale-transporte</th>
             ${CAMPOS_VALOR.map(c => `<th>${c.titulo}</th>`).join('')}
             <th>Observações</th>
           </tr>
@@ -235,6 +236,7 @@ function secaoGrupoHtml(grupo, itens, aberta) {
                   : '<span style="color:#999;">-</span>'}
               </td>
               <td style="text-align:center;">${i.diasDobra > 0 ? `<strong style="color:#dc3545;">${i.diasDobra}</strong>` : '0'}</td>
+              <td style="text-align:center;">${i.valeTransporte ? 'Sim' : 'Não'}</td>
               ${CAMPOS_VALOR.map(c => `<td>${inputValor(i, c.campo)}</td>`).join('')}
               <td><input type="text" class="form-control form-control-sm folha-obs" data-item="${i.id}" value="${esc(i.observacoes)}" style="min-width:140px;" ${dis}></td>
             </tr>
@@ -243,6 +245,7 @@ function secaoGrupoHtml(grupo, itens, aberta) {
             <td>Total</td>
             <td></td>
             <td style="text-align:center;">${itens.reduce((s, i) => s + i.diasDobra, 0)}</td>
+            <td style="text-align:center;">${itens.filter(i => i.valeTransporte).length}</td>
             ${CAMPOS_VALOR.map(c => `<td class="folha-total" data-grupo="${grupo.id}" data-campo="${c.campo}"></td>`).join('')}
             <td></td>
           </tr>

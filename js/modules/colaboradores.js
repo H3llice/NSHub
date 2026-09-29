@@ -215,12 +215,22 @@ async function formularioColaboradorHtml(c = {}) {
       </div>
       <div><label>Email pessoal</label><input type="email" id="colaborador-emailPessoal" class="form-control" value="${esc(c.emailPessoal)}"></div>
       <div><label>Email corporativo</label><input type="email" id="colaborador-emailCorporativo" class="form-control" value="${esc(c.emailCorporativo)}"></div>
+      <div><label>Salário (R$/mês) *</label><input type="number" id="colaborador-salario" class="form-control" min="0" step="0.01" value="${c.salario ?? ''}"></div>
       <div>
         <label>Desconto do plano de saúde (R$/mês)</label>
         <input type="number" id="colaborador-descontoPlanoSaude" class="form-control" min="0" step="0.01" value="${c.descontoPlanoSaude ?? ''}" placeholder="Vazio = sem plano">
         <small style="color:#999;">Puxado automaticamente na Folha de pagamento.</small>
       </div>
-      <div></div>
+      <div>
+        <label>Vale-transporte (R$/mês)</label>
+        <input type="number" id="colaborador-valeTransporte" class="form-control" min="0" step="0.01" value="${c.valeTransporte ?? ''}" placeholder="Vazio = não recebe">
+      </div>
+      <div style="padding-top:24px;">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <input type="checkbox" id="colaborador-descontoValeTransporte" ${c.descontoValeTransporte ? 'checked' : ''}>
+          <label for="colaborador-descontoValeTransporte" style="margin:0;">Descontar vale-transporte</label>
+        </div>
+      </div>
       <div>
         <label>Usuário do sistema</label>
         <select id="colaborador-usuarioId" class="form-control">
@@ -248,6 +258,9 @@ function lerFormularioColaborador() {
     emailPessoal: document.getElementById('colaborador-emailPessoal').value.trim(),
     emailCorporativo: document.getElementById('colaborador-emailCorporativo').value.trim(),
     descontoPlanoSaude: document.getElementById('colaborador-descontoPlanoSaude').value,
+    salario: document.getElementById('colaborador-salario').value,
+    valeTransporte: document.getElementById('colaborador-valeTransporte').value,
+    descontoValeTransporte: document.getElementById('colaborador-descontoValeTransporte').checked,
     usuarioId: document.getElementById('colaborador-usuarioId').value || null,
     ativo: document.getElementById('colaborador-ativo').checked,
   }
@@ -372,6 +385,7 @@ window.salvarColaborador = async function (id) {
   if (estavaAtivo && !body.ativo && body.usuarioId &&
     !confirm('Colaborador inativo: o login vinculado também será desativado e a pessoa não conseguirá mais entrar no sistema. Continuar?')) return
   if (!body.funcao) { alert('Selecione a função!'); return }
+  if (!(parseFloat(body.salario) > 0)) { alert('Informe o salário!'); return }
   if (body.cpf && body.cpf.length !== 11) { alert('CPF deve ter 11 dígitos.'); return }
 
   const res = await apiJson(id ? `${API}/colaboradores/${id}` : `${API}/colaboradores`, {

@@ -1035,6 +1035,12 @@ model Colaborador {
   // Desconto mensal do plano de saúde (R$), opcional — a Folha de pagamento
   // puxa esse valor ao ser gerada (a coparticipação é digitada na própria folha)
   descontoPlanoSaude Float?
+  // Salário (R$/mês) — obrigatório no cadastro (validado em routes/colaboradores.js),
+  // mas opcional no banco porque colaboradores cadastrados antes do campo não têm
+  salario            Float?
+  // Vale-transporte (R$/mês), opcional, e se ele é descontado do colaborador
+  valeTransporte          Float?
+  descontoValeTransporte  Boolean  @default(false)
   ativo            Boolean  @default(true)
   criadoEm         DateTime @default(now())
   atualizadoEm     DateTime @updatedAt
@@ -1141,6 +1147,9 @@ model ItemFolhaPagamento {
   // embarques: períodos embarcados no mês, ex.: "10/09 a 12/09 (NAVIO X); 20/09 a 22/09 (NAVIO Y)"
   diasEmbarcados Int     @default(0)
   diasDobra      Int     @default(0)
+  // Optou pelo vale-transporte (cópia de Colaborador.descontoValeTransporte) — a
+  // folha só mostra Sim/Não, sem valor
+  valeTransporte Boolean @default(false)
 
   // Valores (R$) — descontoPlanoSaude e comissao vêm preenchidos, todos editáveis
   descontoPlanoSaude       Float?
