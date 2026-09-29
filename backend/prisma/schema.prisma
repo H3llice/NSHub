@@ -1050,6 +1050,9 @@ model Colaborador {
   // Optou pelo vale-transporte → desconta 6% do salário (aparece na Folha)
   descontoValeTransporte  Boolean  @default(false)
   // Recebe auxílio moradia → valor (R$/mês) obrigatório; a Folha puxa o valor
+  // Tipo de contrato: mensalista | intermitente — obrigatório no cadastro
+  // (routes/colaboradores.js), opcional no banco pelos cadastrados antes do campo
+  tipoContrato            String?
   auxilioMoradia          Boolean  @default(false)
   valorAuxilioMoradia     Float?
   // Próximo período de férias (datas puras, meia-noite UTC, inclusivas), opcional.
@@ -1154,6 +1157,7 @@ model ItemFolhaPagamento {
   // Cópias do cadastro no momento da geração
   nome   String
   funcao String
+  tipoContrato String?
   grupo  String
   // grupo: base | tecnicos | estagiarios (técnico → tecnicos, estagiário →
   // estagiarios, o resto → base)

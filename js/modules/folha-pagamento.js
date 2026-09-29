@@ -1,4 +1,4 @@
-import { labelFuncao } from './funcoes-colaborador.js'
+import { labelFuncao, TIPOS_CONTRATO } from './funcoes-colaborador.js'
 
 const API = 'https://override-steerable-professed.ngrok-free.dev'
 
@@ -230,7 +230,7 @@ function secaoGrupoHtml(grupo, itens, aberta) {
         <tbody>
           ${itens.map(i => `
             <tr>
-              <td style="white-space:nowrap;"><strong>${esc(i.nome)}</strong><br><small style="color:#999;">${esc(labelFuncao(i.funcao))}</small></td>
+              <td style="white-space:nowrap;"><strong>${esc(i.nome)}</strong><br><small style="color:#999;">${esc(labelFuncao(i.funcao))}${i.tipoContrato ? ` · ${TIPOS_CONTRATO[i.tipoContrato] || esc(i.tipoContrato)}` : ''}</small></td>
               <td style="min-width:180px;">
                 ${i.diasEmbarcados > 0
                   ? `${esc(i.embarques)}<br><small style="color:#999;">${i.diasEmbarcados} ${i.diasEmbarcados === 1 ? 'dia' : 'dias'}</small>`

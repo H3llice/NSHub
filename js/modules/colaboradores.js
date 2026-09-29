@@ -1,4 +1,4 @@
-import { FUNCOES, labelFuncao } from './funcoes-colaborador.js'
+import { FUNCOES, TIPOS_CONTRATO, labelFuncao } from './funcoes-colaborador.js'
 
 const API = 'https://override-steerable-professed.ngrok-free.dev'
 
@@ -261,6 +261,14 @@ async function formularioColaboradorHtml(c = {}) {
           ${Object.entries(FUNCOES).map(([v, t]) => `<option value="${v}" ${c.funcao === v ? 'selected' : ''}>${t}</option>`).join('')}
         </select>
       </div>
+      <div>
+        <label>Tipo de contrato *</label>
+        <select id="colaborador-tipoContrato" class="form-control">
+          <option value="">Selecione...</option>
+          ${Object.entries(TIPOS_CONTRATO).map(([v, t]) => `<option value="${v}" ${c.tipoContrato === v ? 'selected' : ''}>${t}</option>`).join('')}
+        </select>
+      </div>
+      <div></div>
       <div><label>Email pessoal</label><input type="email" id="colaborador-emailPessoal" class="form-control" value="${esc(c.emailPessoal)}"></div>
       <div><label>Email corporativo</label><input type="email" id="colaborador-emailCorporativo" class="form-control" value="${esc(c.emailCorporativo)}"></div>
       <div><label>Salário (R$/mês) *</label><input type="number" id="colaborador-salario" class="form-control" min="0" step="0.01" value="${c.salario ?? ''}"></div>
@@ -319,6 +327,7 @@ function lerFormularioColaborador() {
     nome: document.getElementById('colaborador-nome').value.trim(),
     cpf: document.getElementById('colaborador-cpf').value.replace(/\D/g, ''),
     funcao: document.getElementById('colaborador-funcao').value,
+    tipoContrato: document.getElementById('colaborador-tipoContrato').value,
     emailPessoal: document.getElementById('colaborador-emailPessoal').value.trim(),
     emailCorporativo: document.getElementById('colaborador-emailCorporativo').value.trim(),
     descontoPlanoSaude: document.getElementById('colaborador-descontoPlanoSaude').value,
@@ -452,6 +461,7 @@ window.salvarColaborador = async function (id) {
   if (estavaAtivo && !body.ativo && body.usuarioId &&
     !confirm('Colaborador inativo: o login vinculado também será desativado e a pessoa não conseguirá mais entrar no sistema. Continuar?')) return
   if (!body.funcao) { alert('Selecione a função!'); return }
+  if (!body.tipoContrato) { alert('Selecione o tipo de contrato!'); return }
   if (!(parseFloat(body.salario) > 0)) { alert('Informe o salário!'); return }
   if (body.auxilioMoradia && !(parseFloat(body.valorAuxilioMoradia) > 0)) { alert('Informe o valor do auxílio moradia!'); return }
   if (!body.feriasInicio !== !body.feriasFim) { alert('Informe início e fim das férias (ou deixe os dois vazios)!'); return }

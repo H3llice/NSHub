@@ -83,6 +83,7 @@ async function dadosAutomaticos(colaboradores, mes, ano) {
     dados.set(c.id, {
       nome: c.nome,
       funcao: c.funcao,
+      tipoContrato: c.tipoContrato,
       grupo: grupoDaFuncao(c.funcao),
       ...resumoEmbarquesDoMes(embarques, inicioChave, fimChave),
       valeTransporte: c.descontoValeTransporte,

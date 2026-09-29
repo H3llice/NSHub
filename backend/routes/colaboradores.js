@@ -17,6 +17,7 @@ const FUNCOES = [
   'auxiliar_manutencao', 'assistente_administrativo', 'assistente_comercial',
   'tecnico_n1', 'tecnico_n2', 'tecnico_n3', 'engenheiro', 'estagiario'
 ]
+const TIPOS_CONTRATO = ['mensalista', 'intermitente']
 // Quem aparece como "Vendedor Responsável" em Orçamento/Vendas
 const FUNCOES_VENDEDOR = ['gerente_comercial', 'assistente_comercial']
 // Tópico "Técnicos" da Folha de pagamento
@@ -88,6 +89,7 @@ function lerCorpo(body) {
   const descontoPlanoSaude = lerValor(body.descontoPlanoSaude)
   const salario = lerValor(body.salario)
   // Auxílio moradia: marcou → valor obrigatório; desmarcou → valor descartado
+  const tipoContrato = body.tipoContrato
   const auxilioMoradia = body.auxilioMoradia === true
   const valorAuxilioMoradia = auxilioMoradia ? lerValor(body.valorAuxilioMoradia) : null
   // Datas "AAAA-MM-DD" → meia-noite UTC; vazio → null; inválida → undefined
@@ -104,6 +106,7 @@ function lerCorpo(body) {
   if (salario === null) return { erro: 'Salário é obrigatório' }
   if (!(salario > 0)) return { erro: 'Salário inválido' }
   if (descontoPlanoSaude !== null && !(descontoPlanoSaude >= 0)) return { erro: 'Desconto do plano de saúde inválido' }
+  if (!TIPOS_CONTRATO.includes(tipoContrato)) return { erro: 'Informe o tipo de contrato (mensalista ou intermitente)' }
   if (auxilioMoradia && !(valorAuxilioMoradia > 0)) return { erro: 'Informe o valor do auxílio moradia' }
   if (feriasInicio === undefined || feriasFim === undefined) return { erro: 'Data de férias inválida' }
   if (!feriasInicio !== !feriasFim) return { erro: 'Informe início e fim das férias (ou deixe os dois vazios)' }
@@ -119,6 +122,7 @@ function lerCorpo(body) {
       descontoPlanoSaude,
       salario,
       descontoValeTransporte: body.descontoValeTransporte === true,
+      tipoContrato,
       auxilioMoradia,
       valorAuxilioMoradia,
       feriasInicio,

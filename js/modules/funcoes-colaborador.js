@@ -16,6 +16,12 @@ export const FUNCOES = {
   estagiario: 'ESTAGIÁRIO',
 }
 
+// Tipo de contrato — mesmas chaves de TIPOS_CONTRATO em backend/routes/colaboradores.js
+export const TIPOS_CONTRATO = {
+  mensalista: 'Mensalista',
+  intermitente: 'Intermitente',
+}
+
 // Funções antigas (antes da lista acima) — o cadastro já foi convertido ao
 // subir o servidor, mas itens de folhas geradas antes guardam a função da
 // época como cópia, então o nome antigo ainda precisa ser exibido.
