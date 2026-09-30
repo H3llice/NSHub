@@ -586,6 +586,23 @@ colunas apareceriam por baixo. */
     box-shadow: none;
 }
 
+/* Caixinha de marcar grudada antes da coluna fixa. Largura travada e sem
+padding lateral (que muda por tamanho de tela) porque a coluna seguinte precisa
+saber exatamente onde parar. */
+.table-scroll.cabecalho-fixo .coluna-fixa.coluna-marcar {
+    width: 44px;
+    min-width: 44px;
+    max-width: 44px;
+    padding-left: 0;
+    padding-right: 0;
+    text-align: center;
+    box-shadow: none;
+}
+
+.table-scroll.cabecalho-fixo .coluna-marcar + .coluna-fixa {
+    left: 44px;
+}
+
 /* Cards de informação lado a lado (ex: assinaturas) — mesma lógica do
 .filtros-grid, com colunas maiores pro conteúdo dos cards. */
 .info-grid-3 {

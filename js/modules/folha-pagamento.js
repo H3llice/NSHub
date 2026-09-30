@@ -316,7 +316,7 @@ function secaoGrupoHtml(grupo, itens, aberta) {
       <table class="table-certificados" style="font-size:13px;">
         <thead>
           <tr>
-            <th style="width:32px; text-align:center;"><input type="checkbox" class="folha-marcar-todos" data-grupo="${grupo.id}" title="Marcar/desmarcar todos pro PDF" onchange="marcarGrupoFolhaPdf(this)" ${itens.some(i => folhaDesmarcados.has(i.id)) ? '' : 'checked'}></th>
+            <th class="coluna-fixa coluna-marcar"><input type="checkbox" class="folha-marcar-todos" data-grupo="${grupo.id}" title="Marcar/desmarcar todos pro PDF" onchange="marcarGrupoFolhaPdf(this)" ${itens.some(i => folhaDesmarcados.has(i.id)) ? '' : 'checked'}></th>
             <th class="coluna-fixa">Colaborador</th>
             <th>Embarcado</th>
             <th>Dobras</th>
@@ -331,7 +331,7 @@ function secaoGrupoHtml(grupo, itens, aberta) {
         <tbody>
           ${itens.map(i => `
             <tr>
-              <td style="text-align:center;"><input type="checkbox" class="folha-marcar" data-item="${i.id}" data-grupo="${grupo.id}" title="Sai no PDF" onchange="marcarItemFolhaPdf(this)" ${folhaDesmarcados.has(i.id) ? '' : 'checked'}></td>
+              <td class="coluna-fixa coluna-marcar"><input type="checkbox" class="folha-marcar" data-item="${i.id}" data-grupo="${grupo.id}" title="Sai no PDF" onchange="marcarItemFolhaPdf(this)" ${folhaDesmarcados.has(i.id) ? '' : 'checked'}></td>
               <td class="coluna-fixa" style="white-space:nowrap;"><strong>${esc(i.nome)}</strong><br><small style="color:#999;">${esc(labelFuncao(i.funcao))}${i.tipoContrato ? ` · ${TIPOS_CONTRATO[i.tipoContrato] || esc(i.tipoContrato)}` : ''}</small></td>
               <td style="min-width:180px;">
                 ${i.diasEmbarcados > 0
@@ -350,7 +350,7 @@ function secaoGrupoHtml(grupo, itens, aberta) {
             </tr>
           `).join('')}
           <tr style="background:#f8f9fa; font-weight:600;">
-            <td></td>
+            <td class="coluna-fixa coluna-marcar" style="background:inherit;"></td>
             <td class="coluna-fixa" style="background:inherit;">Total</td>
             <td></td>
             <td style="text-align:center;">${itens.reduce((s, i) => s + i.diasDobra, 0)}</td>
