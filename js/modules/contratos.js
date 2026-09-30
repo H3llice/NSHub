@@ -43,6 +43,11 @@ const usuarioAtual = JSON.parse(localStorage.getItem('ns_usuario') || 'null')
 const perfil = usuarioAtual?.perfil || 'usuario'
 const podeGerenciarContratos = perfil === 'admin' || perfil === 'gerente'
 
+// Link do PDF abre em nova aba — sem header Authorization, o token vai na query
+function urlPdfContrato(id) {
+  return `${API}/contratos/${id}/pdf?token=${encodeURIComponent(localStorage.getItem('ns_token') || '')}`
+}
+
 // ══════════════════════════════════════════════════════════════════════════
 // CLIENTES (aba Cadastros → Pessoas)
 // ══════════════════════════════════════════════════════════════════════════
@@ -276,7 +281,7 @@ export function inicializarContratos() {
             <th>Fim</th>
             <th>Valor</th>
             <th>Status</th>
-            ${podeGerenciarContratos ? '<th class="col-acoes">Ações</th>' : ''}
+            <th class="col-acoes">Ações</th>
           </tr>
         </thead>
         <tbody id="tabela-contratos">
@@ -325,7 +330,7 @@ window.carregarContratos = async function (pagina = 1) {
 
 function renderizarTabelaContratos(contratos) {
   const tabela = document.getElementById('tabela-contratos')
-  const colspan = podeGerenciarContratos ? 8 : 7
+  const colspan = 8
 
   if (contratos.length === 0) {
     tabela.innerHTML = `<tr><td colspan="${colspan}" style="text-align:center; color:#999; padding:30px;">Nenhum contrato encontrado</td></tr>`
@@ -333,15 +338,18 @@ function renderizarTabelaContratos(contratos) {
   }
 
   tabela.innerHTML = contratos.map(c => {
-    const balsasTxt = c.balsas.map(cb => cb.balsa.numeroSerie).join(', ')
+    const balsasTxt = c.balsas.map(cb => cb.balsa.patrimonio || cb.balsa.numeroSerie).join(', ')
     const inicio = new Date(c.dataInicio).toLocaleDateString('pt-BR')
     const fim = c.dataFim ? new Date(c.dataFim).toLocaleDateString('pt-BR') : '-'
     const valor = c.valor ? 'R$ ' + c.valor.toFixed(2) : '-'
 
-    const acoes = c.status === 'ativo' ? `
-      <button class="btn btn-sm btn-secondary" onclick="encerrarContrato(${c.id})">Encerrar</button>
-      <button class="btn btn-sm btn-danger" onclick="cancelarContrato(${c.id})">Cancelar</button>
-    ` : ''
+    const acoes = `
+      <a class="btn btn-sm btn-secondary" href="${urlPdfContrato(c.id)}" target="_blank">PDF</a>
+      ${podeGerenciarContratos && c.status === 'ativo' ? `
+        <button class="btn btn-sm btn-secondary" onclick="encerrarContrato(${c.id})">Encerrar</button>
+        <button class="btn btn-sm btn-danger" onclick="cancelarContrato(${c.id})">Cancelar</button>
+      ` : ''}
+    `
 
     return `
       <tr>
@@ -352,7 +360,7 @@ function renderizarTabelaContratos(contratos) {
         <td>${fim}</td>
         <td>${valor}</td>
         <td>${badgeStatusContrato(c.status)}</td>
-        ${podeGerenciarContratos ? `<td class="col-acoes" style="white-space:nowrap;">${acoes}</td>` : ''}
+        <td class="col-acoes" style="white-space:nowrap;">${acoes}</td>
       </tr>
     `
   }).join('')
@@ -391,6 +399,7 @@ window.verContrato = async function (id) {
       <div style="display:flex; align-items:center; gap:12px; margin:20px 0;">
         <h3 style="margin:0;">Contrato ${c.numero}.${c.ano}</h3>
         ${badgeStatusContrato(c.status)}
+        <a class="btn btn-secondary" style="margin-left:auto;" href="${urlPdfContrato(c.id)}" target="_blank">📄 PDF</a>
       </div>
 
       <div style="background:white; border-radius:6px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06); margin-bottom:16px;">
@@ -406,7 +415,7 @@ window.verContrato = async function (id) {
         <ul style="list-style:none; padding:0; margin:0;">
           ${c.balsas.map(cb => `
             <li style="padding:6px 0; border-bottom:1px solid #eee; font-size:13px; display:flex; justify-content:space-between;">
-              <span><strong>${cb.balsa.numeroSerie}</strong> — ${cb.balsa.fabricante} ${cb.balsa.modelo}, capacidade ${cb.balsa.capacidade}</span>
+              <span><strong>${cb.balsa.patrimonio ? cb.balsa.patrimonio + ' · ' : ''}${cb.balsa.numeroSerie}</strong> — ${cb.balsa.fabricante} ${cb.balsa.modelo}, capacidade ${cb.balsa.capacidade}</span>
               <strong>${cb.valor ? 'R$ ' + cb.valor.toFixed(2) : '-'}</strong>
             </li>
           `).join('')}
@@ -496,7 +505,7 @@ function renderizarListaBalsasContrato(lista) {
           <input type="checkbox" value="${b.id}" class="checkbox-balsa-contrato"
             ${marcado ? 'checked' : ''}
             onchange="toggleBalsaSelecionada(${b.id}, this.checked)">
-          <span>${b.numeroSerie} — ${b.fabricante} ${b.modelo}, capacidade ${b.capacidade}</span>
+          <span>${b.patrimonio ? b.patrimonio + ' · ' : ''}${b.numeroSerie} — ${b.fabricante} ${b.modelo}, capacidade ${b.capacidade}</span>
         </label>
         <input type="number" step="0.01" min="0" placeholder="Valor" class="form-control form-control-sm"
           style="width:130px;" value="${balsaValoresSelecionados.get(b.id) || ''}" ${marcado ? '' : 'disabled'}

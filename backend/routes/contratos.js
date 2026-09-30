@@ -1,6 +1,8 @@
 import { Router } from 'express'
+import puppeteer from 'puppeteer'
 import { prisma } from '../server.js'
 import { autenticar, exigirPerfil } from '../middleware/auth.js'
+import { htmlContratoLocacao } from '../templates/contrato-locacao.js'
 
 const router = Router()
 
@@ -66,6 +68,36 @@ router.get('/:id', autenticar, async (req, res) => {
   })
   if (!contrato) return res.status(404).json({ erro: 'Contrato não encontrado' })
   res.json(contrato)
+})
+
+// ─── PDF do contrato (link em nova aba, token via ?token=) ─────────────────────
+router.get('/:id/pdf', autenticar, async (req, res) => {
+  const contrato = await prisma.contrato.findUnique({
+    where: { id: Number(req.params.id) },
+    include: {
+      cliente: true,
+      balsas: { include: { balsa: true }, orderBy: { id: 'asc' } }
+    }
+  })
+  if (!contrato) return res.status(404).json({ erro: 'Contrato não encontrado' })
+
+  const browser = await puppeteer.launch({ args: ['--no-sandbox'] })
+  let pdfBytes
+  try {
+    const page = await browser.newPage()
+    // O template é só marcação estática pra impressão — sem JS, como nos PDFs de OC
+    await page.setJavaScriptEnabled(false)
+    await page.setContent(htmlContratoLocacao(contrato), { waitUntil: 'networkidle0' })
+    // preferCSSPageSize: as margens do modelo vêm do @page do template
+    pdfBytes = await page.pdf({ format: 'A4', printBackground: true, preferCSSPageSize: true })
+  } finally {
+    await browser.close()
+  }
+
+  const nomeArquivo = `Contrato de Locação ${contrato.numero}.${contrato.ano} - ${contrato.cliente.nome}.pdf`
+  res.setHeader('Content-Type', 'application/pdf')
+  res.setHeader('Content-Disposition', `inline; filename*=UTF-8''${encodeURIComponent(nomeArquivo)}`)
+  res.send(Buffer.from(pdfBytes))
 })
 
 // ─── Criar contrato (só admin e gerente) ────────────────────────────────────────

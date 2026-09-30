@@ -43,6 +43,17 @@ const usuarioAtual = JSON.parse(localStorage.getItem('ns_usuario') || 'null')
 const perfil = usuarioAtual?.perfil || 'usuario'
 const podeGerenciar = perfil === 'admin' || perfil === 'gerente'
 
+// Escapa texto livre antes de interpolar em HTML/atributos (observações, títulos de documento)
+function esc(valor) {
+  if (valor === null || valor === undefined) return ''
+  return String(valor)
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;')
+}
+
 // ─── Labels de status ─────────────────────────────────────────────────────────
 const STATUS_LABEL = {
   disponivel: { texto: 'Disponível', cor: '#198754' },
@@ -86,6 +97,10 @@ export function inicializarEstoque(finalidade) {
         <input type="text" id="filtro-numeroSerie-${finalidade}" class="form-control form-control-sm" oninput="aplicarFiltrosBalsa('${finalidade}')">
       </div>
       <div>
+        <label style="font-size:12px;">Patrimônio</label>
+        <input type="text" id="filtro-patrimonio-${finalidade}" class="form-control form-control-sm" oninput="aplicarFiltrosBalsa('${finalidade}')">
+      </div>
+      <div>
         <label style="font-size:12px;">Fabricante</label>
         <input type="text" id="filtro-fabricante-${finalidade}" class="form-control form-control-sm" oninput="aplicarFiltrosBalsa('${finalidade}')">
       </div>
@@ -125,6 +140,7 @@ export function inicializarEstoque(finalidade) {
         <thead>
           <tr>
             <th>Capacidade</th>
+            <th>Patrimônio</th>
             <th>Fabricante</th>
             <th>Nº Série</th>
             <th>Modelo</th>
@@ -136,7 +152,7 @@ export function inicializarEstoque(finalidade) {
           </tr>
         </thead>
         <tbody id="tabela-balsas-${finalidade}">
-          <tr><td colspan="9" style="text-align:center; color:#999; padding:30px;">Carregando...</td></tr>
+          <tr><td colspan="10" style="text-align:center; color:#999; padding:30px;">Carregando...</td></tr>
         </tbody>
       </table>
     </div>
@@ -149,7 +165,7 @@ export function inicializarEstoque(finalidade) {
 const CAMPO_ORDEM = 'capacidade'
 const DIRECAO_ORDEM = 'asc'
 
-const CAMPOS_FILTRO = ['numeroSerie', 'fabricante', 'modelo', 'tipo', 'armazem', 'anoMin', 'anoMax', 'capacidade']
+const CAMPOS_FILTRO = ['numeroSerie', 'patrimonio', 'fabricante', 'modelo', 'tipo', 'armazem', 'anoMin', 'anoMax', 'capacidade']
 
 // ===== CARREGA BALSAS DO BACKEND ==============================================
 async function carregarBalsas(finalidade) {
@@ -166,7 +182,7 @@ async function carregarBalsas(finalidade) {
     aplicarFiltros(finalidade, mostrarTodas)
   } catch (err) {
     document.getElementById(`tabela-balsas-${finalidade}`).innerHTML = `
-      <tr><td colspan="9" style="text-align:center; color:red; padding:30px;">Erro ao conectar com o servidor</td></tr>
+      <tr><td colspan="10" style="text-align:center; color:red; padding:30px;">Erro ao conectar com o servidor</td></tr>
     `
   }
 }
@@ -200,6 +216,7 @@ function aplicarFiltros(finalidade, mostrarTodas) {
   }
 
   const fNumeroSerie = texto('numeroSerie')
+  const fPatrimonio = texto('patrimonio')
   const fFabricante = texto('fabricante')
   const fModelo = texto('modelo')
   const fTipo = texto('tipo')
@@ -209,6 +226,7 @@ function aplicarFiltros(finalidade, mostrarTodas) {
   const capacidade = numero('capacidade')
 
   if (fNumeroSerie) balsas = balsas.filter(b => b.numeroSerie.toLowerCase().includes(fNumeroSerie))
+  if (fPatrimonio) balsas = balsas.filter(b => (b.patrimonio || '').toLowerCase().includes(fPatrimonio))
   if (fFabricante) balsas = balsas.filter(b => b.fabricante.toLowerCase().includes(fFabricante))
   if (fModelo) balsas = balsas.filter(b => b.modelo.toLowerCase().includes(fModelo))
   if (fTipo) balsas = balsas.filter(b => b.tipo.toLowerCase().includes(fTipo))
@@ -243,7 +261,7 @@ function aplicarFiltros(finalidade, mostrarTodas) {
 // ===== RENDERIZA A TABELA =====================================================
 function renderizarTabela(finalidade, balsas) {
   const tabela = document.getElementById(`tabela-balsas-${finalidade}`)
-  const colspan = podeGerenciar ? 9 : 8
+  const colspan = podeGerenciar ? 10 : 9
 
   if (balsas.length === 0) {
     tabela.innerHTML = `<tr><td colspan="${colspan}" style="text-align:center; color:#999; padding:30px;">Nenhuma balsa encontrada</td></tr>`
@@ -253,6 +271,7 @@ function renderizarTabela(finalidade, balsas) {
   tabela.innerHTML = balsas.map(b => `
     <tr>
       <td${podeGerenciar ? ` style="cursor:pointer;" onclick="editarBalsa(${b.id}, '${finalidade}')"` : ''}><strong>${b.capacidade}</strong></td>
+      <td>${esc(b.patrimonio) || '-'}</td>
       <td${podeGerenciar ? ` style="cursor:pointer;" onclick="editarBalsa(${b.id}, '${finalidade}')"` : ''}>${b.fabricante}</td>
       <td>${b.numeroSerie}</td>
       <td>${b.modelo}</td>
@@ -306,8 +325,90 @@ window.marcarStatusBalsa = async function (id, status, finalidade) {
   }
 }
 
+// ===== DOCUMENTOS DA BALSA (mesmo esquema dos documentos de colaborador) ======
+function secaoDocumentosBalsaHtml(documentos) {
+  const token = encodeURIComponent(localStorage.getItem('ns_token') || '')
+  const salvos = documentos?.length > 0
+    ? documentos.map(d => `
+        <li style="padding: 6px 0; border-bottom: 1px solid #eee; display:flex; justify-content:space-between; align-items:center;">
+          <a href="${API}/estoque/documentos/${d.id}/arquivo?token=${token}" target="_blank">📄 ${esc(d.titulo)}</a>
+          <button class="btn btn-sm btn-danger" onclick="removerDocumentoBalsa(${d.id}, this)">✕</button>
+        </li>
+      `).join('')
+    : documentos ? '<li style="color:#999; padding: 6px 0;">Nenhum documento</li>' : ''
+
+  return `
+    <div style="margin-top: 24px;">
+      <h5>Documentos</h5>
+      <ul id="lista-documentos-balsa-salvos" style="padding: 0; list-style: none; margin-bottom: 12px;">${salvos}</ul>
+      <div style="display:grid; grid-template-columns: 1fr 1fr auto; gap: 12px; align-items:end;">
+        <div>
+          <label>Título</label>
+          <input type="text" id="documento-balsa-titulo" class="form-control" placeholder="Ex.: Certificado, Nota fiscal, Foto">
+        </div>
+        <div>
+          <label>Arquivo (PDF ou imagem)</label>
+          <input type="file" id="documento-balsa-arquivo" class="form-control" accept="application/pdf,image/*">
+        </div>
+        <button type="button" class="btn btn-secondary" onclick="adicionarDocumentoBalsaPendente()">+ Adicionar</button>
+      </div>
+      <ul id="lista-documentos-balsa-pendentes" style="margin-top: 12px; padding: 0; list-style: none;"></ul>
+    </div>
+  `
+}
+
+// Documentos escolhidos no formulário mas ainda não enviados — sobem ao salvar
+let documentosBalsaPendentes = []
+
+window.adicionarDocumentoBalsaPendente = function () {
+  const titulo = document.getElementById('documento-balsa-titulo').value.trim()
+  const input = document.getElementById('documento-balsa-arquivo')
+  const arquivo = input.files[0]
+
+  if (!titulo) { alert('Informe um título para o documento!'); return }
+  if (!arquivo) { alert('Selecione um arquivo!'); return }
+  if (arquivo.type !== 'application/pdf' && !arquivo.type.startsWith('image/')) { alert('Só são aceitos arquivos PDF ou imagem.'); return }
+
+  documentosBalsaPendentes.push({ titulo, arquivo })
+
+  const li = document.createElement('li')
+  li.style = 'padding: 6px 0; border-bottom: 1px solid #eee; display:flex; justify-content:space-between;'
+  li.innerHTML = `
+    <span>📎 ${esc(titulo)} <small style="color:#999">(${esc(arquivo.name)} — será enviado ao salvar)</small></span>
+    <button class="btn btn-sm btn-danger" onclick="removerDocumentoBalsaPendente(${documentosBalsaPendentes.length - 1}, this)">✕</button>
+  `
+  document.getElementById('lista-documentos-balsa-pendentes').appendChild(li)
+  document.getElementById('documento-balsa-titulo').value = ''
+  input.value = ''
+}
+
+window.removerDocumentoBalsaPendente = function (index, btn) {
+  documentosBalsaPendentes[index] = null
+  btn.closest('li').remove()
+}
+
+async function enviarDocumentosBalsaPendentes(balsaId) {
+  const pendentes = documentosBalsaPendentes.filter(d => d !== null)
+  const resultados = await Promise.all(pendentes.map(d => {
+    const formData = new FormData()
+    formData.append('titulo', d.titulo)
+    formData.append('arquivo', d.arquivo)
+    return apiFetch(`${API}/estoque/${balsaId}/documentos`, { method: 'POST', body: formData })
+  }))
+  documentosBalsaPendentes = []
+  return resultados.every(r => r.ok)
+}
+
+window.removerDocumentoBalsa = async function (id, btn) {
+  if (!confirm('Remover este documento? O arquivo será apagado.')) return
+  const res = await apiFetch(`${API}/estoque/documentos/${id}`, { method: 'DELETE' })
+  if (res.ok) btn.closest('li').remove()
+  else alert('Erro ao remover documento')
+}
+
 // ===== FORMULÁRIO — NOVA BALSA =================================================
 window.abrirFormularioBalsa = function (finalidade) {
+  documentosBalsaPendentes = []
   const containerId = finalidade === 'locacao' ? 'estoqueLocacao' : 'estoqueVendas'
 
   document.getElementById(containerId).innerHTML = `
@@ -322,8 +423,12 @@ window.abrirFormularioBalsa = function (finalidade) {
         <div><label>Ano de Fabricação *</label><input type="number" id="balsa-anoFabricacao" class="form-control"></div>
         <div><label>Capacidade *</label><input type="number" id="balsa-capacidade" class="form-control"></div>
         <div><label>Tipo *</label><input type="text" id="balsa-tipo" class="form-control" placeholder="Ex: balsa, baleeira..."></div>
+        <div><label>Patrimônio *</label><input type="text" id="balsa-patrimonio" class="form-control"></div>
         <div><label>Armazém</label><input type="text" id="balsa-armazem" class="form-control"></div>
+        <div style="grid-column:span 2;"><label>Observações</label><textarea id="balsa-observacoes" class="form-control" rows="3"></textarea></div>
       </div>
+
+      ${secaoDocumentosBalsaHtml(null)}
 
       <input type="hidden" id="balsa-finalidade" value="${finalidade}">
 
@@ -340,11 +445,13 @@ window.salvarBalsa = async function (finalidade) {
     anoFabricacao: parseInt(document.getElementById('balsa-anoFabricacao').value) || null,
     capacidade: parseInt(document.getElementById('balsa-capacidade').value) || null,
     tipo: document.getElementById('balsa-tipo').value.trim(),
+    patrimonio: document.getElementById('balsa-patrimonio').value.trim(),
     armazem: document.getElementById('balsa-armazem').value.trim(),
+    observacoes: document.getElementById('balsa-observacoes').value.trim(),
     finalidade,
   }
 
-  if (!body.fabricante || !body.numeroSerie || !body.modelo || !body.anoFabricacao || !body.capacidade || !body.tipo) {
+  if (!body.fabricante || !body.numeroSerie || !body.modelo || !body.anoFabricacao || !body.capacidade || !body.tipo || !body.patrimonio) {
     alert('Preencha todos os campos obrigatórios!')
     return
   }
@@ -355,7 +462,11 @@ window.salvarBalsa = async function (finalidade) {
   })
 
   if (res.ok) {
-    alert('Balsa cadastrada com sucesso!')
+    const balsa = await res.json()
+    const documentosOk = await enviarDocumentosBalsaPendentes(balsa.id)
+    alert(documentosOk
+      ? 'Balsa cadastrada com sucesso!'
+      : 'Balsa cadastrada, mas algum documento não foi enviado. Confira a lista de documentos.')
     inicializarEstoqueWrapper(finalidade)
   } else {
     const err = await res.json()
@@ -366,6 +477,7 @@ window.salvarBalsa = async function (finalidade) {
 // ===== FORMULÁRIO — EDITAR BALSA ===============================================
 window.editarBalsa = async function (id, finalidade) {
   const containerId = finalidade === 'locacao' ? 'estoqueLocacao' : 'estoqueVendas'
+  documentosBalsaPendentes = []
   const b = await apiFetch(`${API}/estoque/${id}`).then(r => r.json())
 
   document.getElementById(containerId).innerHTML = `
@@ -380,6 +492,7 @@ window.editarBalsa = async function (id, finalidade) {
         <div><label>Ano de Fabricação *</label><input type="number" id="balsa-anoFabricacao" class="form-control" value="${b.anoFabricacao}"></div>
         <div><label>Capacidade *</label><input type="number" id="balsa-capacidade" class="form-control" value="${b.capacidade}"></div>
         <div><label>Tipo *</label><input type="text" id="balsa-tipo" class="form-control" value="${b.tipo}"></div>
+        <div><label>Patrimônio *</label><input type="text" id="balsa-patrimonio" class="form-control" value="${esc(b.patrimonio)}"></div>
         <div><label>Armazém</label><input type="text" id="balsa-armazem" class="form-control" value="${b.armazem || ''}"></div>
         <div>
           <label>Finalidade</label>
@@ -388,7 +501,10 @@ window.editarBalsa = async function (id, finalidade) {
             <option value="venda" ${b.finalidade === 'venda' ? 'selected' : ''}>Venda</option>
           </select>
         </div>
+        <div style="grid-column:span 2;"><label>Observações</label><textarea id="balsa-observacoes" class="form-control" rows="3">${esc(b.observacoes)}</textarea></div>
       </div>
+
+      ${secaoDocumentosBalsaHtml(b.documentos || [])}
 
       <div style="display:flex; flex-wrap:wrap; gap:8px; margin-top:20px;">
         <button type="button" class="btn btn-success" onclick="atualizarBalsa(${b.id}, '${finalidade}')">Salvar Alterações</button>
@@ -414,8 +530,15 @@ window.atualizarBalsa = async function (id, finalidadeOrigem) {
     anoFabricacao: parseInt(document.getElementById('balsa-anoFabricacao').value) || null,
     capacidade: parseInt(document.getElementById('balsa-capacidade').value) || null,
     tipo: document.getElementById('balsa-tipo').value.trim(),
+    patrimonio: document.getElementById('balsa-patrimonio').value.trim(),
     armazem: document.getElementById('balsa-armazem').value.trim(),
+    observacoes: document.getElementById('balsa-observacoes').value.trim(),
     finalidade: document.getElementById('balsa-finalidade').value,
+  }
+
+  if (!body.patrimonio) {
+    alert('Patrimônio é obrigatório!')
+    return
   }
 
   const res = await apiJson(`${API}/estoque/${id}`, {
@@ -424,7 +547,10 @@ window.atualizarBalsa = async function (id, finalidadeOrigem) {
   })
 
   if (res.ok) {
-    alert('Balsa atualizada com sucesso!')
+    const documentosOk = await enviarDocumentosBalsaPendentes(id)
+    alert(documentosOk
+      ? 'Balsa atualizada com sucesso!'
+      : 'Balsa atualizada, mas algum documento não foi enviado. Confira a lista de documentos.')
     inicializarEstoqueWrapper(finalidadeOrigem)
   } else {
     const err = await res.json()

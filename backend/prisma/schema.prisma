@@ -272,6 +272,12 @@ model Balsa {
   capacidade    Int
   tipo          String
   armazem       String?
+  // Patrimônio é obrigatório e único, mas as duas regras são validadas em
+  // routes/estoque.js e não aqui: já existiam balsas antes do campo (por isso
+  // opcional) e o `prisma db push` do deploy recusa criar @unique em tabela
+  // existente sem --accept-data-loss.
+  patrimonio    String?
+  observacoes   String?
   finalidade    String
   // finalidade: locacao | venda
 
@@ -283,6 +289,20 @@ model Balsa {
 
   contratosBalsa ContratoBalsa[]
   vendasBalsa    VendaBalsa[]
+  documentos     DocumentoBalsa[]
+}
+
+// Documentos da balsa (PDF ou imagem). Ficam em uploads-privado/balsas e são
+// servidos só pela rota autenticada — ver routes/estoque.js
+model DocumentoBalsa {
+  id           Int      @id @default(autoincrement())
+  balsa        Balsa    @relation(fields: [balsaId], references: [id])
+  balsaId      Int
+  titulo       String
+  nomeOriginal String
+  nomeArquivo  String
+  mimeType     String
+  criadoEm     DateTime @default(now())
 }
 
 model Cliente {

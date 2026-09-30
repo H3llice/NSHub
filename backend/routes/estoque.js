@@ -1,4 +1,8 @@
 import { Router } from 'express'
+import multer from 'multer'
+import path from 'path'
+import fs from 'fs'
+import { fileURLToPath } from 'url'
 import { prisma } from '../server.js'
 import { autenticar, exigirPerfil } from '../middleware/auth.js'
 
@@ -6,6 +10,21 @@ const router = Router()
 
 const FINALIDADES_VALIDAS = ['locacao', 'venda']
 const STATUS_VALIDOS = ['disponivel', 'locado', 'vendido']
+
+// Documentos da balsa ficam fora de backend/uploads, no mesmo esquema dos
+// documentos de colaborador: pasta própria, entregues só pela rota autenticada.
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
+const PASTA_DOCUMENTOS = path.resolve(__dirname, '..', 'uploads-privado', 'balsas')
+fs.mkdirSync(PASTA_DOCUMENTOS, { recursive: true })
+
+const upload = multer({
+  storage: multer.diskStorage({
+    destination: (req, file, cb) => cb(null, PASTA_DOCUMENTOS),
+    filename: (req, file, cb) => cb(null, `${Date.now()}-${Math.round(Math.random() * 1e9)}${path.extname(file.originalname).toLowerCase()}`)
+  }),
+  fileFilter: (req, file, cb) => cb(null, file.mimetype === 'application/pdf' || file.mimetype.startsWith('image/')),
+  limits: { fileSize: 20 * 1024 * 1024 }
+})
 
 // ─── Listar balsas ─────────────────────────────────────────────────────────────
 // GET /estoque?finalidade=locacao        → só disponíveis dessa finalidade
@@ -34,10 +53,63 @@ router.get('/', autenticar, async (req, res) => {
   res.json(balsas)
 })
 
+// ═══════════════════════════════ DOCUMENTOS ══════════════════════════════════════
+// Declaradas antes de GET /:id pra "/documentos/..." não ser lido como um id de balsa.
+
+// ─── Abrir documento (link em nova aba, token via ?token=) ────────────────────
+router.get('/documentos/:docId/arquivo', autenticar, async (req, res) => {
+  const documento = await prisma.documentoBalsa.findUnique({ where: { id: Number(req.params.docId) } })
+  if (!documento) return res.status(404).json({ erro: 'Documento não encontrado' })
+
+  res.setHeader('Content-Type', documento.mimeType)
+  res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(documento.nomeOriginal)}"`)
+  res.sendFile(path.join(PASTA_DOCUMENTOS, documento.nomeArquivo))
+})
+
+// ─── Remover documento ─────────────────────────────────────────────────────────
+router.delete('/documentos/:docId', autenticar, exigirPerfil('admin', 'gerente'), async (req, res) => {
+  const documento = await prisma.documentoBalsa.findUnique({ where: { id: Number(req.params.docId) } })
+  if (!documento) return res.status(404).json({ erro: 'Documento não encontrado' })
+
+  await prisma.documentoBalsa.delete({ where: { id: documento.id } })
+  fs.unlink(path.join(PASTA_DOCUMENTOS, documento.nomeArquivo), () => { })
+  res.json({ ok: true })
+})
+
+// ─── Anexar documento (PDF ou imagem + título) ─────────────────────────────────
+router.post('/:id/documentos', autenticar, exigirPerfil('admin', 'gerente'), upload.single('arquivo'), async (req, res) => {
+  const titulo = (req.body.titulo || '').trim()
+
+  if (!req.file) return res.status(400).json({ erro: 'Envie um arquivo PDF ou imagem' })
+  if (!titulo) {
+    fs.unlink(req.file.path, () => { })
+    return res.status(400).json({ erro: 'Título é obrigatório' })
+  }
+
+  const balsaId = Number(req.params.id)
+  const balsa = await prisma.balsa.findUnique({ where: { id: balsaId } })
+  if (!balsa) {
+    fs.unlink(req.file.path, () => { })
+    return res.status(404).json({ erro: 'Balsa não encontrada' })
+  }
+
+  const documento = await prisma.documentoBalsa.create({
+    data: {
+      balsaId,
+      titulo,
+      nomeOriginal: req.file.originalname,
+      nomeArquivo: req.file.filename,
+      mimeType: req.file.mimetype
+    }
+  })
+  res.json(documento)
+})
+
 // ─── Buscar uma balsa ──────────────────────────────────────────────────────────
 router.get('/:id', autenticar, async (req, res) => {
   const balsa = await prisma.balsa.findUnique({
-    where: { id: Number(req.params.id) }
+    where: { id: Number(req.params.id) },
+    include: { documentos: { orderBy: { criadoEm: 'desc' } } }
   })
 
   if (!balsa) return res.status(404).json({ erro: 'Balsa não encontrada' })
@@ -49,11 +121,12 @@ router.get('/:id', autenticar, async (req, res) => {
 router.post('/', autenticar, exigirPerfil('admin', 'gerente'), async (req, res) => {
   const {
     fabricante, numeroSerie, modelo, anoFabricacao,
-    capacidade, tipo, armazem, finalidade
+    capacidade, tipo, armazem, finalidade, observacoes
   } = req.body
+  const patrimonio = (req.body.patrimonio || '').trim()
 
-  if (!fabricante || !numeroSerie || !modelo || !anoFabricacao || !capacidade || !tipo || !finalidade) {
-    return res.status(400).json({ erro: 'Todos os campos são obrigatórios, exceto armazém' })
+  if (!fabricante || !numeroSerie || !modelo || !anoFabricacao || !capacidade || !tipo || !finalidade || !patrimonio) {
+    return res.status(400).json({ erro: 'Todos os campos são obrigatórios, exceto armazém e observações' })
   }
 
   if (!FINALIDADES_VALIDAS.includes(finalidade)) {
@@ -65,6 +138,11 @@ router.post('/', autenticar, exigirPerfil('admin', 'gerente'), async (req, res) 
     return res.status(400).json({ erro: 'Já existe uma balsa cadastrada com esse número de série' })
   }
 
+  const patrimonioExiste = await prisma.balsa.findFirst({ where: { patrimonio } })
+  if (patrimonioExiste) {
+    return res.status(400).json({ erro: 'Já existe uma balsa cadastrada com esse patrimônio' })
+  }
+
   const balsa = await prisma.balsa.create({
     data: {
       fabricante,
@@ -74,6 +152,8 @@ router.post('/', autenticar, exigirPerfil('admin', 'gerente'), async (req, res) 
       capacidade: Number(capacidade),
       tipo,
       armazem: armazem || null,
+      patrimonio,
+      observacoes: observacoes || null,
       finalidade
     }
   })
@@ -86,7 +166,7 @@ router.put('/:id', autenticar, exigirPerfil('admin', 'gerente'), async (req, res
   const id = Number(req.params.id)
   const {
     fabricante, numeroSerie, modelo, anoFabricacao,
-    capacidade, tipo, armazem, finalidade, status
+    capacidade, tipo, armazem, finalidade, status, observacoes
   } = req.body
 
   const dados = {}
@@ -97,6 +177,21 @@ router.put('/:id', autenticar, exigirPerfil('admin', 'gerente'), async (req, res
   if (capacidade) dados.capacidade = Number(capacidade)
   if (tipo) dados.tipo = tipo
   if (armazem !== undefined) dados.armazem = armazem || null
+  if (observacoes !== undefined) dados.observacoes = observacoes || null
+
+  // Só valida o patrimônio quando ele vem no body — a troca de status
+  // (marcar locado/vendido/reativar) manda só { status } e não pode ser barrada
+  // por uma balsa antiga que ainda não tem patrimônio.
+  if (req.body.patrimonio !== undefined) {
+    const patrimonio = String(req.body.patrimonio || '').trim()
+    if (!patrimonio) return res.status(400).json({ erro: 'Patrimônio é obrigatório' })
+
+    const patrimonioExiste = await prisma.balsa.findFirst({ where: { patrimonio } })
+    if (patrimonioExiste && patrimonioExiste.id !== id) {
+      return res.status(400).json({ erro: 'Já existe uma balsa cadastrada com esse patrimônio' })
+    }
+    dados.patrimonio = patrimonio
+  }
 
   if (finalidade) {
     if (!FINALIDADES_VALIDAS.includes(finalidade)) {
