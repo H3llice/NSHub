@@ -74,6 +74,8 @@ function linhaTotal(rotulo, itens, classe) {
       <td></td>
       <td class="centro">${soma(itens, 'diasDobra')}</td>
       <td class="centro">${itens.some(i => i.diasTrabalhados != null) ? soma(itens, 'diasTrabalhados') : '-'}</td>
+      <td class="centro">${soma(itens, 'atestados')}</td>
+      <td class="centro">${soma(itens, 'faltasNaoJustificadas')}</td>
       <td class="centro">${itens.filter(i => i.valeTransporte).length}</td>
       ${CAMPOS_VALOR.map(c => `<td class="num">${moeda(soma(itens, c.campo))}</td>`).join('')}
       <td></td>
@@ -87,12 +89,14 @@ function secaoGrupo(grupo, itens) {
     <table>
       <thead>
         <tr>
-          <th style="width:16%;">Colaborador</th>
-          <th style="width:15.5%;">Embarcado</th>
+          <th style="width:15%;">Colaborador</th>
+          <th style="width:14%;">Embarcado</th>
           <th style="width:4.5%;">Dobras</th>
-          <th style="width:5%;">Dias trab.</th>
-          <th style="width:5%;">Vale-transp.</th>
-          ${CAMPOS_VALOR.map(c => `<th style="width:7%;">${c.titulo}</th>`).join('')}
+          <th style="width:4.5%;">Dias trab.</th>
+          <th style="width:4.5%;">Atest.</th>
+          <th style="width:4.5%;">Faltas não just.</th>
+          <th style="width:4.5%;">Vale-transp.</th>
+          ${CAMPOS_VALOR.map(c => `<th style="width:6.5%;">${c.titulo}</th>`).join('')}
           <th>Observações</th>
         </tr>
       </thead>
@@ -108,6 +112,8 @@ function secaoGrupo(grupo, itens) {
               : '-'}</td>
             <td class="centro">${i.diasDobra}</td>
             <td class="centro">${i.diasTrabalhados ?? '-'}</td>
+            <td class="centro">${i.atestados ?? '-'}</td>
+            <td class="centro">${i.faltasNaoJustificadas ?? '-'}</td>
             <td class="centro">${i.valeTransporte ? 'Sim' : 'Não'}</td>
             ${CAMPOS_VALOR.map(c => `<td class="num">${i[c.campo] != null ? moeda(i[c.campo]) : '-'}</td>`).join('')}
             <td>${escapeHtml(i.observacoes)}</td>
@@ -185,8 +191,8 @@ export function htmlFolhaPagamento(folha, filtro) {
         <h2>Total geral <span>(${folha.itens.length})</span></h2>
         <table>
           <colgroup>
-            <col style="width:16%;"><col style="width:15.5%;"><col style="width:4.5%;"><col style="width:5%;"><col style="width:5%;">
-            ${CAMPOS_VALOR.map(() => '<col style="width:7%;">').join('')}
+            <col style="width:15%;"><col style="width:14%;">${'<col style="width:4.5%;">'.repeat(5)}
+            ${CAMPOS_VALOR.map(() => '<col style="width:6.5%;">').join('')}
             <col>
           </colgroup>
           <tbody>${linhaTotal('Total geral', folha.itens, 'geral')}</tbody>

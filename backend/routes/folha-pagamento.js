@@ -109,7 +109,11 @@ function lerValor(v) {
   return isNaN(n) ? undefined : Math.round(n * 100) / 100
 }
 
-// Dias trabalhados: "" / null → null; senão inteiro de 0 a 31. undefined se inválido.
+// Campos de contagem de dias digitados na tela (diasTrabalhados só existe na
+// tela pro intermitente; os outros dois, pra todos)
+const CAMPOS_DIAS = { diasTrabalhados: 'Dias trabalhados', atestados: 'Atestados', faltasNaoJustificadas: 'Faltas não justificadas' }
+
+// Contagem de dias: "" / null → null; senão inteiro de 0 a 31. undefined se inválido.
 function lerDias(v) {
   if (v === '' || v === null || v === undefined) return null
   const n = Number(v)
@@ -242,7 +246,7 @@ router.post('/:id/atualizar', autenticar, exigirPerfil(...PERFIS_FOLHA), async (
 })
 
 // ─── Salvar valores digitados (folha aberta) ───────────────────────────────────
-// body.itens: [{ id, diasTrabalhados, descontoPlanoSaude, coparticipacaoPlanoSaude, ajudaCusto, premio, comissao, observacoes }]
+// body.itens: [{ id, diasTrabalhados, atestados, faltasNaoJustificadas, descontoPlanoSaude, coparticipacaoPlanoSaude, ajudaCusto, premio, comissao, observacoes }]
 router.put('/:id/itens', autenticar, exigirPerfil(...PERFIS_FOLHA), async (req, res) => {
   const folha = await buscarFolhaAberta(Number(req.params.id), res)
   if (!folha) return
@@ -251,11 +255,13 @@ router.put('/:id/itens', autenticar, exigirPerfil(...PERFIS_FOLHA), async (req, 
   const atualizacoes = []
   for (const item of itens) {
     const data = { observacoes: (item.observacoes || '').trim() || null }
-    // Só vem na requisição pra quem é intermitente (é quem tem o campo na tela)
-    if (item.diasTrabalhados !== undefined) {
-      const dias = lerDias(item.diasTrabalhados)
-      if (dias === undefined) return res.status(400).json({ erro: 'Dias trabalhados inválido (use um número inteiro de 0 a 31)' })
-      data.diasTrabalhados = dias
+    // Só grava o que veio na requisição — diasTrabalhados, por exemplo, só vem
+    // pra quem é intermitente (é quem tem o campo na tela)
+    for (const [campo, titulo] of Object.entries(CAMPOS_DIAS)) {
+      if (item[campo] === undefined) continue
+      const dias = lerDias(item[campo])
+      if (dias === undefined) return res.status(400).json({ erro: `${titulo} inválido (use um número inteiro de 0 a 31)` })
+      data[campo] = dias
     }
     for (const campo of CAMPOS_VALOR) {
       const valor = lerValor(item[campo])

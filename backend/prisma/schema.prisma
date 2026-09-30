@@ -1318,6 +1318,10 @@ model ItemFolhaPagamento {
   // por dia). Nasce igual aos dias embarcados e é editável; "atualizar dados
   // automáticos" só o refaz se ninguém editou (ver routes/folha-pagamento.js).
   diasTrabalhados Int?
+  // Dias de atestado e de falta não justificada no mês — digitados na folha,
+  // pra qualquer colaborador. Não são tocados por "atualizar dados automáticos".
+  atestados             Int?
+  faltasNaoJustificadas Int?
 
   // Valores (R$) — descontoPlanoSaude e comissao vêm preenchidos, todos editáveis
   descontoPlanoSaude       Float?

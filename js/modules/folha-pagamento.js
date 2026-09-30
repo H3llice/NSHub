@@ -204,7 +204,7 @@ function renderizarFolha(folha) {
       </div>
       <p style="font-size:12px; color:#999; margin:0 0 16px;">
         ${aberta
-          ? 'Embarques, dobras, vale-transporte, desconto do plano de saúde, auxílio moradia e comissões vêm preenchidos. "Atualizar dados automáticos" puxa de novo esses dados (e inclui colaboradores novos), sem mexer em coparticipação, ajuda de custo, prêmio e observações. Dias trabalhados é só pra intermitente (o salário dele é por dia): vem preenchido com os dias embarcados e pode ser alterado — depois de alterado à mão, a atualização automática não mexe mais nele.'
+          ? 'Embarques, dobras, vale-transporte, desconto do plano de saúde, auxílio moradia e comissões vêm preenchidos. "Atualizar dados automáticos" puxa de novo esses dados (e inclui colaboradores novos), sem mexer em atestados, faltas, coparticipação, ajuda de custo, prêmio e observações. Dias trabalhados é só pra intermitente (o salário dele é por dia): vem preenchido com os dias embarcados e pode ser alterado — depois de alterado à mão, a atualização automática não mexe mais nele.'
           : `Fechada em ${new Date(folha.fechadaEm).toLocaleDateString('pt-BR')} — valores congelados.`}
       </p>
 
@@ -302,6 +302,12 @@ function secaoGrupoHtml(grupo, itens, aberta) {
       min="0" step="0.01" value="${item[campo] ?? ''}" style="width:110px;" oninput="atualizarTotaisFolha()" ${dis}>
   `
 
+  // Campo de contagem de dias (dias trabalhados, atestados, faltas)
+  const inputDias = (item, campo) => `
+    <input type="number" class="form-control form-control-sm folha-dias" data-item="${item.id}" data-campo="${campo}"
+      min="0" max="31" step="1" value="${item[campo] ?? ''}" style="width:72px; margin:0 auto;" oninput="atualizarTotaisFolha()" ${dis}>
+  `
+
   return `
     <div class="folha-secao" data-grupo="${grupo.id}">
     <h5 style="margin:24px 0 10px;">${grupo.titulo} <small style="color:#999; font-weight:400;">(${itens.length})</small></h5>
@@ -315,6 +321,8 @@ function secaoGrupoHtml(grupo, itens, aberta) {
             <th>Embarcado</th>
             <th>Dobras</th>
             <th title="Só para intermitente (salário por dia). Vem com os dias embarcados e pode ser alterado.">Dias trabalhados</th>
+            <th title="Dias de atestado no mês">Atestados</th>
+            <th title="Dias de falta não justificada no mês">Faltas não justificadas</th>
             <th>Vale-transporte</th>
             ${CAMPOS_VALOR.map(c => `<th>${c.titulo}</th>`).join('')}
             <th>Observações</th>
@@ -332,10 +340,10 @@ function secaoGrupoHtml(grupo, itens, aberta) {
               </td>
               <td style="text-align:center;">${i.diasDobra > 0 ? `<strong style="color:#dc3545;">${i.diasDobra}</strong>` : '0'}</td>
               <td style="text-align:center;">
-                ${i.tipoContrato === 'intermitente'
-                  ? `<input type="number" class="form-control form-control-sm folha-dias" data-item="${i.id}" min="0" max="31" step="1" value="${i.diasTrabalhados ?? ''}" style="width:80px; margin:0 auto;" oninput="atualizarTotaisFolha()" ${dis}>`
-                  : '<span style="color:#999;">-</span>'}
+                ${i.tipoContrato === 'intermitente' ? inputDias(i, 'diasTrabalhados') : '<span style="color:#999;">-</span>'}
               </td>
+              <td>${inputDias(i, 'atestados')}</td>
+              <td>${inputDias(i, 'faltasNaoJustificadas')}</td>
               <td style="text-align:center;">${i.valeTransporte ? 'Sim' : 'Não'}</td>
               ${CAMPOS_VALOR.map(c => `<td>${inputValor(i, c.campo)}</td>`).join('')}
               <td><input type="text" class="form-control form-control-sm folha-obs" data-item="${i.id}" value="${esc(i.observacoes)}" style="min-width:140px;" ${dis}></td>
@@ -346,7 +354,9 @@ function secaoGrupoHtml(grupo, itens, aberta) {
             <td>Total</td>
             <td></td>
             <td style="text-align:center;">${itens.reduce((s, i) => s + i.diasDobra, 0)}</td>
-            <td style="text-align:center;" class="folha-total-dias" data-grupo="${grupo.id}"></td>
+            <td style="text-align:center;" class="folha-total-dias" data-grupo="${grupo.id}" data-campo="diasTrabalhados"></td>
+            <td style="text-align:center;" class="folha-total-dias" data-grupo="${grupo.id}" data-campo="atestados"></td>
+            <td style="text-align:center;" class="folha-total-dias" data-grupo="${grupo.id}" data-campo="faltasNaoJustificadas"></td>
             <td style="text-align:center;">${itens.filter(i => i.valeTransporte).length}</td>
             ${CAMPOS_VALOR.map(c => `<td class="folha-total" data-grupo="${grupo.id}" data-campo="${c.campo}"></td>`).join('')}
             <td></td>
@@ -370,14 +380,15 @@ window.atualizarTotaisFolha = function () {
     el.textContent = formatarMoedaFolha(somas[`${el.dataset.grupo}|${el.dataset.campo}`])
   })
 
-  // Dias trabalhados (só intermitentes têm o campo) — "-" no grupo sem nenhum
+  // Contagens de dias (dias trabalhados, atestados, faltas) — "-" quando ninguém
+  // do grupo tem o campo (dias trabalhados só existe pra intermitente)
   const dias = {}
   document.querySelectorAll('.folha-dias').forEach(el => {
-    const grupo = grupoDoItem.get(el.dataset.item)
-    dias[grupo] = (dias[grupo] || 0) + (parseInt(el.value) || 0)
+    const chave = `${grupoDoItem.get(el.dataset.item)}|${el.dataset.campo}`
+    dias[chave] = (dias[chave] || 0) + (parseInt(el.value) || 0)
   })
   document.querySelectorAll('.folha-total-dias').forEach(el => {
-    el.textContent = dias[el.dataset.grupo] ?? '-'
+    el.textContent = dias[`${el.dataset.grupo}|${el.dataset.campo}`] ?? '-'
   })
 }
 
@@ -388,7 +399,7 @@ function lerItensDaTela() {
     return porItem.get(id)
   }
   document.querySelectorAll('.folha-valor').forEach(el => { item(el.dataset.item)[el.dataset.campo] = el.value })
-  document.querySelectorAll('.folha-dias').forEach(el => { item(el.dataset.item).diasTrabalhados = el.value })
+  document.querySelectorAll('.folha-dias').forEach(el => { item(el.dataset.item)[el.dataset.campo] = el.value })
   document.querySelectorAll('.folha-obs').forEach(el => { item(el.dataset.item).observacoes = el.value })
   return [...porItem.values()]
 }
