@@ -3,6 +3,8 @@ import { prisma } from '../server.js'
 import { autenticar, exigirPerfil } from '../middleware/auth.js'
 import { calcularDiasColaborador, embarquesPorColaborador, chaveDia } from './embarques.js'
 import { FUNCOES_TECNICO } from './colaboradores.js'
+import { htmlFolhaPagamento, nomeMesFolha, GRUPOS_FOLHA } from '../templates/folha-pagamento.js'
+import { gerarPdf } from '../pdf-browser.js'
 
 const router = Router()
 
@@ -102,6 +104,13 @@ function lerValor(v) {
   return isNaN(n) ? undefined : Math.round(n * 100) / 100
 }
 
+// Dias trabalhados: "" / null → null; senão inteiro de 0 a 31. undefined se inválido.
+function lerDias(v) {
+  if (v === '' || v === null || v === undefined) return null
+  const n = Number(v)
+  return Number.isInteger(n) && n >= 0 && n <= 31 ? n : undefined
+}
+
 async function buscarFolhaAberta(id, res) {
   const folha = await prisma.folhaPagamento.findUnique({ where: { id } })
   if (!folha) { res.status(404).json({ erro: 'Folha não encontrada' }); return null }
@@ -123,6 +132,29 @@ router.get('/:id', autenticar, exigirPerfil(...PERFIS_FOLHA), async (req, res) =
   const folha = await prisma.folhaPagamento.findUnique({ where: { id: Number(req.params.id) }, include: INCLUDE_ITENS })
   if (!folha) return res.status(404).json({ erro: 'Folha não encontrada' })
   res.json(folha)
+})
+
+// ─── PDF da folha (link em nova aba, token via ?token=) ────────────────────────
+// Sem filtro sai a folha inteira. ?grupo=base|tecnicos|estagiarios imprime só
+// essa seção — é o filtro da tela da folha.
+router.get('/:id/pdf', autenticar, exigirPerfil(...PERFIS_FOLHA), async (req, res) => {
+  const folha = await prisma.folhaPagamento.findUnique({ where: { id: Number(req.params.id) }, include: INCLUDE_ITENS })
+  if (!folha) return res.status(404).json({ erro: 'Folha não encontrada' })
+
+  const grupo = req.query.grupo ? GRUPOS_FOLHA.find(g => g.id === req.query.grupo) : null
+  if (req.query.grupo && !grupo) {
+    return res.status(400).json({ erro: `Grupo inválido. Use: ${GRUPOS_FOLHA.map(g => g.id).join(', ')}` })
+  }
+  if (grupo) folha.itens = folha.itens.filter(i => i.grupo === grupo.id)
+  const filtro = grupo?.titulo || null
+
+  // preferCSSPageSize: o template pede A4 deitado no @page
+  const pdfBytes = await gerarPdf(htmlFolhaPagamento(folha, filtro), { preferCSSPageSize: true })
+
+  const nomeArquivo = `Folha de pagamento ${nomeMesFolha(folha).replace('/', '-')}${filtro ? ' - ' + filtro : ''}.pdf`
+  res.setHeader('Content-Type', 'application/pdf')
+  res.setHeader('Content-Disposition', `inline; filename*=UTF-8''${encodeURIComponent(nomeArquivo)}`)
+  res.send(Buffer.from(pdfBytes))
 })
 
 // ─── Gerar folha do mês ────────────────────────────────────────────────────────
@@ -177,7 +209,7 @@ router.post('/:id/atualizar', autenticar, exigirPerfil(...PERFIS_FOLHA), async (
 })
 
 // ─── Salvar valores digitados (folha aberta) ───────────────────────────────────
-// body.itens: [{ id, descontoPlanoSaude, coparticipacaoPlanoSaude, ajudaCusto, premio, comissao, observacoes }]
+// body.itens: [{ id, diasTrabalhados, descontoPlanoSaude, coparticipacaoPlanoSaude, ajudaCusto, premio, comissao, observacoes }]
 router.put('/:id/itens', autenticar, exigirPerfil(...PERFIS_FOLHA), async (req, res) => {
   const folha = await buscarFolhaAberta(Number(req.params.id), res)
   if (!folha) return
@@ -186,6 +218,12 @@ router.put('/:id/itens', autenticar, exigirPerfil(...PERFIS_FOLHA), async (req, 
   const atualizacoes = []
   for (const item of itens) {
     const data = { observacoes: (item.observacoes || '').trim() || null }
+    // Só vem na requisição pra quem é intermitente (é quem tem o campo na tela)
+    if (item.diasTrabalhados !== undefined) {
+      const dias = lerDias(item.diasTrabalhados)
+      if (dias === undefined) return res.status(400).json({ erro: 'Dias trabalhados inválido (use um número inteiro de 0 a 31)' })
+      data.diasTrabalhados = dias
+    }
     for (const campo of CAMPOS_VALOR) {
       const valor = lerValor(item[campo])
       if (valor === undefined) return res.status(400).json({ erro: `Valor inválido em ${campo}` })

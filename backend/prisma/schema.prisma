@@ -1167,8 +1167,10 @@ model Colaborador {
   // Desconto mensal do plano de saúde (R$), opcional — a Folha de pagamento
   // puxa esse valor ao ser gerada (a coparticipação é digitada na própria folha)
   descontoPlanoSaude Float?
-  // Salário (R$/mês) — obrigatório no cadastro (validado em routes/colaboradores.js),
-  // mas opcional no banco porque colaboradores cadastrados antes do campo não têm
+  // Salário — obrigatório no cadastro (validado em routes/colaboradores.js), mas
+  // opcional no banco porque colaboradores cadastrados antes do campo não têm.
+  // A unidade depende do tipoContrato: mensalista = R$/mês; intermitente = R$/DIA
+  // (os dias trabalhados no mês são digitados na Folha — ItemFolhaPagamento.diasTrabalhados)
   salario            Float?
   // Obsoleto, não usado: valor do VT (o desconto é sempre 6% do salário). Mantido
   // no banco só porque apagar coluna com dados faz o `prisma db push` do deploy
@@ -1312,6 +1314,9 @@ model ItemFolhaPagamento {
   // Optou pelo vale-transporte (cópia de Colaborador.descontoValeTransporte) — a
   // folha só mostra Sim/Não, sem valor
   valeTransporte Boolean @default(false)
+  // Dias trabalhados no mês — digitado na folha, só pra intermitente (o salário
+  // dele no cadastro é por dia). Não é tocado por "atualizar dados automáticos".
+  diasTrabalhados Int?
 
   // Valores (R$) — descontoPlanoSaude e comissao vêm preenchidos, todos editáveis
   descontoPlanoSaude       Float?

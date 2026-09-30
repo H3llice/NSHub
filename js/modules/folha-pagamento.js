@@ -77,6 +77,14 @@ function formatarMoedaFolha(v) {
 
 const nomeMes = f => `${MESES[f.mes - 1]}/${f.ano}`
 
+// PDF abre em nova aba — sem header Authorization, o token vai na query.
+// grupo: '' (folha inteira) ou o id de um dos GRUPOS (base | tecnicos | estagiarios)
+function urlPdfFolha(id, grupo = '') {
+  const params = new URLSearchParams({ token: localStorage.getItem('ns_token') || '' })
+  if (grupo) params.append('grupo', grupo)
+  return `${API}/folha-pagamento/${id}/pdf?${params}`
+}
+
 function badgeStatusFolha(status) {
   return status === 'fechada'
     ? `<span style="background:#6c757d; color:white; padding:2px 8px; border-radius:12px; font-size:12px;">Fechada</span>`
@@ -129,6 +137,7 @@ export async function inicializarFolhaPagamento() {
           <td>${esc(f.criadoPor?.nome) || '-'}</td>
           <td style="white-space:nowrap;">
             <button class="btn btn-sm btn-info" onclick="abrirFolhaPagamento(${f.id})">Abrir</button>
+            <a class="btn btn-sm btn-secondary" href="${urlPdfFolha(f.id)}" target="_blank" title="PDF da folha inteira">PDF</a>
             ${f.status === 'aberta' ? `<button class="btn btn-sm btn-danger" onclick="excluirFolhaPagamento(${f.id})">Excluir</button>` : ''}
           </td>
         </tr>
@@ -171,6 +180,8 @@ window.abrirFolhaPagamento = async function (id) {
 }
 
 function renderizarFolha(folha) {
+  // Mantém o filtro escolhido quando a tela é refeita (salvar, atualizar, fechar)
+  const filtroAnterior = folhaAtual?.id === folha.id ? (document.getElementById('folha-filtro')?.value || '') : ''
   folhaAtual = folha
   const aberta = folha.status === 'aberta'
 
@@ -187,7 +198,7 @@ function renderizarFolha(folha) {
       </div>
       <p style="font-size:12px; color:#999; margin:0 0 16px;">
         ${aberta
-          ? 'Embarques, dobras, vale-transporte, desconto do plano de saúde, auxílio moradia e comissões vêm preenchidos. "Atualizar dados automáticos" puxa de novo esses dados (e inclui colaboradores novos), sem mexer em coparticipação, ajuda de custo, prêmio e observações.'
+          ? 'Embarques, dobras, vale-transporte, desconto do plano de saúde, auxílio moradia e comissões vêm preenchidos. "Atualizar dados automáticos" puxa de novo esses dados (e inclui colaboradores novos), sem mexer em dias trabalhados, coparticipação, ajuda de custo, prêmio e observações. Dias trabalhados é só pra intermitente (o salário dele é por dia).'
           : `Fechada em ${new Date(folha.fechadaEm).toLocaleDateString('pt-BR')} — valores congelados.`}
       </p>
 
@@ -199,10 +210,51 @@ function renderizarFolha(folha) {
         ` : podeReabrirFolha ? `<button class="btn btn-secondary" onclick="reabrirFolhaPagamento()">Reabrir folha</button>` : ''}
       </div>
 
+      <div style="display:flex; gap:8px; align-items:flex-end; flex-wrap:wrap; margin:16px 0 4px; padding:12px; background:white; border-radius:6px; box-shadow:0 2px 6px rgba(0,0,0,0.06);">
+        <div>
+          <label style="font-size:12px;">Mostrar</label>
+          <select id="folha-filtro" class="form-control form-control-sm" style="min-width:220px;" onchange="aplicarFiltroFolha()">
+            <option value="">Folha inteira</option>
+            ${GRUPOS.map(g => `<option value="${g.id}" ${g.id === filtroAnterior ? 'selected' : ''}>${g.titulo}</option>`).join('')}
+          </select>
+        </div>
+        <button class="btn btn-sm btn-secondary" onclick="abrirPdfFolha()">📄 PDF do que está na tela</button>
+        <small style="color:#999; flex-basis:100%;">O filtro só muda o que aparece e o que sai no PDF — "Salvar" continua gravando a folha inteira.</small>
+      </div>
+
       ${GRUPOS.map(g => secaoGrupoHtml(g, folha.itens.filter(i => i.grupo === g.id), aberta)).join('')}
     </div>
   `
+  window.aplicarFiltroFolha()
   window.atualizarTotaisFolha()
+}
+
+// O filtro é a mesma divisão da página (os GRUPOS): mostra só a seção escolhida.
+// As outras ficam escondidas, não removidas — o que foi digitado nelas continua
+// na tela e é salvo normalmente.
+window.aplicarFiltroFolha = function () {
+  const grupo = document.getElementById('folha-filtro')?.value || ''
+  document.querySelectorAll('.folha-secao').forEach(secao => {
+    secao.style.display = !grupo || secao.dataset.grupo === grupo ? '' : 'none'
+  })
+}
+
+// PDF do grupo que está na tela (ou da folha inteira, sem filtro). O PDF sai do que está gravado, então com a
+// folha aberta salva antes — senão valores recém-digitados ficariam de fora.
+window.abrirPdfFolha = async function () {
+  const grupo = document.getElementById('folha-filtro')?.value || ''
+  // A aba é aberta já no clique: aberta depois do await, o navegador bloquearia como pop-up
+  const aba = window.open('', '_blank')
+
+  if (folhaAtual.status === 'aberta') {
+    const folha = await salvarItensFolha()
+    if (!folha) { aba?.close(); return }
+    folhaAtual = folha
+  }
+
+  const url = urlPdfFolha(folhaAtual.id, grupo)
+  if (aba) aba.location = url
+  else window.location.href = url
 }
 
 function secaoGrupoHtml(grupo, itens, aberta) {
@@ -213,6 +265,7 @@ function secaoGrupoHtml(grupo, itens, aberta) {
   `
 
   return `
+    <div class="folha-secao" data-grupo="${grupo.id}">
     <h5 style="margin:24px 0 10px;">${grupo.titulo} <small style="color:#999; font-weight:400;">(${itens.length})</small></h5>
     ${itens.length === 0 ? '<p style="color:#999; font-size:13px;">Nenhum colaborador neste grupo.</p>' : `
     <div class="table-scroll">
@@ -222,6 +275,7 @@ function secaoGrupoHtml(grupo, itens, aberta) {
             <th>Colaborador</th>
             <th>Embarcado</th>
             <th>Dobras</th>
+            <th title="Só para intermitente — o salário dele no cadastro é por dia">Dias trabalhados</th>
             <th>Vale-transporte</th>
             ${CAMPOS_VALOR.map(c => `<th>${c.titulo}</th>`).join('')}
             <th>Observações</th>
@@ -237,6 +291,11 @@ function secaoGrupoHtml(grupo, itens, aberta) {
                   : '<span style="color:#999;">-</span>'}
               </td>
               <td style="text-align:center;">${i.diasDobra > 0 ? `<strong style="color:#dc3545;">${i.diasDobra}</strong>` : '0'}</td>
+              <td style="text-align:center;">
+                ${i.tipoContrato === 'intermitente'
+                  ? `<input type="number" class="form-control form-control-sm folha-dias" data-item="${i.id}" min="0" max="31" step="1" value="${i.diasTrabalhados ?? ''}" style="width:80px; margin:0 auto;" oninput="atualizarTotaisFolha()" ${dis}>`
+                  : '<span style="color:#999;">-</span>'}
+              </td>
               <td style="text-align:center;">${i.valeTransporte ? 'Sim' : 'Não'}</td>
               ${CAMPOS_VALOR.map(c => `<td>${inputValor(i, c.campo)}</td>`).join('')}
               <td><input type="text" class="form-control form-control-sm folha-obs" data-item="${i.id}" value="${esc(i.observacoes)}" style="min-width:140px;" ${dis}></td>
@@ -246,6 +305,7 @@ function secaoGrupoHtml(grupo, itens, aberta) {
             <td>Total</td>
             <td></td>
             <td style="text-align:center;">${itens.reduce((s, i) => s + i.diasDobra, 0)}</td>
+            <td style="text-align:center;" class="folha-total-dias" data-grupo="${grupo.id}"></td>
             <td style="text-align:center;">${itens.filter(i => i.valeTransporte).length}</td>
             ${CAMPOS_VALOR.map(c => `<td class="folha-total" data-grupo="${grupo.id}" data-campo="${c.campo}"></td>`).join('')}
             <td></td>
@@ -253,6 +313,7 @@ function secaoGrupoHtml(grupo, itens, aberta) {
         </tbody>
       </table>
     </div>`}
+    </div>
   `
 }
 
@@ -267,6 +328,16 @@ window.atualizarTotaisFolha = function () {
   document.querySelectorAll('.folha-total').forEach(el => {
     el.textContent = formatarMoedaFolha(somas[`${el.dataset.grupo}|${el.dataset.campo}`])
   })
+
+  // Dias trabalhados (só intermitentes têm o campo) — "-" no grupo sem nenhum
+  const dias = {}
+  document.querySelectorAll('.folha-dias').forEach(el => {
+    const grupo = grupoDoItem.get(el.dataset.item)
+    dias[grupo] = (dias[grupo] || 0) + (parseInt(el.value) || 0)
+  })
+  document.querySelectorAll('.folha-total-dias').forEach(el => {
+    el.textContent = dias[el.dataset.grupo] ?? '-'
+  })
 }
 
 function lerItensDaTela() {
@@ -276,6 +347,7 @@ function lerItensDaTela() {
     return porItem.get(id)
   }
   document.querySelectorAll('.folha-valor').forEach(el => { item(el.dataset.item)[el.dataset.campo] = el.value })
+  document.querySelectorAll('.folha-dias').forEach(el => { item(el.dataset.item).diasTrabalhados = el.value })
   document.querySelectorAll('.folha-obs').forEach(el => { item(el.dataset.item).observacoes = el.value })
   return [...porItem.values()]
 }

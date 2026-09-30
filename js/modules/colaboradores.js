@@ -263,7 +263,7 @@ async function formularioColaboradorHtml(c = {}) {
       </div>
       <div>
         <label>Tipo de contrato *</label>
-        <select id="colaborador-tipoContrato" class="form-control">
+        <select id="colaborador-tipoContrato" class="form-control" onchange="atualizarRotuloSalarioColaborador()">
           <option value="">Selecione...</option>
           ${Object.entries(TIPOS_CONTRATO).map(([v, t]) => `<option value="${v}" ${c.tipoContrato === v ? 'selected' : ''}>${t}</option>`).join('')}
         </select>
@@ -271,7 +271,11 @@ async function formularioColaboradorHtml(c = {}) {
       <div></div>
       <div><label>Email pessoal</label><input type="email" id="colaborador-emailPessoal" class="form-control" value="${esc(c.emailPessoal)}"></div>
       <div><label>Email corporativo</label><input type="email" id="colaborador-emailCorporativo" class="form-control" value="${esc(c.emailCorporativo)}"></div>
-      <div><label>Salário (R$/mês) *</label><input type="number" id="colaborador-salario" class="form-control" min="0" step="0.01" value="${c.salario ?? ''}"></div>
+      <div>
+        <label id="colaborador-salario-rotulo">${rotuloSalario(c.tipoContrato)}</label>
+        <input type="number" id="colaborador-salario" class="form-control" min="0" step="0.01" value="${c.salario ?? ''}">
+        <small id="colaborador-salario-ajuda" style="color:#999; ${c.tipoContrato === 'intermitente' ? '' : 'display:none;'}">Intermitente recebe por dia — os dias trabalhados no mês são informados na Folha de pagamento.</small>
+      </div>
       <div>
         <label>Desconto do plano de saúde (R$/mês)</label>
         <input type="number" id="colaborador-descontoPlanoSaude" class="form-control" min="0" step="0.01" value="${c.descontoPlanoSaude ?? ''}" placeholder="Vazio = sem plano">
@@ -340,6 +344,18 @@ function lerFormularioColaborador() {
     usuarioId: document.getElementById('colaborador-usuarioId').value || null,
     ativo: document.getElementById('colaborador-ativo').checked,
   }
+}
+
+// Intermitente recebe por dia; mensalista, por mês — o mesmo campo `salario`
+// guarda um ou outro, e o rótulo acompanha o tipo de contrato escolhido
+function rotuloSalario(tipoContrato) {
+  return tipoContrato === 'intermitente' ? 'Salário por dia (R$/dia) *' : 'Salário (R$/mês) *'
+}
+
+window.atualizarRotuloSalarioColaborador = function () {
+  const tipo = document.getElementById('colaborador-tipoContrato').value
+  document.getElementById('colaborador-salario-rotulo').textContent = rotuloSalario(tipo)
+  document.getElementById('colaborador-salario-ajuda').style.display = tipo === 'intermitente' ? '' : 'none'
 }
 
 function secaoDocumentosHtml(documentos) {
