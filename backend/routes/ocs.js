@@ -87,7 +87,7 @@ router.get('/dashboard', autenticar, async (req, res) => {
 })
 
 // ─── Contas a pagar (OCs aprovadas) ───────────────────────────────────────────
-router.get('/contas-a-pagar', autenticar, async (req, res) => {
+router.get('/contas-a-pagar', autenticar, exigirPerfil('admin', 'financeiro'), async (req, res) => {
   const ocs = await prisma.ordemCompra.findMany({
     where: { status: 'aprovada' },
     include: { fornecedor: true, empresa: true },

@@ -118,6 +118,11 @@ model Assinatura {
   motivo        String?
   assinaturaImg String?
   criadoEm      DateTime           @default(now())
+
+  @@index([ocId])
+  @@index([solicitacaoId])
+  @@index([relatorioId])
+  @@index([certificadoId])
 }
 
 model OrdemCompra {
@@ -162,6 +167,11 @@ model OrdemCompra {
   itens       ItemOC[]
   anexos      Anexo[]
   assinaturas Assinatura[]
+
+  @@index([status])
+  @@index([ano, numero])
+  @@index([fornecedorId])
+  @@index([empresaId])
 }
 
 model ItemOC {
@@ -179,6 +189,8 @@ model ItemOC {
   // descontoTipo: percentual | fixo
   ipi         Float?
   valorTotal  Float?
+
+  @@index([ocId])
 }
 
 model Anexo {
@@ -190,6 +202,8 @@ model Anexo {
   tipo         String
   mimeType     String
   criadoEm     DateTime    @default(now())
+
+  @@index([ocId])
 }
 
 model SolicitacaoCompra {
@@ -216,6 +230,9 @@ model SolicitacaoCompra {
   assinaturas  Assinatura[]
 
   ocGerada OrdemCompra? @relation("OcGerada")
+
+  @@index([status])
+  @@index([ano, numero])
 }
 
 model ItemSolicitacao {
@@ -227,6 +244,8 @@ model ItemSolicitacao {
   descricao     String
 
   precos PrecoCotado[]
+
+  @@index([solicitacaoId])
 }
 
 model FornecedorCotado {
@@ -250,6 +269,8 @@ model FornecedorCotado {
   escolhido       Boolean           @default(false)
 
   precos PrecoCotado[]
+
+  @@index([solicitacaoId])
 }
 
 model PrecoCotado {
@@ -290,6 +311,8 @@ model Balsa {
   contratosBalsa ContratoBalsa[]
   vendasBalsa    VendaBalsa[]
   documentos     DocumentoBalsa[]
+
+  @@index([finalidade, status])
 }
 
 // Documentos da balsa (PDF ou imagem). Ficam em uploads-privado/balsas e são
@@ -303,6 +326,8 @@ model DocumentoBalsa {
   nomeArquivo  String
   mimeType     String
   criadoEm     DateTime @default(now())
+
+  @@index([balsaId])
 }
 
 model Cliente {
@@ -342,6 +367,8 @@ model Embarcacao {
   ordensServico OrdemServico[]
   certificados  Certificado[]
   embarques     Embarque[]
+
+  @@index([armadorId])
 }
 
 model Contrato {
@@ -371,10 +398,24 @@ model Contrato {
   criadoEm     DateTime @default(now())
   atualizadoEm DateTime @updatedAt
 
+  // Avisos por email do vencimento (dataFim) — cada um sai uma vez só; voltam a
+  // false quando a dataFim muda (renovação). Ver job em server.js
+  avisoVencimentoEnviado Boolean @default(false)
+  avisoVencidoEnviado    Boolean @default(false)
+
   balsas     ContratoBalsa[]
   pagamentos Pagamento[]
+  documentos DocumentoContrato[]
+
+  @@index([status])
+  @@index([clienteId])
+  @@index([ano, numero])
 }
 
+// Uma linha por passagem da balsa pelo contrato. Não é apagada quando a balsa
+// sai: a devolução só preenche devolvidaEm — é isso que dá o histórico de
+// locações da balsa. "Balsa no contrato agora" = devolvidaEm null. Por isso não
+// há @@unique([contratoId, balsaId]): a mesma balsa pode voltar ao contrato depois.
 model ContratoBalsa {
   id         Int      @id @default(autoincrement())
   contrato   Contrato @relation(fields: [contratoId], references: [id])
@@ -382,8 +423,33 @@ model ContratoBalsa {
   balsa      Balsa    @relation(fields: [balsaId], references: [id])
   balsaId    Int
   valor      Float?
+  // Nº do aditivo em que a balsa entrou (null = veio no contrato original)
+  aditivo    Int?
+  criadoEm   DateTime @default(now())
 
-  @@unique([contratoId, balsaId])
+  // Devolução/vistoria
+  devolvidaEm          DateTime?
+  estadoDevolucao      String?
+  // estadoDevolucao: bom | avariado | extraviado (null = saiu por cancelamento do contrato, sem vistoria)
+  observacoesDevolucao String?
+
+  @@index([contratoId])
+  @@index([balsaId])
+}
+
+// Documentos do contrato (o contrato assinado, aditivos, comprovantes). Mesmo
+// esquema de DocumentoBalsa — ficam em uploads-privado/contratos.
+model DocumentoContrato {
+  id           Int      @id @default(autoincrement())
+  contrato     Contrato @relation(fields: [contratoId], references: [id])
+  contratoId   Int
+  titulo       String
+  nomeOriginal String
+  nomeArquivo  String
+  mimeType     String
+  criadoEm     DateTime @default(now())
+
+  @@index([contratoId])
 }
 
 model Venda {
@@ -418,6 +484,10 @@ model Venda {
 
   balsas     VendaBalsa[]
   pagamentos Pagamento[]
+
+  @@index([status])
+  @@index([clienteId])
+  @@index([ano, numero])
 }
 
 model VendaBalsa {
@@ -429,6 +499,8 @@ model VendaBalsa {
   valor   Float?
 
   @@unique([vendaId, balsaId])
+
+  @@index([balsaId])
 }
 
 model Pagamento {
@@ -449,6 +521,11 @@ model Pagamento {
   // status: pendente | pago | atrasado
   alertaEnviado    Boolean         @default(false)
   criadoEm         DateTime        @default(now())
+
+  @@index([status, dataVencimento])
+  @@index([contratoId])
+  @@index([vendaId])
+  @@index([vendaOrcamentoId])
 }
 
 model ContaPagar {
@@ -462,6 +539,8 @@ model ContaPagar {
   status         String    @default("pendente")
   // status: pendente | pago
   criadoEm       DateTime  @default(now())
+
+  @@index([status, dataVencimento])
 }
 
 model Produto {
@@ -545,6 +624,10 @@ model Orcamento {
 
   itens          ItemOrcamento[]
   VendaOrcamento VendaOrcamento?
+
+  @@index([status])
+  @@index([clienteId])
+  @@index([ano, numero])
 }
 
 // Cada item guarda cópia própria de nome/valorUnitario (sobrevive a
@@ -571,6 +654,8 @@ model ItemOrcamento {
   descontoTipo  String?
   descontoValor Float?
   // descontoTipo/descontoValor só usados quando Orcamento.descontoModo = item
+
+  @@index([orcamentoId])
 }
 
 // ─── Venda (de um Orçamento aprovado — "Criar Venda" — ou avulsa) ─────────────
@@ -619,6 +704,9 @@ model VendaOrcamento {
 
   pagamentos Pagamento[]
   itens      ItemVendaOrcamento[]
+
+  @@index([status])
+  @@index([clienteId])
 }
 
 // Item de venda avulsa (sem Orçamento). Sempre aponta pro catálogo (produto/
@@ -640,6 +728,8 @@ model ItemVendaOrcamento {
   detalhes      String?
   quantidade    Float   @default(1)
   valorUnitario Float
+
+  @@index([vendaId])
 }
 
 model PedidoAlmoxarifado {
@@ -652,6 +742,8 @@ model PedidoAlmoxarifado {
   criadoEm      DateTime @default(now())
 
   itens ItemPedidoAlmoxarifado[]
+
+  @@index([ano, numero])
 }
 
 model ItemPedidoAlmoxarifado {
@@ -662,6 +754,9 @@ model ItemPedidoAlmoxarifado {
   produtoId  Int
   quantidade Float
   valorUni   Float?
+
+  @@index([pedidoId])
+  @@index([produtoId])
 }
 
 // ─── Ordem de Serviço (abre o atendimento; precede o Relatório) ───────────────
@@ -707,6 +802,10 @@ model OrdemServico {
   atualizadoEm DateTime @updatedAt
 
   relatorio Relatorio?
+
+  @@index([status])
+  @@index([clienteId])
+  @@index([ano, numero])
 }
 
 // ─── Relatório de Serviço de Balsas (etapa "Relatório" do fluxo Certificados) ──
@@ -891,6 +990,9 @@ model Relatorio {
   testeImo    TesteImo?
   assinaturas Assinatura[]
   certificado Certificado?
+
+  @@index([status])
+  @@index([ano, numero])
 }
 
 model CilindroRelatorio {
@@ -915,6 +1017,8 @@ model CilindroRelatorio {
   caboInternoMetros           Float?
   caboExternoMetros           Float?
   alturaMaximaEstocagemMetros Float?
+
+  @@index([relatorioId])
 }
 
 // Testes formais de acordo com a Resolução IMO A.761(18) — versão detalhada dos
@@ -1043,6 +1147,9 @@ model Certificado {
   atualizadoEm DateTime @updatedAt
 
   assinaturas Assinatura[]
+
+  @@index([status])
+  @@index([ano, numero])
 }
 
 model Colaborador {
@@ -1103,6 +1210,8 @@ model DocumentoColaborador {
   nomeOriginal  String
   nomeArquivo   String
   criadoEm      DateTime    @default(now())
+
+  @@index([colaboradorId])
 }
 
 // ─── Embarque (Serviços → Embarques) ──────────────────────────────────────────
@@ -1113,6 +1222,8 @@ model DocumentoColaborador {
 // editar/excluir um embarque antigo recalcule tudo o que vem depois. A folha de
 // pagamento, quando existir, é que deve congelar os valores de um período fechado.
 // armador é cópia do armador da embarcação no momento do embarque (editável).
+// O período do Embarque é o da operação inteira; cada colaborador pode ter ficado
+// só parte dele (subiu depois / desceu antes) — ver EmbarqueColaborador.
 model Embarque {
   id           Int        @id @default(autoincrement())
   embarcacao   Embarcacao @relation(fields: [embarcacaoId], references: [id])
@@ -1130,6 +1241,8 @@ model Embarque {
   atualizadoEm DateTime @updatedAt
 
   colaboradores EmbarqueColaborador[]
+
+  @@index([dataInicio])
 }
 
 model EmbarqueColaborador {
@@ -1139,7 +1252,16 @@ model EmbarqueColaborador {
   colaborador   Colaborador @relation(fields: [colaboradorId], references: [id])
   colaboradorId Int
 
+  // Período individual do colaborador dentro do embarque (datas puras, inclusivas).
+  // null = igual ao do Embarque — só é gravado quando difere, pra que mudar as
+  // datas do embarque continue valendo pra quem ficou o período inteiro. É esse
+  // período (e não o do Embarque) que conta pra folga/dobra e pra folha.
+  dataInicio DateTime?
+  dataFim    DateTime?
+
   @@unique([embarqueId, colaboradorId])
+
+  @@index([colaboradorId])
 }
 
 // ─── Folha de pagamento (Financeiro → Folha de pagamento) ─────────────────────
@@ -1202,4 +1324,28 @@ model ItemFolhaPagamento {
   observacoes              String?
 
   @@unique([folhaId, colaboradorId])
+
+  @@index([colaboradorId])
+}
+
+// ─── Trilha de auditoria ──────────────────────────────────────────────────────
+// Uma linha por requisição que ALTERA dados (POST/PUT/PATCH/DELETE) concluída com
+// sucesso — gravada pelo middleware em middleware/auditoria.js. usuarioNome é
+// cópia (o log não pode mudar se o usuário for renomeado/removido). dados é o
+// corpo da requisição, sem senhas/assinaturas.
+model LogAuditoria {
+  id          Int      @id @default(autoincrement())
+  usuarioId   Int?
+  usuarioNome String?
+  metodo      String
+  rota        String
+  entidade    String
+  // entidade: primeiro trecho da rota (contratos, ocs, pagamentos...)
+  entidadeId  Int?
+  dados       Json?
+  criadoEm    DateTime @default(now())
+
+  @@index([criadoEm])
+  @@index([usuarioId])
+  @@index([entidade, entidadeId])
 }

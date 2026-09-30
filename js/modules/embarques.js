@@ -183,7 +183,7 @@ window.carregarEmbarques = async function (pagina = 1) {
           <td>${formatarDataEmb(e.dataInicio)}</td>
           <td>${formatarDataEmb(e.dataFim)}</td>
           <td>${diasEntre(e.dataInicio.slice(0, 10), e.dataFim.slice(0, 10))}</td>
-          <td>${e.colaboradores.map(c => esc(c.colaborador.nome)).join(', ')}</td>
+          <td>${e.colaboradores.map(c => esc(c.colaborador.nome) + periodoIndividualTexto(c, e)).join(', ')}</td>
           ${podeEditarEmbarques ? `
           <td style="white-space:nowrap;">
             <button class="btn btn-sm btn-info" onclick="editarEmbarque(${e.id})">Editar</button>
@@ -205,6 +205,13 @@ window.carregarEmbarques = async function (pagina = 1) {
   } catch {
     tabela.innerHTML = `<tr><td colspan="${colunasEmbarques}" style="text-align:center; color:red; padding:30px;">Erro ao conectar com o servidor</td></tr>`
   }
+}
+
+// " (10/09 a 11/09)" ao lado do nome de quem não ficou o embarque inteiro
+function periodoIndividualTexto(c, e) {
+  if (!c.dataInicio && !c.dataFim) return ''
+  const dia = data => formatarChaveDia(data.slice(0, 10))
+  return ` <small style="color:#999;">(${dia(c.dataInicio || e.dataInicio)} a ${dia(c.dataFim || e.dataFim)})</small>`
 }
 
 window.excluirEmbarque = async function (id) {
@@ -326,7 +333,7 @@ async function abrirFormularioEmbarqueBase(e = null) {
 
   // Colaborador que já estava no embarque mas hoje está inativo não vem em
   // /colaboradores/simples — mantém ele na lista pra não sumir ao salvar
-  const selecionados = new Set((e?.colaboradores || []).map(c => c.colaboradorId))
+  const selecionados = new Map((e?.colaboradores || []).map(c => [c.colaboradorId, c]))
   const lista = [...colaboradoresEmbCache]
   for (const c of e?.colaboradores || []) {
     if (!lista.some(x => x.id === c.colaboradorId)) lista.push({ ...c.colaborador, id: c.colaboradorId })
@@ -362,17 +369,29 @@ async function abrirFormularioEmbarqueBase(e = null) {
       </div>
       <div id="emb-dias" style="margin-top:8px; font-size:13px; color:#666;"></div>
 
-      <h5 style="margin: 24px 0 10px;">Colaboradores * <small id="emb-contador-colaboradores" style="color:#999; font-weight:400;"></small></h5>
+      <h5 style="margin: 24px 0 4px;">Colaboradores * <small id="emb-contador-colaboradores" style="color:#999; font-weight:400;"></small></h5>
+      <p style="font-size:12px; color:#999; margin:0 0 10px;">
+        As datas ao lado do nome são só pra quem subiu depois ou desceu antes dos outros — em branco, vale o período inteiro do embarque. Folga e dobra contam pelo período de cada um.
+      </p>
       <input type="text" class="form-control form-control-sm" placeholder="Filtrar por nome..." oninput="filtrarColaboradoresEmbarque(this.value)" style="max-width:300px; margin-bottom:8px;">
-      <div id="emb-lista-colaboradores" style="background:white; border:1px solid #ddd; border-radius:6px; max-height:280px; overflow-y:auto; padding:8px 12px;">
+      <div id="emb-lista-colaboradores" style="background:white; border:1px solid #ddd; border-radius:6px; max-height:320px; overflow-y:auto; padding:8px 12px;">
         ${lista.length === 0
           ? '<div style="color:#999; padding:8px 0;">Nenhum colaborador ativo — cadastre em Cadastros → Colaboradores</div>'
-          : lista.map(c => `
-            <label class="emb-colaborador-item" data-nome="${esc(c.nome.toLowerCase())}" style="display:flex; align-items:center; gap:8px; padding:4px 0; font-weight:400; cursor:pointer;">
-              <input type="checkbox" class="emb-colaborador-check" value="${c.id}" ${selecionados.has(c.id) ? 'checked' : ''} onchange="atualizarContadorColaboradoresEmbarque()">
-              ${esc(c.nome)} <span style="color:#999; font-size:12px;">${esc(labelFuncao(c.funcao))}</span>
-            </label>
-          `).join('')}
+          : lista.map(c => {
+            const vinculo = selecionados.get(c.id)
+            return `
+            <div class="emb-colaborador-item" data-nome="${esc(c.nome.toLowerCase())}" data-nome-exibicao="${esc(c.nome)}" style="display:flex; align-items:center; flex-wrap:wrap; gap:8px; padding:4px 0;">
+              <label style="display:flex; align-items:center; gap:8px; flex:1; min-width:220px; margin:0; font-weight:400; cursor:pointer;">
+                <input type="checkbox" class="emb-colaborador-check" value="${c.id}" ${vinculo ? 'checked' : ''} onchange="alternarColaboradorEmbarque(this)">
+                ${esc(c.nome)} <span style="color:#999; font-size:12px;">${esc(labelFuncao(c.funcao))}</span>
+              </label>
+              <span class="emb-colaborador-periodo" style="display:${vinculo ? 'flex' : 'none'}; align-items:center; gap:6px; font-size:12px; color:#666;">
+                <input type="date" class="form-control form-control-sm emb-colaborador-inicio" style="width:140px;" title="Embarque deste colaborador (em branco = o do embarque)" value="${vinculo?.dataInicio ? vinculo.dataInicio.slice(0, 10) : ''}">
+                a
+                <input type="date" class="form-control form-control-sm emb-colaborador-fim" style="width:140px;" title="Desembarque deste colaborador (em branco = o do embarque)" value="${vinculo?.dataFim ? vinculo.dataFim.slice(0, 10) : ''}">
+              </span>
+            </div>
+          `}).join('')}
       </div>
 
       <div style="margin-top:16px;">
@@ -405,6 +424,14 @@ window.atualizarDiasEmbarque = function () {
   if (fim < inicio) { div.innerHTML = '<span style="color:#dc3545;">A data de desembarque não pode ser antes da de embarque</span>'; return }
   const dias = diasEntre(inicio, fim)
   div.textContent = `${dias} ${dias === 1 ? 'dia embarcado' : 'dias embarcados'} — gera até ${dias} ${dias === 1 ? 'dia' : 'dias'} de folga pra cada colaborador (dia que cair em folga vira dobra e não gera folga)`
+}
+
+// Marcar/desmarcar um colaborador mostra/esconde as datas individuais dele
+window.alternarColaboradorEmbarque = function (check) {
+  const periodo = check.closest('.emb-colaborador-item').querySelector('.emb-colaborador-periodo')
+  periodo.style.display = check.checked ? 'flex' : 'none'
+  if (!check.checked) periodo.querySelectorAll('input').forEach(input => { input.value = '' })
+  window.atualizarContadorColaboradoresEmbarque()
 }
 
 window.atualizarContadorColaboradoresEmbarque = function () {
@@ -537,13 +564,32 @@ window.salvarEmbarque = async function () {
   const body = {
     dataInicio: document.getElementById('emb-dataInicio').value,
     dataFim: document.getElementById('emb-dataFim').value,
-    colaboradorIds: [...document.querySelectorAll('.emb-colaborador-check:checked')].map(el => Number(el.value)),
+    colaboradores: [...document.querySelectorAll('.emb-colaborador-check:checked')].map(el => {
+      const item = el.closest('.emb-colaborador-item')
+      return {
+        colaboradorId: Number(el.value),
+        nome: item.dataset.nomeExibicao,
+        dataInicio: item.querySelector('.emb-colaborador-inicio').value || null,
+        dataFim: item.querySelector('.emb-colaborador-fim').value || null,
+      }
+    }),
     observacoes: document.getElementById('emb-observacoes').value.trim(),
   }
 
   if (!body.dataInicio || !body.dataFim) { alert('Informe as datas de embarque e desembarque!'); return }
   if (body.dataFim < body.dataInicio) { alert('A data de desembarque não pode ser antes da de embarque!'); return }
-  if (body.colaboradorIds.length === 0) { alert('Selecione ao menos um colaborador!'); return }
+  if (body.colaboradores.length === 0) { alert('Selecione ao menos um colaborador!'); return }
+
+  // Período individual: tem que caber no do embarque (datas "AAAA-MM-DD" comparam como texto)
+  for (const c of body.colaboradores) {
+    const inicio = c.dataInicio || body.dataInicio
+    const fim = c.dataFim || body.dataFim
+    if (fim < inicio) { alert(`${c.nome}: o desembarque não pode ser antes do embarque!`); return }
+    if (inicio < body.dataInicio || fim > body.dataFim) {
+      alert(`${c.nome}: o período individual tem que ficar dentro do período do embarque (${formatarChaveDia(body.dataInicio)} a ${formatarChaveDia(body.dataFim)}).`)
+      return
+    }
+  }
 
   // Só cadastra armador/embarcação novos depois das validações acima, pra um
   // erro de data/colaborador não deixar cadastro criado à toa

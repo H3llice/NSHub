@@ -150,6 +150,35 @@ export async function enviarEmailResetSenha(usuario, link) {
   })
 }
 
+// ─── Aviso de contrato de locação vencendo / vencido ──────────────────────────
+// Devolve false (sem enviar) quando não há destinatário configurado, pra que o
+// job não marque o aviso como enviado.
+export async function notificarVencimentoContrato(contrato, vencido) {
+  if (CONTAS_A_RECEBER.length === 0) return false
+
+  const numero = `Contrato ${contrato.numero}.${contrato.ano}`
+  const cliente = contrato.cliente?.nome ?? 'Não informado'
+  const fim = new Date(contrato.dataFim).toLocaleDateString('pt-BR', { timeZone: 'UTC' })
+  const balsas = (contrato.balsas ?? [])
+    .map(cb => `  - ${cb.balsa.patrimonio || cb.balsa.numeroSerie} (${cb.balsa.fabricante} ${cb.balsa.modelo})`)
+    .join('\n')
+
+  await enviar({
+    para: CONTAS_A_RECEBER,
+    assunto: `[Contrato ${vencido ? 'Vencido' : 'Vencendo'}] ${numero} — ${cliente}`,
+    corpo: (vencido
+      ? `O contrato de locação abaixo venceu em ${fim} e continua ativo.\n\n`
+      : `O contrato de locação abaixo vence em ${fim}.\n\n`) +
+      `${numero}\n` +
+      `Cliente: ${cliente}\n` +
+      (balsas ? `Balsas com o cliente:\n${balsas}\n` : '') +
+      `\nRenove o contrato (nova data de fim) ou registre a devolução das balsas e encerre.`
+  })
+
+  console.log(`📧 Aviso de contrato ${vencido ? 'vencido' : 'vencendo'} enviado — ${numero}`)
+  return true
+}
+
 // ─── Aviso de pagamento atrasado (contas a receber) ───────────────────────────
 export async function notificarPagamentoAtrasado(pagamento) {
   const contrato = pagamento.contrato

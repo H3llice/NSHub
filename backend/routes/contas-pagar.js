@@ -7,7 +7,7 @@ const router = Router()
 // ─── Listar contas a pagar avulsas (sem vínculo com OC, paginado) ─────────────
 // ?todas=1 devolve tudo sem paginar — usado pela tela "Contas a Pagar", que
 // mescla essas avulsas com as OCs pendentes de pagamento numa lista só
-router.get('/', autenticar, async (req, res) => {
+router.get('/', autenticar, exigirPerfil('admin', 'financeiro'), async (req, res) => {
   if (req.query.todas) {
     const contas = await prisma.contaPagar.findMany({ orderBy: [{ status: 'asc' }, { dataVencimento: 'asc' }] })
     return res.json(contas)
@@ -30,7 +30,7 @@ router.get('/', autenticar, async (req, res) => {
 })
 
 // ─── Buscar uma conta a pagar avulsa (pra abrir a tela de edição) ─────────────
-router.get('/:id', autenticar, async (req, res) => {
+router.get('/:id', autenticar, exigirPerfil('admin', 'financeiro'), async (req, res) => {
   const id = Number(req.params.id)
   const conta = await prisma.contaPagar.findUnique({ where: { id } })
   if (!conta) return res.status(404).json({ erro: 'Conta a pagar não encontrada' })

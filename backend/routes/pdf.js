@@ -1,10 +1,10 @@
 import { Router } from 'express'
 import { prisma } from '../server.js'
-import puppeteer from 'puppeteer'
 import { PDFDocument } from 'pdf-lib'
 import fs from 'fs'
 import path from 'path'
 import { autenticar } from '../middleware/auth.js'
+import { gerarPdf } from '../pdf-browser.js'
 
 const router = Router()
 
@@ -259,14 +259,7 @@ router.get('/:id', autenticar, async (req, res) => {
   `
 
   // ===== GERA PDF COM PUPPETEER =====
-  const browser = await puppeteer.launch({ args: ['--no-sandbox'] })
-  const page = await browser.newPage()
-  // O template é só marcação estática pra impressão — desabilita JS pra fechar
-  // a superfície de injeção mesmo que algum campo escape do escapeHtml() acima.
-  await page.setJavaScriptEnabled(false)
-  await page.setContent(html, { waitUntil: 'networkidle0' })
-  const ocPdfBytes = await page.pdf({ format: 'A4', printBackground: true })
-  await browser.close()
+  const ocPdfBytes = await gerarPdf(html)
 
   // ===== MESCLA COM ANEXOS =====
   const pdfFinal = await PDFDocument.create()
@@ -604,12 +597,7 @@ router.get('/solicitacao/:id', autenticar, async (req, res) => {
   `
 
   // ===== GERA PDF COM PUPPETEER =====
-  const browser = await puppeteer.launch({ args: ['--no-sandbox'] })
-  const page = await browser.newPage()
-  await page.setJavaScriptEnabled(false)
-  await page.setContent(html, { waitUntil: 'networkidle0' })
-  const pdfBytes = await page.pdf({ format: 'A4', printBackground: true })
-  await browser.close()
+  const pdfBytes = await gerarPdf(html)
 
   const nomeArquivo = `${nomeDownload}.pdf`
 

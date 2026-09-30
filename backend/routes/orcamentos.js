@@ -4,6 +4,9 @@ import { autenticar, exigirPerfil } from '../middleware/auth.js'
 
 const router = Router()
 
+// Valores e dados de cliente — só esses perfis leem, mesmo direto pela API
+const PERFIS_LEITURA = ['admin', 'gerente', 'financeiro']
+
 const STATUS_VALIDOS = ['em_andamento', 'aprovado', 'recusado', 'expirado', 'convertido']
 const STATUS_ENVIO_VALIDOS = ['nao_enviado', 'enviado']
 const DESCONTO_MODOS = ['conjunto', 'item']
@@ -105,7 +108,7 @@ function montarDadosItens(itens, descontoModo) {
 }
 
 // ─── Listar orçamentos (paginado) ───────────────────────────────────────────────
-router.get('/', autenticar, async (req, res) => {
+router.get('/', autenticar, exigirPerfil(...PERFIS_LEITURA), async (req, res) => {
   const { status, ano, pagina = 1 } = req.query
   const porPagina = 50
   const paginaNum = parseInt(pagina)
@@ -134,7 +137,7 @@ router.get('/', autenticar, async (req, res) => {
 })
 
 // ─── Buscar um orçamento pelo ID ────────────────────────────────────────────────
-router.get('/:id', autenticar, async (req, res) => {
+router.get('/:id', autenticar, exigirPerfil(...PERFIS_LEITURA), async (req, res) => {
   const orcamento = await prisma.orcamento.findUnique({
     where: { id: Number(req.params.id) },
     include: INCLUDE_PADRAO

@@ -109,7 +109,24 @@ router.post('/:id/documentos', autenticar, exigirPerfil('admin', 'gerente'), upl
 router.get('/:id', autenticar, async (req, res) => {
   const balsa = await prisma.balsa.findUnique({
     where: { id: Number(req.params.id) },
-    include: { documentos: { orderBy: { criadoEm: 'desc' } } }
+    include: {
+      documentos: { orderBy: { criadoEm: 'desc' } },
+      // Histórico de locações — sem valores: esta rota é lida por perfis que não
+      // veem contratos (usuário, técnico)
+      contratosBalsa: {
+        orderBy: { id: 'desc' },
+        select: {
+          id: true, aditivo: true, criadoEm: true,
+          devolvidaEm: true, estadoDevolucao: true, observacoesDevolucao: true,
+          contrato: {
+            select: {
+              id: true, numero: true, ano: true, status: true, dataInicio: true, dataFim: true,
+              cliente: { select: { nome: true } }
+            }
+          }
+        }
+      }
+    }
   })
 
   if (!balsa) return res.status(404).json({ erro: 'Balsa não encontrada' })

@@ -43,6 +43,38 @@ const usuarioAtual = JSON.parse(localStorage.getItem('ns_usuario') || 'null')
 const perfil = usuarioAtual?.perfil || 'usuario'
 const podeGerenciarContratos = perfil === 'admin' || perfil === 'gerente'
 
+// Escapa texto livre antes de interpolar em HTML (títulos de documento, observações)
+function esc(valor) {
+  if (valor === null || valor === undefined) return ''
+  return String(valor)
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;')
+}
+
+// Datas puras (início, fim, devolução) são gravadas à meia-noite UTC — formatar
+// em UTC evita mostrar o dia anterior no fuso do Brasil
+function dataPura(data) {
+  return data ? new Date(data).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : '-'
+}
+
+const ESTADO_DEVOLUCAO_LABEL = { bom: 'Bom estado', avariado: 'Avariada' }
+
+// Selo "Vence em X dias" / "Vencido" ao lado da data de fim de contrato ativo
+function avisoVencimentoContrato(c) {
+  if (c.status !== 'ativo' || !c.dataFim) return ''
+  const agora = new Date()
+  const hoje = Date.UTC(agora.getFullYear(), agora.getMonth(), agora.getDate())
+  const dias = Math.round((new Date(c.dataFim).getTime() - hoje) / 86400000)
+  if (dias > 7) return ''
+
+  const texto = dias < 0 ? `Vencido há ${-dias} dia(s)` : dias === 0 ? 'Vence hoje' : `Vence em ${dias} dia(s)`
+  const cor = dias < 0 ? '#dc3545' : '#fd7e14'
+  return `<span style="background:${cor}; color:white; padding:2px 8px; border-radius:12px; font-size:11px; white-space:nowrap;">${texto}</span>`
+}
+
 // Link do PDF abre em nova aba — sem header Authorization, o token vai na query
 function urlPdfContrato(id) {
   return `${API}/contratos/${id}/pdf?token=${encodeURIComponent(localStorage.getItem('ns_token') || '')}`
@@ -338,9 +370,11 @@ function renderizarTabelaContratos(contratos) {
   }
 
   tabela.innerHTML = contratos.map(c => {
-    const balsasTxt = c.balsas.map(cb => cb.balsa.patrimonio || cb.balsa.numeroSerie).join(', ')
-    const inicio = new Date(c.dataInicio).toLocaleDateString('pt-BR')
-    const fim = c.dataFim ? new Date(c.dataFim).toLocaleDateString('pt-BR') : '-'
+    // Balsas que estão no contrato agora; contrato finalizado mostra todas as que passaram por ele
+    const noContrato = c.balsas.filter(cb => !cb.devolvidaEm)
+    const balsasTxt = (noContrato.length > 0 ? noContrato : c.balsas).map(cb => cb.balsa.patrimonio || cb.balsa.numeroSerie).join(', ')
+    const inicio = dataPura(c.dataInicio)
+    const fim = dataPura(c.dataFim)
     const valor = c.valor ? 'R$ ' + c.valor.toFixed(2) : '-'
 
     const acoes = `
@@ -357,7 +391,7 @@ function renderizarTabelaContratos(contratos) {
         <td>${c.cliente.nome}</td>
         <td>${balsasTxt}</td>
         <td>${inicio}</td>
-        <td>${fim}</td>
+        <td>${fim} ${avisoVencimentoContrato(c)}</td>
         <td>${valor}</td>
         <td>${badgeStatusContrato(c.status)}</td>
         <td class="col-acoes" style="white-space:nowrap;">${acoes}</td>
@@ -366,26 +400,154 @@ function renderizarTabelaContratos(contratos) {
   }).join('')
 }
 
-window.encerrarContrato = async function (id) {
-  if (!confirm('Encerrar este contrato? As balsas vinculadas voltarão a ficar disponíveis.')) return
-  const res = await apiJson(`${API}/contratos/${id}`, { method: 'PUT', body: JSON.stringify({ status: 'encerrado' }) })
-  if (res.ok) carregarContratos(paginaAtualContratos)
-  else alert('Erro ao encerrar contrato')
+// Encerrar/cancelar/devolver são chamados tanto da lista quanto de dentro do
+// contrato aberto — atualiza a tela em que o usuário está
+function atualizarTelaContrato(id) {
+  if (document.getElementById('tabela-contratos')) carregarContratos(paginaAtualContratos)
+  else verContrato(id)
+}
+
+// Modal de devolução/vistoria: data, estado e observações. Usado na devolução de
+// uma balsa só e ao encerrar o contrato (devolução de todas as que restam).
+function abrirModalDevolucao({ titulo, texto, botao, onConfirmar }) {
+  const modal = document.createElement('div')
+  modal.style = `
+    position:fixed; inset:0; background:rgba(0,0,0,0.5);
+    display:flex; align-items:center; justify-content:center; z-index:9999;
+  `
+  modal.innerHTML = `
+    <div style="background:white; border-radius:8px; padding:24px; width:420px; max-width:92vw;">
+      <h5 style="margin-bottom:8px;">${titulo}</h5>
+      <p style="font-size:13px; color:#666;">${texto}</p>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+        <div><label>Data da devolução *</label><input type="date" class="form-control" data-campo="data" value="${new Date().toISOString().split('T')[0]}"></div>
+        <div>
+          <label>Estado *</label>
+          <select class="form-control" data-campo="estado">
+            <option value="bom">Bom estado</option>
+            <option value="avariado">Avariada</option>
+          </select>
+        </div>
+        <div style="grid-column:span 2;"><label>Observações da vistoria</label><textarea class="form-control" rows="3" data-campo="observacoes"></textarea></div>
+      </div>
+      <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:16px;">
+        <button class="btn btn-secondary" data-acao="fechar">Voltar</button>
+        <button class="btn btn-success" data-acao="confirmar">${botao}</button>
+      </div>
+    </div>
+  `
+  const campo = nome => modal.querySelector(`[data-campo="${nome}"]`).value
+  modal.querySelector('[data-acao="fechar"]').onclick = () => modal.remove()
+  modal.querySelector('[data-acao="confirmar"]').onclick = async () => {
+    if (!campo('data')) { alert('Informe a data da devolução!'); return }
+    const ok = await onConfirmar({ data: campo('data'), estado: campo('estado'), observacoes: campo('observacoes').trim() })
+    if (ok) modal.remove()
+  }
+  document.body.appendChild(modal)
+}
+
+window.encerrarContrato = function (id) {
+  abrirModalDevolucao({
+    titulo: 'Encerrar contrato',
+    texto: 'Encerrar registra a devolução das balsas que ainda estão com o cliente — elas voltam a ficar disponíveis no estoque.',
+    botao: 'Encerrar contrato',
+    onConfirmar: async devolucao => {
+      const res = await apiJson(`${API}/contratos/${id}`, { method: 'PUT', body: JSON.stringify({ status: 'encerrado', devolucao }) })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        alert('Erro ao encerrar contrato: ' + (err.erro || ''))
+        return false
+      }
+      atualizarTelaContrato(id)
+      return true
+    }
+  })
 }
 
 window.cancelarContrato = async function (id) {
   if (!confirm('Cancelar este contrato? As balsas vinculadas voltarão a ficar disponíveis.')) return
   const res = await apiJson(`${API}/contratos/${id}`, { method: 'PUT', body: JSON.stringify({ status: 'cancelado' }) })
-  if (res.ok) carregarContratos(paginaAtualContratos)
+  if (res.ok) atualizarTelaContrato(id)
   else alert('Erro ao cancelar contrato')
+}
+
+// Devolução de uma balsa com o contrato ainda ativo (a última sai pelo "Encerrar")
+window.devolverBalsaContrato = function (contratoId, contratoBalsaId) {
+  abrirModalDevolucao({
+    titulo: 'Registrar devolução da balsa',
+    texto: 'A balsa volta a ficar disponível no estoque e o valor dela sai do valor do contrato. Parcelas já geradas não mudam.',
+    botao: 'Registrar devolução',
+    onConfirmar: async devolucao => {
+      const res = await apiJson(`${API}/contratos/${contratoId}/balsas/${contratoBalsaId}/devolucao`, { method: 'POST', body: JSON.stringify(devolucao) })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        alert('Erro ao registrar devolução: ' + (err.erro || ''))
+        return false
+      }
+      verContrato(contratoId)
+      return true
+    }
+  })
+}
+
+// Aditivo: inclui uma balsa disponível no contrato ativo
+window.incluirBalsaContrato = async function (contratoId) {
+  const balsaId = document.getElementById(`aditivo-balsa-${contratoId}`).value
+  const valor = document.getElementById(`aditivo-valor-${contratoId}`).value
+  if (!balsaId) { alert('Selecione a balsa!'); return }
+
+  const res = await apiJson(`${API}/contratos/${contratoId}/balsas`, {
+    method: 'POST',
+    body: JSON.stringify({ balsas: [{ balsaId: Number(balsaId), valor: valor || null }] })
+  })
+  if (res.ok) verContrato(contratoId)
+  else {
+    const err = await res.json().catch(() => ({}))
+    alert('Erro ao incluir balsa: ' + (err.erro || ''))
+  }
+}
+
+// Documentos do contrato (contrato assinado etc.) — sobem na hora, sem "salvar"
+window.anexarDocumentoContrato = async function (contratoId) {
+  const titulo = document.getElementById('documento-contrato-titulo').value.trim()
+  const arquivo = document.getElementById('documento-contrato-arquivo').files[0]
+
+  if (!titulo) { alert('Informe um título para o documento!'); return }
+  if (!arquivo) { alert('Selecione um arquivo!'); return }
+  if (arquivo.type !== 'application/pdf' && !arquivo.type.startsWith('image/')) { alert('Só são aceitos arquivos PDF ou imagem.'); return }
+
+  const formData = new FormData()
+  formData.append('titulo', titulo)
+  formData.append('arquivo', arquivo)
+  const res = await apiFetch(`${API}/contratos/${contratoId}/documentos`, { method: 'POST', body: formData })
+  if (res.ok) verContrato(contratoId)
+  else {
+    const err = await res.json().catch(() => ({}))
+    alert('Erro ao anexar documento: ' + (err.erro || ''))
+  }
+}
+
+window.removerDocumentoContrato = async function (id, btn) {
+  if (!confirm('Remover este documento? O arquivo será apagado.')) return
+  const res = await apiFetch(`${API}/contratos/documentos/${id}`, { method: 'DELETE' })
+  if (res.ok) btn.closest('li').remove()
+  else alert('Erro ao remover documento')
 }
 
 // ===== VISUALIZAÇÃO DO CONTRATO ==============================================
 window.verContrato = async function (id) {
   const c = await apiFetch(`${API}/contratos/${id}`).then(r => r.json())
 
-  const inicio = new Date(c.dataInicio).toLocaleDateString('pt-BR')
-  const fim = c.dataFim ? new Date(c.dataFim).toLocaleDateString('pt-BR') : '-'
+  const podeAlterar = podeGerenciarContratos && c.status === 'ativo'
+  const noContrato = c.balsas.filter(cb => !cb.devolvidaEm)
+  // Balsas disponíveis pra entrar por aditivo — só busca quando dá pra incluir
+  const disponiveis = podeAlterar
+    ? await apiFetch(`${API}/estoque?finalidade=locacao`).then(r => r.json()).catch(() => [])
+    : []
+  const tokenLink = encodeURIComponent(localStorage.getItem('ns_token') || '')
+
+  const inicio = dataPura(c.dataInicio)
+  const fim = dataPura(c.dataFim)
   const valor = c.valor ? 'R$ ' + c.valor.toFixed(2) : '-'
   const frete = c.frete ? 'R$ ' + c.frete.toFixed(2) : '-'
   const desconto = c.descontoValor
@@ -414,19 +576,51 @@ window.verContrato = async function (id) {
         <div style="font-weight:700; color:var(--acento); margin-bottom:10px;">Balsas Locadas</div>
         <ul style="list-style:none; padding:0; margin:0;">
           ${c.balsas.map(cb => `
-            <li style="padding:6px 0; border-bottom:1px solid #eee; font-size:13px; display:flex; justify-content:space-between;">
-              <span><strong>${cb.balsa.patrimonio ? cb.balsa.patrimonio + ' · ' : ''}${cb.balsa.numeroSerie}</strong> — ${cb.balsa.fabricante} ${cb.balsa.modelo}, capacidade ${cb.balsa.capacidade}</span>
-              <strong>${cb.valor ? 'R$ ' + cb.valor.toFixed(2) : '-'}</strong>
+            <li style="padding:6px 0; border-bottom:1px solid #eee; font-size:13px; display:flex; justify-content:space-between; align-items:center; gap:12px; ${cb.devolvidaEm ? 'color:#888;' : ''}">
+              <span>
+                <strong>${cb.balsa.patrimonio ? esc(cb.balsa.patrimonio) + ' · ' : ''}${cb.balsa.numeroSerie}</strong> — ${cb.balsa.fabricante} ${cb.balsa.modelo}, capacidade ${cb.balsa.capacidade}
+                ${cb.aditivo ? `<span style="background:#e7f1ff; color:#0d6efd; padding:1px 6px; border-radius:10px; font-size:11px;">Aditivo ${cb.aditivo}</span>` : ''}
+                ${cb.devolvidaEm ? `<br><small>${cb.estadoDevolucao
+                  ? `Devolvida em ${dataPura(cb.devolvidaEm)} — ${ESTADO_DEVOLUCAO_LABEL[cb.estadoDevolucao] || esc(cb.estadoDevolucao)}`
+                  : `Liberada em ${dataPura(cb.devolvidaEm)} (contrato cancelado, sem vistoria)`}${cb.observacoesDevolucao ? ' — ' + esc(cb.observacoesDevolucao) : ''}</small>` : ''}
+              </span>
+              <span style="display:flex; align-items:center; gap:8px; white-space:nowrap;">
+                <strong>${cb.valor ? 'R$ ' + cb.valor.toFixed(2) : '-'}</strong>
+                ${podeAlterar && !cb.devolvidaEm && noContrato.length > 1
+                  ? `<button class="btn btn-sm btn-outline-secondary" onclick="devolverBalsaContrato(${c.id}, ${cb.id})">Registrar devolução</button>`
+                  : ''}
+              </span>
             </li>
           `).join('')}
         </ul>
+
+        ${podeAlterar ? `
+          <div style="margin-top:14px; padding-top:12px; border-top:1px dashed #ddd;">
+            <div style="font-size:13px; font-weight:600; margin-bottom:6px;">Incluir balsa (aditivo)</div>
+            <div style="display:flex; gap:8px; align-items:end; flex-wrap:wrap;">
+              <div style="flex:1; min-width:240px;">
+                <label style="font-size:12px;">Balsa disponível</label>
+                <select id="aditivo-balsa-${c.id}" class="form-control form-control-sm">
+                  <option value="">Selecione...</option>
+                  ${disponiveis.map(b => `<option value="${b.id}">${b.patrimonio ? esc(b.patrimonio) + ' · ' : ''}${b.numeroSerie} — ${b.fabricante} ${b.modelo}, capacidade ${b.capacidade}</option>`).join('')}
+                </select>
+              </div>
+              <div>
+                <label style="font-size:12px;">Valor</label>
+                <input type="number" step="0.01" min="0" id="aditivo-valor-${c.id}" class="form-control form-control-sm" style="width:130px;">
+              </div>
+              <button class="btn btn-sm btn-primary" onclick="incluirBalsaContrato(${c.id})">Incluir</button>
+            </div>
+            <small style="color:#999;">Entra como um novo aditivo e soma no valor do contrato. Parcelas já geradas não mudam.</small>
+          </div>
+        ` : ''}
       </div>
 
       <div style="background:white; border-radius:6px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06); margin-bottom:16px;">
         <div style="font-weight:700; color:var(--acento); margin-bottom:10px;">Condições</div>
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px; font-size:13px;">
           <div><span style="color:#999;">Início</span><br><strong>${inicio}</strong></div>
-          <div><span style="color:#999;">Fim</span><br><strong>${fim}</strong></div>
+          <div><span style="color:#999;">Fim</span><br><strong>${fim}</strong> ${avisoVencimentoContrato(c)}</div>
           <div><span style="color:#999;">Frete</span><br><strong>${frete}</strong></div>
           <div><span style="color:#999;">Desconto</span><br><strong>${desconto}</strong></div>
           <div><span style="color:#999;">Valor</span><br><strong>${valor}</strong></div>
@@ -441,6 +635,33 @@ window.verContrato = async function (id) {
           <div style="font-size:13px; color:#444;">${c.observacoes}</div>
         </div>
       ` : ''}
+
+      <div style="background:white; border-radius:6px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06); margin-bottom:16px;">
+        <div style="font-weight:700; color:var(--acento); margin-bottom:10px;">Documentos <small style="color:#999; font-weight:400;">(contrato assinado, aditivos, comprovantes)</small></div>
+        <ul style="padding:0; list-style:none; margin-bottom:12px;">
+          ${(c.documentos || []).length > 0
+            ? c.documentos.map(d => `
+                <li style="padding:6px 0; border-bottom:1px solid #eee; display:flex; justify-content:space-between; align-items:center; font-size:13px;">
+                  <a href="${API}/contratos/documentos/${d.id}/arquivo?token=${tokenLink}" target="_blank">📄 ${esc(d.titulo)}</a>
+                  ${podeGerenciarContratos ? `<button class="btn btn-sm btn-danger" onclick="removerDocumentoContrato(${d.id}, this)">✕</button>` : ''}
+                </li>
+              `).join('')
+            : '<li style="color:#999; padding:6px 0; font-size:13px;">Nenhum documento</li>'}
+        </ul>
+        ${podeGerenciarContratos ? `
+          <div style="display:grid; grid-template-columns: 1fr 1fr auto; gap:12px; align-items:end;">
+            <div>
+              <label style="font-size:12px;">Título</label>
+              <input type="text" id="documento-contrato-titulo" class="form-control form-control-sm" placeholder="Ex.: Contrato assinado">
+            </div>
+            <div>
+              <label style="font-size:12px;">Arquivo (PDF ou imagem)</label>
+              <input type="file" id="documento-contrato-arquivo" class="form-control form-control-sm" accept="application/pdf,image/*">
+            </div>
+            <button type="button" class="btn btn-sm btn-secondary" onclick="anexarDocumentoContrato(${c.id})">Anexar</button>
+          </div>
+        ` : ''}
+      </div>
 
       ${podeGerenciarContratos && c.status === 'ativo' ? `
         <div style="background:white; border-radius:6px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06); margin-bottom:16px;">
@@ -707,6 +928,12 @@ window.salvarContrato = async function () {
   const dataInicio = document.getElementById('contrato-dataInicio').value
   if (!dataInicio) {
     alert('Data de início é obrigatória!')
+    return
+  }
+
+  const dataFimInformada = document.getElementById('contrato-dataFim').value
+  if (dataFimInformada && dataFimInformada < dataInicio) {
+    alert('A data de fim não pode ser anterior à data de início!')
     return
   }
 

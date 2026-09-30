@@ -5,7 +5,7 @@ import { autenticar, exigirPerfil } from '../middleware/auth.js'
 const router = Router()
 
 // ─── Listar pagamentos (com filtros, paginado) ─────────────────────────────────
-router.get('/', autenticar, async (req, res) => {
+router.get('/', autenticar, exigirPerfil('admin', 'financeiro'), async (req, res) => {
     const { status, contratoId, busca, vencimentoDe, vencimentoAte, pagina = 1 } = req.query
     const porPagina = 50
     const paginaNum = parseInt(pagina)

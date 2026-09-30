@@ -30,13 +30,18 @@ import servicosRouter from './routes/servicos.js'
 import colaboradoresRouter, { converterFuncoesAntigas } from './routes/colaboradores.js'
 import embarquesRouter from './routes/embarques.js'
 import folhaPagamentoRouter from './routes/folha-pagamento.js'
-import { notificarPagamentoAtrasado } from './email.js'
+import auditoriaRouter from './routes/auditoria.js'
+import { auditoria } from './middleware/auditoria.js'
+import { extensaoDinheiro } from './dinheiro.js'
+import { notificarPagamentoAtrasado, notificarVencimentoContrato } from './email.js'
+import fs from 'fs'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
 const app = express()
-const prisma = new PrismaClient()
+// extensaoDinheiro arredonda valores em R$ antes de gravar — ver dinheiro.js
+const prisma = new PrismaClient().$extends(extensaoDinheiro)
 
 // ─── CORS ──────────────────────────────────────────────────────────────────────
 // O frontend é servido pelo próprio Express (mesma origem do BASE_URL), então
@@ -63,6 +68,9 @@ app.use(cors({
 app.use('/webhook', webhookRouter)
 
 app.use(express.json())
+
+// Trilha de auditoria — antes das rotas, pra cobrir todas (ver middleware/auditoria.js)
+app.use(auditoria)
 
 // ─── Serve o frontend (html, css, js) a partir do backend ────────────────────
 const raizProjeto = path.resolve(__dirname, '..')
@@ -102,13 +110,20 @@ app.use('/servicos', servicosRouter)
 app.use('/colaboradores', colaboradoresRouter)
 app.use('/embarques', embarquesRouter)
 app.use('/folha-pagamento', folhaPagamentoRouter)
+app.use('/auditoria', auditoriaRouter)
 
 app.get('/api', (req, res) => {
   res.json({ mensagem: 'API do Portal NS funcionando!' })
 })
 
-// Roda a cada 24h e deleta OCs canceladas há mais de 30 dias
-setInterval(async () => {
+// ═══════════════════════════════ JOBS AUTOMÁTICOS ═══════════════════════════════
+// Todos são idempotentes (rodar duas vezes no mesmo dia não duplica nada), então
+// rodam logo que o servidor sobe e depois a cada 6h — ver agendamento no fim do
+// arquivo. Antes era um setInterval de 24h puro: como cada deploy reinicia o
+// processo e zera o relógio, com deploy frequente eles nunca chegavam a rodar.
+
+// Deleta OCs canceladas há mais de 30 dias (e os arquivos dos anexos delas)
+async function limparOcsCanceladas() {
   const limite = new Date()
   limite.setDate(limite.getDate() - 30)
 
@@ -121,18 +136,27 @@ setInterval(async () => {
     await prisma.itemOC.deleteMany({ where: { ocId: oc.id } })
     await prisma.anexo.deleteMany({ where: { ocId: oc.id } })
     await prisma.ordemCompra.delete({ where: { id: oc.id } })
+    // Só depois de apagar do banco — se o delete falhar, o arquivo continua lá
+    for (const anexo of oc.anexos) {
+      fs.unlink(path.resolve('uploads', anexo.nomeArquivo), () => { })
+    }
   }
 
   if (antigas.length > 0) {
     console.log(`🗑️ ${antigas.length} OCs canceladas deletadas permanentemente`)
   }
-}, 24 * 60 * 60 * 1000)
+}
 
-setInterval(async () => {
+function inicioDeHoje() {
   const hoje = new Date()
   hoje.setHours(0, 0, 0, 0)
+  return hoje
+}
 
-  // ── Marca como atrasado e envia email (só na primeira vez) ──────────────────
+// Marca pagamento vencido como atrasado e envia email (só na primeira vez)
+async function marcarPagamentosAtrasados() {
+  const hoje = inicioDeHoje()
+
   const vencidos = await prisma.pagamento.findMany({
     where: { status: 'pendente', dataVencimento: { lt: hoje } },
     include: { contrato: { include: { cliente: true } } }
@@ -157,7 +181,15 @@ setInterval(async () => {
     }
   }
 
-  // ── Gera a próxima parcela dos contratos mensais ativos ─────────────────────
+  if (vencidos.length > 0) {
+    console.log(`⚠️  ${vencidos.length} pagamento(s) marcado(s) como atrasado(s)`)
+  }
+}
+
+// Gera a próxima parcela dos contratos mensais ativos
+async function gerarParcelasMensais() {
+  const hoje = inicioDeHoje()
+
   const contratosMensais = await prisma.contrato.findMany({
     where: { status: 'ativo', periodicidadePagamento: 'mensal' },
     include: { pagamentos: { orderBy: { dataVencimento: 'desc' }, take: 1 } }
@@ -193,17 +225,66 @@ setInterval(async () => {
       console.log(`💰 Nova parcela gerada — Contrato ${c.numero}.${c.ano}`)
     }
   }
+}
 
-  if (vencidos.length > 0) {
-    console.log(`⚠️  ${vencidos.length} pagamento(s) marcado(s) como atrasado(s)`)
+// Avisa por email os contratos de locação perto do fim (7 dias antes) e os já
+// vencidos — uma vez cada (flags no Contrato, zeradas quando a dataFim muda).
+// NÃO encerra o contrato sozinho: encerrar libera as balsas no estoque, e a balsa
+// pode continuar com o cliente (cláusula 4.1, relocação automática) — quem decide
+// entre renovar e encerrar é quem recebe o aviso.
+const DIAS_AVISO_VENCIMENTO = 7
+
+async function avisarContratosVencendo() {
+  const hoje = inicioDeHoje()
+  const limite = new Date(hoje)
+  limite.setDate(limite.getDate() + DIAS_AVISO_VENCIMENTO)
+
+  const contratos = await prisma.contrato.findMany({
+    where: {
+      status: 'ativo',
+      dataFim: { lte: limite },
+      OR: [{ avisoVencimentoEnviado: false }, { avisoVencidoEnviado: false }]
+    },
+    include: { cliente: true, balsas: { where: { devolvidaEm: null }, include: { balsa: true } } }
+  })
+
+  for (const c of contratos) {
+    const vencido = new Date(c.dataFim) < hoje
+    const flag = vencido ? 'avisoVencidoEnviado' : 'avisoVencimentoEnviado'
+    if (c[flag]) continue
+
+    try {
+      const enviado = await notificarVencimentoContrato(c, vencido)
+      if (enviado) await prisma.contrato.update({ where: { id: c.id }, data: { [flag]: true } })
+    } catch (err) {
+      console.error('⚠️  Falha ao enviar aviso de vencimento de contrato:', err.message)
+    }
   }
-}, 24 * 60 * 60 * 1000)
+}
+
+const JOBS = [limparOcsCanceladas, marcarPagamentosAtrasados, gerarParcelasMensais, avisarContratosVencendo]
+
+// Um job que falha não pode impedir os outros nem derrubar o processo (promise
+// rejeitada sem catch dentro de timer encerra o Node)
+async function rodarJobs() {
+  for (const job of JOBS) {
+    try {
+      await job()
+    } catch (err) {
+      console.error(`⚠️  Job ${job.name} falhou:`, err.message)
+    }
+  }
+}
 
 
 const PORT = 3000
 app.listen(PORT, () => {
   console.log(`Servidor rodando em http://localhost:${PORT}`)
   converterFuncoesAntigas().catch(err => console.error('Erro ao converter funções antigas de colaboradores:', err))
+
+  // 1 min depois de subir (deixa o servidor atender primeiro) e depois a cada 6h
+  setTimeout(rodarJobs, 60 * 1000)
+  setInterval(rodarJobs, 6 * 60 * 60 * 1000)
 })
 
 export { prisma }

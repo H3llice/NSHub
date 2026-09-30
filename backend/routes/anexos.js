@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import multer from 'multer'
 import path from 'path'
+import fs from 'fs'
 import { prisma } from '../server.js'
 import { autenticar } from '../middleware/auth.js'
 
@@ -72,6 +73,8 @@ router.delete('/:id', autenticar, async (req, res) => {
   }
 
   await prisma.anexo.delete({ where: { id: parseInt(req.params.id) } })
+  // Apaga o arquivo também — antes só o registro saía e o arquivo ficava órfão em uploads/
+  fs.unlink(path.resolve('uploads', anexo.nomeArquivo), () => { })
   res.json({ ok: true })
 })
 

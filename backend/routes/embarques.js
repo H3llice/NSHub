@@ -42,6 +42,9 @@ const lerData = valor => (/^\d{4}-\d{2}-\d{2}$/.test(valor || '') ? new Date(val
 // Embarques do mesmo colaborador nunca se sobrepõem (validado ao salvar), então
 // processar em ordem cronológica basta: as folgas de um embarque só podem cair
 // em embarques posteriores, que ainda vão ser processados.
+// dataInicio/dataFim de cada embarque recebido aqui já são o período DO
+// COLABORADOR naquele embarque (ver embarquesPorColaborador), que pode ser menor
+// que o do embarque inteiro.
 function calcularDiasColaborador(embarques) {
   const dias = new Map()
   const ordenados = [...embarques].sort((a, b) => new Date(a.dataInicio) - new Date(b.dataInicio))
@@ -69,7 +72,18 @@ function calcularDiasColaborador(embarques) {
   return dias
 }
 
+// Período que o colaborador de fato passou embarcado: o individual do vínculo,
+// ou o do embarque inteiro quando não foi informado
+function periodoDoVinculo(vinculo) {
+  return {
+    dataInicio: vinculo.dataInicio || vinculo.embarque.dataInicio,
+    dataFim: vinculo.dataFim || vinculo.embarque.dataFim
+  }
+}
+
 // Todos os embarques de cada colaborador pedido, agrupados: Map colaboradorId → embarques[]
+// Cada embarque vem com dataInicio/dataFim trocados pelo período do colaborador —
+// é o que folga/dobra e a folha de pagamento usam.
 async function embarquesPorColaborador(colaboradorIds) {
   const vinculos = await prisma.embarqueColaborador.findMany({
     where: colaboradorIds ? { colaboradorId: { in: colaboradorIds } } : {},
@@ -82,7 +96,7 @@ async function embarquesPorColaborador(colaboradorIds) {
   const grupos = new Map()
   for (const v of vinculos) {
     if (!grupos.has(v.colaboradorId)) grupos.set(v.colaboradorId, { colaborador: v.colaborador, embarques: [] })
-    grupos.get(v.colaboradorId).embarques.push(v.embarque)
+    grupos.get(v.colaboradorId).embarques.push({ ...v.embarque, ...periodoDoVinculo(v) })
   }
   return grupos
 }
@@ -104,17 +118,46 @@ async function dobrasDoEmbarque(embarque) {
   return resultado
 }
 
-// Valida e normaliza o corpo de criação/edição. Retorna { dados } ou { erro }.
+// Valida e normaliza o corpo de criação/edição. Retorna { dados, colaboradores } ou { erro }.
+// body.colaboradores: [{ colaboradorId, dataInicio?, dataFim? }] — datas em branco
+// = período inteiro do embarque. (body.colaboradorIds, só ids, ainda é aceito.)
 function lerCorpo(body) {
   const dataInicio = lerData(body.dataInicio)
   const dataFim = lerData(body.dataFim)
-  const colaboradorIds = [...new Set((body.colaboradorIds || []).map(Number).filter(Boolean))]
 
   if (!Number(body.embarcacaoId)) return { erro: 'Embarcação é obrigatória' }
   if (!Number(body.armadorId)) return { erro: 'Armador é obrigatório' }
   if (!dataInicio || !dataFim) return { erro: 'Datas de início e fim são obrigatórias' }
   if (dataFim < dataInicio) return { erro: 'A data de fim não pode ser antes da data de início' }
-  if (colaboradorIds.length === 0) return { erro: 'Selecione ao menos um colaborador' }
+
+  const entrada = Array.isArray(body.colaboradores)
+    ? body.colaboradores
+    : (body.colaboradorIds || []).map(colaboradorId => ({ colaboradorId }))
+
+  const colaboradores = []
+  for (const c of entrada) {
+    const colaboradorId = Number(c?.colaboradorId)
+    if (!colaboradorId || colaboradores.some(x => x.colaboradorId === colaboradorId)) continue
+
+    const inicio = lerData(c.dataInicio)
+    const fim = lerData(c.dataFim)
+    if ((c.dataInicio && !inicio) || (c.dataFim && !fim)) return { erro: 'Data inválida no período de um colaborador' }
+
+    const inicioEfetivo = inicio || dataInicio
+    const fimEfetivo = fim || dataFim
+    if (fimEfetivo < inicioEfetivo) return { erro: 'O desembarque de um colaborador não pode ser antes do embarque dele' }
+    if (inicioEfetivo < dataInicio || fimEfetivo > dataFim) {
+      return { erro: 'O período de cada colaborador tem que ficar dentro do período do embarque' }
+    }
+
+    // Igual ao do embarque → grava null (ver EmbarqueColaborador no schema)
+    colaboradores.push({
+      colaboradorId,
+      dataInicio: inicioEfetivo.getTime() !== dataInicio.getTime() ? inicioEfetivo : null,
+      dataFim: fimEfetivo.getTime() !== dataFim.getTime() ? fimEfetivo : null
+    })
+  }
+  if (colaboradores.length === 0) return { erro: 'Selecione ao menos um colaborador' }
 
   return {
     dados: {
@@ -124,28 +167,41 @@ function lerCorpo(body) {
       dataFim,
       observacoes: (body.observacoes || '').trim() || null
     },
-    colaboradorIds
+    colaboradores
   }
 }
 
-// Um colaborador não pode estar em dois embarques no mesmo dia
-async function verificarConflitos(colaboradorIds, dataInicio, dataFim, ignorarEmbarqueId) {
-  const conflitos = await prisma.embarqueColaborador.findMany({
+// Um colaborador não pode estar em dois embarques no mesmo dia. O que conta é o
+// período de cada colaborador, não o do embarque: quem desceu dia 12 de um
+// embarque que vai até o dia 20 pode subir em outro no dia 13.
+async function verificarConflitos(colaboradores, dados, ignorarEmbarqueId) {
+  const periodos = new Map(colaboradores.map(c => [c.colaboradorId, {
+    dataInicio: c.dataInicio || dados.dataInicio,
+    dataFim: c.dataFim || dados.dataFim
+  }]))
+
+  // O período individual fica sempre dentro do período do embarque, então buscar
+  // pelos embarques que tocam este já traz todos os candidatos a conflito
+  const candidatos = await prisma.embarqueColaborador.findMany({
     where: {
-      colaboradorId: { in: colaboradorIds },
+      colaboradorId: { in: [...periodos.keys()] },
       embarque: {
-        dataInicio: { lte: dataFim },
-        dataFim: { gte: dataInicio },
+        dataInicio: { lte: dados.dataFim },
+        dataFim: { gte: dados.dataInicio },
         ...(ignorarEmbarqueId ? { id: { not: ignorarEmbarqueId } } : {})
       }
     },
     include: { colaborador: { select: { nome: true } }, embarque: { include: { embarcacao: { select: { nome: true } } } } }
   })
+
+  const conflitos = candidatos
+    .map(v => ({ v, existente: periodoDoVinculo(v), novo: periodos.get(v.colaboradorId) }))
+    .filter(({ existente, novo }) => existente.dataInicio <= novo.dataFim && existente.dataFim >= novo.dataInicio)
   if (conflitos.length === 0) return null
 
   const formatar = d => new Date(d).toLocaleDateString('pt-BR', { timeZone: 'UTC' })
-  return 'Colaborador já embarcado nesse período: ' + conflitos.map(c =>
-    `${c.colaborador.nome} (${c.embarque.embarcacao.nome}, ${formatar(c.embarque.dataInicio)} a ${formatar(c.embarque.dataFim)})`
+  return 'Colaborador já embarcado nesse período: ' + conflitos.map(({ v, existente }) =>
+    `${v.colaborador.nome} (${v.embarque.embarcacao.nome}, ${formatar(existente.dataInicio)} a ${formatar(existente.dataFim)})`
   ).join('; ')
 }
 
@@ -230,10 +286,10 @@ router.get('/:id', autenticar, async (req, res) => {
 
 // ─── Criar embarque ────────────────────────────────────────────────────────────
 router.post('/', autenticar, exigirPerfil(...PERFIS_GESTAO), async (req, res) => {
-  const { dados, colaboradorIds, erro } = lerCorpo(req.body)
+  const { dados, colaboradores, erro } = lerCorpo(req.body)
   if (erro) return res.status(400).json({ erro })
 
-  const conflito = await verificarConflitos(colaboradorIds, dados.dataInicio, dados.dataFim)
+  const conflito = await verificarConflitos(colaboradores, dados)
   if (conflito) return res.status(400).json({ erro: conflito })
 
   try {
@@ -241,7 +297,7 @@ router.post('/', autenticar, exigirPerfil(...PERFIS_GESTAO), async (req, res) =>
       data: {
         ...dados,
         criadoPorId: req.usuario.id,
-        colaboradores: { create: colaboradorIds.map(colaboradorId => ({ colaboradorId })) }
+        colaboradores: { create: colaboradores }
       },
       include: INCLUDE_PADRAO
     })
@@ -258,10 +314,10 @@ router.put('/:id', autenticar, exigirPerfil(...PERFIS_GESTAO), async (req, res) 
   const atual = await prisma.embarque.findUnique({ where: { id } })
   if (!atual) return res.status(404).json({ erro: 'Embarque não encontrado' })
 
-  const { dados, colaboradorIds, erro } = lerCorpo(req.body)
+  const { dados, colaboradores, erro } = lerCorpo(req.body)
   if (erro) return res.status(400).json({ erro })
 
-  const conflito = await verificarConflitos(colaboradorIds, dados.dataInicio, dados.dataFim, id)
+  const conflito = await verificarConflitos(colaboradores, dados, id)
   if (conflito) return res.status(400).json({ erro: conflito })
 
   try {
@@ -269,7 +325,7 @@ router.put('/:id', autenticar, exigirPerfil(...PERFIS_GESTAO), async (req, res) 
       await tx.embarqueColaborador.deleteMany({ where: { embarqueId: id } })
       return tx.embarque.update({
         where: { id },
-        data: { ...dados, colaboradores: { create: colaboradorIds.map(colaboradorId => ({ colaboradorId })) } },
+        data: { ...dados, colaboradores: { create: colaboradores } },
         include: INCLUDE_PADRAO
       })
     })

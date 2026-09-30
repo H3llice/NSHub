@@ -1,6 +1,6 @@
 import { Router } from 'express'
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib'
-import puppeteer from 'puppeteer'
+import { gerarPdf } from '../pdf-browser.js'
 import fs from 'fs'
 import path from 'path'
 import { prisma } from '../server.js'
@@ -1063,15 +1063,6 @@ const INCLUDE_PDF_RELATORIO = {
   testeImo: true,
 }
 
-async function renderHtmlParaPdf(browser, html) {
-  const page = await browser.newPage()
-  await page.setJavaScriptEnabled(false)
-  await page.setContent(html, { waitUntil: 'networkidle0' })
-  const bytes = await page.pdf({ format: 'A4', printBackground: true })
-  await page.close()
-  return bytes
-}
-
 router.get('/:id/pdf', autenticar, async (req, res) => {
   const relatorio = await prisma.relatorio.findUnique({
     where: { id: Number(req.params.id) },
@@ -1080,29 +1071,25 @@ router.get('/:id/pdf', autenticar, async (req, res) => {
   if (!relatorio) return res.status(404).json({ erro: 'Relatório não encontrado' })
 
   const pdfDoc = await PDFDocument.create()
-  const browser = await puppeteer.launch({ args: ['--no-sandbox'] })
-  try {
-    const pagina1Bytes = await renderHtmlParaPdf(browser, gerarHtmlServicoBalsa(relatorio))
-    const pagina1Pdf = await PDFDocument.load(pagina1Bytes)
-    const pagina1Pages = await pdfDoc.copyPages(pagina1Pdf, pagina1Pdf.getPageIndices())
-    pagina1Pages.forEach(p => pdfDoc.addPage(p))
 
-    // Testes IMO (pág. 2) só existem quando há TesteImo vinculado.
-    if (relatorio.testeImo) {
-      const imoPdfBytes = await renderHtmlParaPdf(browser, gerarHtmlTestesImo(relatorio))
-      const imoPdf = await PDFDocument.load(imoPdfBytes)
-      const imoPages = await pdfDoc.copyPages(imoPdf, imoPdf.getPageIndices())
-      imoPages.forEach(p => pdfDoc.addPage(p))
-    }
+  const pagina1Bytes = await gerarPdf(gerarHtmlServicoBalsa(relatorio))
+  const pagina1Pdf = await PDFDocument.load(pagina1Bytes)
+  const pagina1Pages = await pdfDoc.copyPages(pagina1Pdf, pagina1Pdf.getPageIndices())
+  pagina1Pages.forEach(p => pdfDoc.addPage(p))
 
-    // Pág. 3 (checklist de Serviços) sempre existe, igual a pág. 1.
-    const pagina3Bytes = await renderHtmlParaPdf(browser, gerarHtmlServicosBalsa(relatorio))
-    const pagina3Pdf = await PDFDocument.load(pagina3Bytes)
-    const pagina3Pages = await pdfDoc.copyPages(pagina3Pdf, pagina3Pdf.getPageIndices())
-    pagina3Pages.forEach(p => pdfDoc.addPage(p))
-  } finally {
-    await browser.close()
+  // Testes IMO (pág. 2) só existem quando há TesteImo vinculado.
+  if (relatorio.testeImo) {
+    const imoPdfBytes = await gerarPdf(gerarHtmlTestesImo(relatorio))
+    const imoPdf = await PDFDocument.load(imoPdfBytes)
+    const imoPages = await pdfDoc.copyPages(imoPdf, imoPdf.getPageIndices())
+    imoPages.forEach(p => pdfDoc.addPage(p))
   }
+
+  // Pág. 3 (checklist de Serviços) sempre existe, igual a pág. 1.
+  const pagina3Bytes = await gerarPdf(gerarHtmlServicosBalsa(relatorio))
+  const pagina3Pdf = await PDFDocument.load(pagina3Bytes)
+  const pagina3Pages = await pdfDoc.copyPages(pagina3Pdf, pagina3Pdf.getPageIndices())
+  pagina3Pages.forEach(p => pdfDoc.addPage(p))
 
   const pdfBytes = await pdfDoc.save()
   const nomeArquivo = `Relatorio ${relatorio.numero}.${relatorio.ano}.pdf`

@@ -13,6 +13,37 @@ if (!JWT_SECRET) {
 }
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3000'
 
+// ─── Limite de tentativas de login ────────────────────────────────────────────
+// Depois de MAX_TENTATIVAS erros seguidos, o email fica bloqueado por BLOQUEIO_MS.
+// A chave é o email e não o IP: atrás do proxy (ngrok) todo mundo chega com o
+// mesmo IP, e um limite por IP travaria a empresa inteira. Fica em memória —
+// reiniciar o servidor zera, o que é aceitável pra um freio contra força bruta.
+const MAX_TENTATIVAS = 5
+const BLOQUEIO_MS = 15 * 60 * 1000
+const tentativasLogin = new Map() // email → { falhas, ultimaFalha, bloqueadoAte }
+
+function registrarFalhaLogin(chave) {
+  const agora = Date.now()
+
+  // Não deixa o mapa crescer sem limite com emails inventados
+  if (tentativasLogin.size > 5000) {
+    for (const [k, t] of tentativasLogin) {
+      if (agora - t.ultimaFalha > BLOQUEIO_MS) tentativasLogin.delete(k)
+    }
+  }
+
+  const t = tentativasLogin.get(chave) || { falhas: 0, ultimaFalha: 0, bloqueadoAte: 0 }
+  // Falhas antigas não contam: a sequência recomeça depois de uma janela sem errar
+  if (agora - t.ultimaFalha > BLOQUEIO_MS) t.falhas = 0
+  t.falhas++
+  t.ultimaFalha = agora
+  if (t.falhas >= MAX_TENTATIVAS) {
+    t.bloqueadoAte = agora + BLOQUEIO_MS
+    t.falhas = 0
+  }
+  tentativasLogin.set(chave, t)
+}
+
 // ─── Login ────────────────────────────────────────────────────────────────────
 router.post('/login', async (req, res) => {
   const { email, senha } = req.body
@@ -21,16 +52,24 @@ router.post('/login', async (req, res) => {
     return res.status(400).json({ erro: 'Email e senha são obrigatórios' })
   }
 
+  const chave = String(email).trim().toLowerCase()
+  const bloqueadoAte = tentativasLogin.get(chave)?.bloqueadoAte || 0
+  if (bloqueadoAte > Date.now()) {
+    const minutos = Math.ceil((bloqueadoAte - Date.now()) / 60000)
+    return res.status(429).json({ erro: `Muitas tentativas de login. Tente novamente em ${minutos} minuto(s).` })
+  }
+
   const usuario = await prisma.usuario.findUnique({ where: { email } })
 
-  if (!usuario || !usuario.ativo) {
-    return res.status(401).json({ erro: 'Usuário não encontrado ou inativo' })
+  // Mesma resposta pra email inexistente, usuário inativo e senha errada — não
+  // revela a quem tenta adivinhar quais emails têm conta no sistema
+  const senhaOk = usuario && usuario.ativo && await bcrypt.compare(senha, usuario.senha)
+  if (!senhaOk) {
+    registrarFalhaLogin(chave)
+    return res.status(401).json({ erro: 'Email ou senha incorretos' })
   }
 
-  const senhaOk = await bcrypt.compare(senha, usuario.senha)
-  if (!senhaOk) {
-    return res.status(401).json({ erro: 'Senha incorreta' })
-  }
+  tentativasLogin.delete(chave)
 
   const token = jwt.sign(
     { id: usuario.id, nome: usuario.nome, email: usuario.email, perfil: usuario.perfil },

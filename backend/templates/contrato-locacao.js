@@ -240,7 +240,7 @@ export function htmlContratoLocacao(contrato) {
                 <td class="num">1</td>
                 <td class="patrimonio">${escapeHtml(cb.balsa.patrimonio)}</td>
                 <td>${escapeHtml(descricaoBalsa(cb.balsa))}</td>
-                <td class="meio">-</td>
+                <td class="meio">${cb.aditivo || '-'}</td>
                 <td class="num">0,00</td>
                 <td class="num">0,00</td>
                 <td class="num">${moeda(cb.valor)}</td>

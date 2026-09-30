@@ -406,6 +406,45 @@ window.removerDocumentoBalsa = async function (id, btn) {
   else alert('Erro ao remover documento')
 }
 
+// ===== HISTÓRICO DE LOCAÇÕES DA BALSA ==========================================
+// Uma linha por passagem da balsa por um contrato (ver ContratoBalsa no schema)
+const ESTADO_DEVOLUCAO_LABEL = { bom: 'Bom estado', avariado: 'Avariada' }
+
+function dataPura(data) {
+  return data ? new Date(data).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : '-'
+}
+
+function secaoHistoricoLocacoesHtml(locacoes) {
+  if (!locacoes || locacoes.length === 0) return ''
+
+  return `
+    <div style="margin-top: 24px;">
+      <h5>Histórico de locações</h5>
+      <div class="table-scroll">
+        <table class="table-certificados">
+          <thead>
+            <tr><th>Contrato</th><th>Cliente</th><th>Saída</th><th>Devolução</th><th>Vistoria</th></tr>
+          </thead>
+          <tbody>
+            ${locacoes.map(l => `
+              <tr>
+                <td>${l.contrato.numero}.${l.contrato.ano}${l.aditivo ? ` <small style="color:#999;">(aditivo ${l.aditivo})</small>` : ''}</td>
+                <td>${esc(l.contrato.cliente?.nome)}</td>
+                <td>${dataPura(l.aditivo ? l.criadoEm : l.contrato.dataInicio)}</td>
+                <td>${l.devolvidaEm ? dataPura(l.devolvidaEm) : '<span style="color:#0d6efd;">Com o cliente</span>'}</td>
+                <td>${l.devolvidaEm
+      ? (l.estadoDevolucao ? (ESTADO_DEVOLUCAO_LABEL[l.estadoDevolucao] || esc(l.estadoDevolucao)) : 'Contrato cancelado')
+      + (l.observacoesDevolucao ? ' — ' + esc(l.observacoesDevolucao) : '')
+      : '-'}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `
+}
+
 // ===== FORMULÁRIO — NOVA BALSA =================================================
 window.abrirFormularioBalsa = function (finalidade) {
   documentosBalsaPendentes = []
@@ -505,6 +544,8 @@ window.editarBalsa = async function (id, finalidade) {
       </div>
 
       ${secaoDocumentosBalsaHtml(b.documentos || [])}
+
+      ${secaoHistoricoLocacoesHtml(b.contratosBalsa)}
 
       <div style="display:flex; flex-wrap:wrap; gap:8px; margin-top:20px;">
         <button type="button" class="btn btn-success" onclick="atualizarBalsa(${b.id}, '${finalidade}')">Salvar Alterações</button>

@@ -5,6 +5,9 @@ import { totalLiquidoOrcamento } from './orcamentos.js'
 
 const router = Router()
 
+// Valores e dados de cliente — só esses perfis leem, mesmo direto pela API
+const PERFIS_LEITURA = ['admin', 'gerente', 'financeiro']
+
 const FORMAS_PAGAMENTO = ['avista', 'parcelado']
 const STATUS_VALIDOS = ['ativo', 'cancelado']
 const TIPOS_ITEM = ['produto', 'servico']
@@ -92,7 +95,7 @@ function lerItensAvulsa(itens) {
 }
 
 // ─── Listar vendas (paginado) ──────────────────────────────────────────────────
-router.get('/', autenticar, async (req, res) => {
+router.get('/', autenticar, exigirPerfil(...PERFIS_LEITURA), async (req, res) => {
   const { status, pagina = 1 } = req.query
   const porPagina = 50
   const paginaNum = parseInt(pagina)
@@ -115,7 +118,7 @@ router.get('/', autenticar, async (req, res) => {
 })
 
 // ─── Buscar uma venda pelo ID ───────────────────────────────────────────────────
-router.get('/:id', autenticar, async (req, res) => {
+router.get('/:id', autenticar, exigirPerfil(...PERFIS_LEITURA), async (req, res) => {
   const venda = await prisma.vendaOrcamento.findUnique({
     where: { id: Number(req.params.id) },
     include: INCLUDE_PADRAO
