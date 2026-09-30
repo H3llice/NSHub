@@ -185,6 +185,38 @@ body {
     gap: 16px;
 }
 
+/* Botão ☰ da topbar que recolhe/mostra a barra lateral no computador (no
+celular quem faz isso é o .sidebar-toggle, que abre a barra por cima da tela). */
+.sidebar-recolher {
+    background: transparent;
+    border: none;
+    color: var(--acento);
+    font-size: 22px;
+    line-height: 1;
+    padding: 6px 10px;
+    margin-right: 12px;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.sidebar-recolher:hover {
+    background: var(--cinza-bg);
+}
+
+/* Barra lateral recolhida: sai de cena e o conteúdo ocupa a largura toda. A
+classe fica no <html> (e não no body) pra poder ser aplicada pelo script do
+<head> antes da primeira pintura, sem a barra piscar ao carregar a página. */
+@media (min-width: 769px) {
+    html.sidebar-recolhida .sidebar {
+        transform: translateX(-100%);
+    }
+
+    html.sidebar-recolhida .topbar,
+    html.sidebar-recolhida .content {
+        margin-left: 0;
+    }
+}
+
 .topbar-user-actions {
     display: flex;
     align-items: center;
@@ -510,6 +542,28 @@ colunas da tabela o resto do conteúdo saía de vista também). */
     -webkit-overflow-scrolling: touch;
 }
 
+/* Tabela comprida com cabeçalho sempre à vista (ex.: Folha de pagamento).
+O cabeçalho "gruda" no topo de quem rola — e dentro de um .table-scroll quem
+rola é ele, não a página. Por isso a própria caixa ganha altura máxima e rolagem
+vertical: a tabela rola dentro dela e os títulos das colunas ficam parados. */
+.table-scroll.cabecalho-fixo {
+    overflow-y: auto;
+    max-height: calc(100vh - 110px);
+}
+
+.table-scroll.cabecalho-fixo .table-certificados {
+    /* overflow:hidden da tabela prenderia o sticky dentro dela */
+    overflow: visible;
+}
+
+.table-scroll.cabecalho-fixo th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    /* o fundo normal está no <thead>, que não acompanha a célula grudada */
+    background: var(--acento);
+}
+
 /* Cards de informação lado a lado (ex: assinaturas) — mesma lógica do
 .filtros-grid, com colunas maiores pro conteúdo dos cards. */
 .info-grid-3 {
@@ -531,6 +585,10 @@ empilha em vez de espremer quando não cabem os dois lado a lado. */
 @media (max-width: 768px) {
     .sidebar-toggle {
         display: block;
+    }
+
+    .sidebar-recolher {
+        display: none;
     }
 
     body {

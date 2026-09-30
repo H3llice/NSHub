@@ -18,6 +18,12 @@
                 document.documentElement.setAttribute('data-theme', 'classico')
             }
         } catch { }
+        // Barra lateral recolhida (preferência do computador) — também antes da pintura
+        try {
+            if (localStorage.getItem('ns_sidebar_recolhida') === '1') {
+                document.documentElement.classList.add('sidebar-recolhida')
+            }
+        } catch { }
     </script>
 </head>
 
@@ -168,6 +174,7 @@
 
     <!-- TOPBAR -->
     <div class="topbar">
+        <button class="sidebar-recolher" onclick="alternarSidebarDesktop()" title="Recolher / mostrar o menu lateral">☰</button>
         <div class="main-container topbar-row d-flex justify-content-end align-items-center w-100">
             <div class="topbar-actions">
                 <div class="novo-registro-menu">

@@ -61,6 +61,14 @@ window.logout = function () {
     window.location.href = './login.html'
 }
 
+// ===== RECOLHER A SIDEBAR (COMPUTADOR) =====
+// Botão ☰ da topbar. A escolha fica salva neste navegador e é reaplicada pelo
+// script do <head> do index.html antes da página aparecer.
+window.alternarSidebarDesktop = function () {
+    const recolhida = document.documentElement.classList.toggle('sidebar-recolhida')
+    try { localStorage.setItem('ns_sidebar_recolhida', recolhida ? '1' : '0') } catch { }
+}
+
 // ===== CONTROLE DA SIDEBAR (MOBILE) =====
 window.toggleSidebar = function () {
     const sidebar = document.querySelector('.sidebar');

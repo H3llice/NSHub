@@ -306,7 +306,7 @@ function secaoGrupoHtml(grupo, itens, aberta) {
     <div class="folha-secao" data-grupo="${grupo.id}">
     <h5 style="margin:24px 0 10px;">${grupo.titulo} <small style="color:#999; font-weight:400;">(${itens.length})</small></h5>
     ${itens.length === 0 ? '<p style="color:#999; font-size:13px;">Nenhum colaborador neste grupo.</p>' : `
-    <div class="table-scroll">
+    <div class="table-scroll cabecalho-fixo">
       <table class="table-certificados" style="font-size:13px;">
         <thead>
           <tr>
