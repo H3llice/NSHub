@@ -97,6 +97,11 @@ async function dadosAutomaticos(colaboradores, mes, ano) {
   return dados
 }
 
+// Dias trabalhados que a folha sugere sozinha: pro intermitente, os dias
+// embarcados no mês (null se não embarcou ou se não é intermitente — o campo fica
+// vazio pra digitar). É só o ponto de partida: o valor é editável na tela.
+const diasTrabalhadosSugeridos = dados => (dados.tipoContrato === 'intermitente' && dados.diasEmbarcados > 0 ? dados.diasEmbarcados : null)
+
 // "" / null → null; senão número (aceita "1234,56"). Retorna undefined se inválido.
 function lerValor(v) {
   if (v === '' || v === null || v === undefined) return null
@@ -178,7 +183,13 @@ router.post('/', autenticar, exigirPerfil(...PERFIS_FOLHA), async (req, res) => 
       mes,
       ano,
       criadoPorId: req.usuario.id,
-      itens: { create: colaboradores.map(c => ({ colaboradorId: c.id, ...dados.get(c.id) })) }
+      itens: {
+        create: colaboradores.map(c => ({
+          colaboradorId: c.id,
+          ...dados.get(c.id),
+          diasTrabalhados: diasTrabalhadosSugeridos(dados.get(c.id))
+        }))
+      }
     },
     include: INCLUDE_ITENS
   })
@@ -189,21 +200,35 @@ router.post('/', autenticar, exigirPerfil(...PERFIS_FOLHA), async (req, res) => 
 // Refaz embarques/dias/dobras, desconto do plano de saúde e comissão a partir
 // dos cadastros atuais, e inclui colaboradores ativados depois da geração.
 // Coparticipação, ajuda de custo, prêmio e observações NÃO são tocados.
+// Dias trabalhados (intermitente) acompanha os embarques só enquanto ninguém
+// mexeu nele: se ainda é igual aos dias embarcados de antes (ou está vazio),
+// passa a ser os de agora; se foi editado à mão, fica como está.
 router.post('/:id/atualizar', autenticar, exigirPerfil(...PERFIS_FOLHA), async (req, res) => {
   const folha = await buscarFolhaAberta(Number(req.params.id), res)
   if (!folha) return
 
-  const itensAtuais = await prisma.itemFolhaPagamento.findMany({ where: { folhaId: folha.id }, select: { colaboradorId: true } })
+  const itensAtuais = await prisma.itemFolhaPagamento.findMany({
+    where: { folhaId: folha.id },
+    select: { colaboradorId: true, diasTrabalhados: true, diasEmbarcados: true }
+  })
+  const itemAtual = new Map(itensAtuais.map(i => [i.colaboradorId, i]))
   const colaboradores = await prisma.colaborador.findMany({
     where: { OR: [{ ativo: true }, { id: { in: itensAtuais.map(i => i.colaboradorId) } }] }
   })
   const dados = await dadosAutomaticos(colaboradores, folha.mes, folha.ano)
 
-  await prisma.$transaction(colaboradores.map(c => prisma.itemFolhaPagamento.upsert({
-    where: { folhaId_colaboradorId: { folhaId: folha.id, colaboradorId: c.id } },
-    update: dados.get(c.id),
-    create: { folhaId: folha.id, colaboradorId: c.id, ...dados.get(c.id) }
-  })))
+  await prisma.$transaction(colaboradores.map(c => {
+    const novo = dados.get(c.id)
+    const sugerido = diasTrabalhadosSugeridos(novo)
+    const antes = itemAtual.get(c.id)
+    const naoEditado = antes && (antes.diasTrabalhados === null || antes.diasTrabalhados === antes.diasEmbarcados)
+
+    return prisma.itemFolhaPagamento.upsert({
+      where: { folhaId_colaboradorId: { folhaId: folha.id, colaboradorId: c.id } },
+      update: { ...novo, ...(naoEditado && novo.tipoContrato === 'intermitente' ? { diasTrabalhados: sugerido } : {}) },
+      create: { folhaId: folha.id, colaboradorId: c.id, ...novo, diasTrabalhados: sugerido }
+    })
+  }))
 
   res.json(await prisma.folhaPagamento.findUnique({ where: { id: folha.id }, include: INCLUDE_ITENS }))
 })

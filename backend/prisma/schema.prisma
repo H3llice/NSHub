@@ -1314,8 +1314,9 @@ model ItemFolhaPagamento {
   // Optou pelo vale-transporte (cópia de Colaborador.descontoValeTransporte) — a
   // folha só mostra Sim/Não, sem valor
   valeTransporte Boolean @default(false)
-  // Dias trabalhados no mês — digitado na folha, só pra intermitente (o salário
-  // dele no cadastro é por dia). Não é tocado por "atualizar dados automáticos".
+  // Dias trabalhados no mês, só pra intermitente (o salário dele no cadastro é
+  // por dia). Nasce igual aos dias embarcados e é editável; "atualizar dados
+  // automáticos" só o refaz se ninguém editou (ver routes/folha-pagamento.js).
   diasTrabalhados Int?
 
   // Valores (R$) — descontoPlanoSaude e comissao vêm preenchidos, todos editáveis

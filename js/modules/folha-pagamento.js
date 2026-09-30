@@ -198,7 +198,7 @@ function renderizarFolha(folha) {
       </div>
       <p style="font-size:12px; color:#999; margin:0 0 16px;">
         ${aberta
-          ? 'Embarques, dobras, vale-transporte, desconto do plano de saúde, auxílio moradia e comissões vêm preenchidos. "Atualizar dados automáticos" puxa de novo esses dados (e inclui colaboradores novos), sem mexer em dias trabalhados, coparticipação, ajuda de custo, prêmio e observações. Dias trabalhados é só pra intermitente (o salário dele é por dia).'
+          ? 'Embarques, dobras, vale-transporte, desconto do plano de saúde, auxílio moradia e comissões vêm preenchidos. "Atualizar dados automáticos" puxa de novo esses dados (e inclui colaboradores novos), sem mexer em coparticipação, ajuda de custo, prêmio e observações. Dias trabalhados é só pra intermitente (o salário dele é por dia): vem preenchido com os dias embarcados e pode ser alterado — depois de alterado à mão, a atualização automática não mexe mais nele.'
           : `Fechada em ${new Date(folha.fechadaEm).toLocaleDateString('pt-BR')} — valores congelados.`}
       </p>
 
@@ -275,7 +275,7 @@ function secaoGrupoHtml(grupo, itens, aberta) {
             <th>Colaborador</th>
             <th>Embarcado</th>
             <th>Dobras</th>
-            <th title="Só para intermitente — o salário dele no cadastro é por dia">Dias trabalhados</th>
+            <th title="Só para intermitente (salário por dia). Vem com os dias embarcados e pode ser alterado.">Dias trabalhados</th>
             <th>Vale-transporte</th>
             ${CAMPOS_VALOR.map(c => `<th>${c.titulo}</th>`).join('')}
             <th>Observações</th>
@@ -368,7 +368,7 @@ window.salvarFolhaPagamento = async function () {
 }
 
 window.atualizarAutomaticosFolha = async function () {
-  if (!confirm('Puxar de novo embarques, dobras, vale-transporte, desconto do plano de saúde, auxílio moradia e comissões? Se você editou desconto do plano, auxílio moradia ou comissão à mão, eles voltam pro valor do cadastro/vendas.')) return
+  if (!confirm('Puxar de novo embarques, dobras, vale-transporte, desconto do plano de saúde, auxílio moradia e comissões? Se você editou desconto do plano, auxílio moradia ou comissão à mão, eles voltam pro valor do cadastro/vendas. Dias trabalhados que você alterou à mão são mantidos.')) return
   // Salva antes pra não perder coparticipação/ajuda/prêmio digitados agora
   if (!(await salvarItensFolha())) return
 
