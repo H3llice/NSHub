@@ -317,7 +317,7 @@ function secaoGrupoHtml(grupo, itens, aberta) {
         <thead>
           <tr>
             <th style="width:32px; text-align:center;"><input type="checkbox" class="folha-marcar-todos" data-grupo="${grupo.id}" title="Marcar/desmarcar todos pro PDF" onchange="marcarGrupoFolhaPdf(this)" ${itens.some(i => folhaDesmarcados.has(i.id)) ? '' : 'checked'}></th>
-            <th>Colaborador</th>
+            <th class="coluna-fixa">Colaborador</th>
             <th>Embarcado</th>
             <th>Dobras</th>
             <th title="Só para intermitente (salário por dia). Vem com os dias embarcados e pode ser alterado.">Dias trabalhados</th>
@@ -332,7 +332,7 @@ function secaoGrupoHtml(grupo, itens, aberta) {
           ${itens.map(i => `
             <tr>
               <td style="text-align:center;"><input type="checkbox" class="folha-marcar" data-item="${i.id}" data-grupo="${grupo.id}" title="Sai no PDF" onchange="marcarItemFolhaPdf(this)" ${folhaDesmarcados.has(i.id) ? '' : 'checked'}></td>
-              <td style="white-space:nowrap;"><strong>${esc(i.nome)}</strong><br><small style="color:#999;">${esc(labelFuncao(i.funcao))}${i.tipoContrato ? ` · ${TIPOS_CONTRATO[i.tipoContrato] || esc(i.tipoContrato)}` : ''}</small></td>
+              <td class="coluna-fixa" style="white-space:nowrap;"><strong>${esc(i.nome)}</strong><br><small style="color:#999;">${esc(labelFuncao(i.funcao))}${i.tipoContrato ? ` · ${TIPOS_CONTRATO[i.tipoContrato] || esc(i.tipoContrato)}` : ''}</small></td>
               <td style="min-width:180px;">
                 ${i.diasEmbarcados > 0
                   ? `${esc(i.embarques)}<br><small style="color:#999;">${i.diasEmbarcados} ${i.diasEmbarcados === 1 ? 'dia' : 'dias'}</small>`
@@ -351,7 +351,7 @@ function secaoGrupoHtml(grupo, itens, aberta) {
           `).join('')}
           <tr style="background:#f8f9fa; font-weight:600;">
             <td></td>
-            <td>Total</td>
+            <td class="coluna-fixa" style="background:inherit;">Total</td>
             <td></td>
             <td style="text-align:center;">${itens.reduce((s, i) => s + i.diasDobra, 0)}</td>
             <td style="text-align:center;" class="folha-total-dias" data-grupo="${grupo.id}" data-campo="diasTrabalhados"></td>

@@ -564,6 +564,28 @@ vertical: a tabela rola dentro dela e os títulos das colunas ficam parados. */
     background: var(--acento);
 }
 
+/* Coluna que fica parada ao rolar de lado (ex.: nome do colaborador na folha).
+Precisa de fundo próprio: o da linha não acompanha a célula grudada e as outras
+colunas apareceriam por baixo. */
+.table-scroll.cabecalho-fixo .coluna-fixa {
+    position: sticky;
+    left: 0;
+    z-index: 1;
+    background: white;
+    box-shadow: 2px 0 0 #eee;
+}
+
+.table-scroll.cabecalho-fixo tbody tr:hover .coluna-fixa {
+    background: var(--cinza-bg);
+}
+
+/* canto: gruda no topo e na esquerda, por cima das duas faixas */
+.table-scroll.cabecalho-fixo th.coluna-fixa {
+    z-index: 3;
+    background: var(--acento);
+    box-shadow: none;
+}
+
 /* Cards de informação lado a lado (ex: assinaturas) — mesma lógica do
 .filtros-grid, com colunas maiores pro conteúdo dos cards. */
 .info-grid-3 {
