@@ -141,7 +141,8 @@ router.get('/:id', autenticar, exigirPerfil(...PERFIS_FOLHA), async (req, res) =
 
 // ─── PDF da folha (link em nova aba, token via ?token=) ────────────────────────
 // Sem filtro sai a folha inteira. ?grupo=base|tecnicos|estagiarios imprime só
-// essa seção — é o filtro da tela da folha.
+// essa seção (o filtro da tela da folha) e ?itens=1,2,3 (ids de ItemFolhaPagamento)
+// só os colaboradores marcados na tela. Os dois podem vir juntos.
 router.get('/:id/pdf', autenticar, exigirPerfil(...PERFIS_FOLHA), async (req, res) => {
   const folha = await prisma.folhaPagamento.findUnique({ where: { id: Number(req.params.id) }, include: INCLUDE_ITENS })
   if (!folha) return res.status(404).json({ erro: 'Folha não encontrada' })
@@ -151,7 +152,14 @@ router.get('/:id/pdf', autenticar, exigirPerfil(...PERFIS_FOLHA), async (req, re
     return res.status(400).json({ erro: `Grupo inválido. Use: ${GRUPOS_FOLHA.map(g => g.id).join(', ')}` })
   }
   if (grupo) folha.itens = folha.itens.filter(i => i.grupo === grupo.id)
-  const filtro = grupo?.titulo || null
+
+  const selecionados = String(req.query.itens || '').split(',').map(Number).filter(n => Number.isInteger(n) && n > 0)
+  if (selecionados.length > 0) folha.itens = folha.itens.filter(i => selecionados.includes(i.id))
+
+  const selecao = selecionados.length > 0
+    ? `${folha.itens.length} ${folha.itens.length === 1 ? 'colaborador selecionado' : 'colaboradores selecionados'}`
+    : null
+  const filtro = [grupo?.titulo, selecao].filter(Boolean).join(' — ') || null
 
   // preferCSSPageSize: o template pede A4 deitado no @page
   const pdfBytes = await gerarPdf(htmlFolhaPagamento(folha, filtro), { preferCSSPageSize: true })

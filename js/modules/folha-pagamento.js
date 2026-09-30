@@ -79,9 +79,11 @@ const nomeMes = f => `${MESES[f.mes - 1]}/${f.ano}`
 
 // PDF abre em nova aba — sem header Authorization, o token vai na query.
 // grupo: '' (folha inteira) ou o id de um dos GRUPOS (base | tecnicos | estagiarios)
-function urlPdfFolha(id, grupo = '') {
+// itens: ids dos itens marcados na tela, ou null pra todos
+function urlPdfFolha(id, grupo = '', itens = null) {
   const params = new URLSearchParams({ token: localStorage.getItem('ns_token') || '' })
   if (grupo) params.append('grupo', grupo)
+  if (itens) params.append('itens', itens.join(','))
   return `${API}/folha-pagamento/${id}/pdf?${params}`
 }
 
@@ -171,6 +173,9 @@ window.excluirFolhaPagamento = async function (id) {
 
 // ─── Tela da folha ────────────────────────────────────────────────────────────
 let folhaAtual = null
+// Itens desmarcados pra não sair no PDF da tela. Fica fora do HTML pra sobreviver
+// quando a tela é refeita (salvar, atualizar); zera ao abrir outra folha.
+let folhaDesmarcados = new Set()
 
 window.abrirFolhaPagamento = async function (id) {
   const res = await apiFetch(`${API}/folha-pagamento/${id}`)
@@ -182,6 +187,7 @@ window.abrirFolhaPagamento = async function (id) {
 function renderizarFolha(folha) {
   // Mantém o filtro escolhido quando a tela é refeita (salvar, atualizar, fechar)
   const filtroAnterior = folhaAtual?.id === folha.id ? (document.getElementById('folha-filtro')?.value || '') : ''
+  if (folhaAtual?.id !== folha.id) folhaDesmarcados = new Set()
   folhaAtual = folha
   const aberta = folha.status === 'aberta'
 
@@ -219,7 +225,7 @@ function renderizarFolha(folha) {
           </select>
         </div>
         <button class="btn btn-sm btn-secondary" onclick="abrirPdfFolha()">📄 PDF do que está na tela</button>
-        <small style="color:#999; flex-basis:100%;">O filtro só muda o que aparece e o que sai no PDF — "Salvar" continua gravando a folha inteira.</small>
+        <small style="color:#999; flex-basis:100%;">O PDF sai com o grupo escolhido e só com os colaboradores marcados na caixa à esquerda do nome. Filtro e marcação só valem pro PDF — "Salvar" continua gravando a folha inteira.</small>
       </div>
 
       ${GRUPOS.map(g => secaoGrupoHtml(g, folha.itens.filter(i => i.grupo === g.id), aberta)).join('')}
@@ -239,10 +245,42 @@ window.aplicarFiltroFolha = function () {
   })
 }
 
-// PDF do grupo que está na tela (ou da folha inteira, sem filtro). O PDF sai do que está gravado, então com a
+// Caixa de um colaborador: marcado = sai no PDF da tela
+window.marcarItemFolhaPdf = function (check) {
+  const id = Number(check.dataset.item)
+  if (check.checked) folhaDesmarcados.delete(id)
+  else folhaDesmarcados.add(id)
+  atualizarMarcarTodosFolha()
+}
+
+// Caixa do cabeçalho de um grupo: marca/desmarca todos dele
+window.marcarGrupoFolhaPdf = function (check) {
+  document.querySelectorAll(`.folha-marcar[data-grupo="${check.dataset.grupo}"]`).forEach(el => {
+    el.checked = check.checked
+    const id = Number(el.dataset.item)
+    if (check.checked) folhaDesmarcados.delete(id)
+    else folhaDesmarcados.add(id)
+  })
+}
+
+// A caixa do cabeçalho fica marcada só quando todos do grupo estão
+function atualizarMarcarTodosFolha() {
+  document.querySelectorAll('.folha-marcar-todos').forEach(el => {
+    el.checked = !folhaAtual.itens.some(i => i.grupo === el.dataset.grupo && folhaDesmarcados.has(i.id))
+  })
+}
+
+// PDF do grupo que está na tela (ou da folha inteira, sem filtro), só com os
+// colaboradores marcados. O PDF sai do que está gravado, então com a
 // folha aberta salva antes — senão valores recém-digitados ficariam de fora.
 window.abrirPdfFolha = async function () {
   const grupo = document.getElementById('folha-filtro')?.value || ''
+  const noFiltro = folhaAtual.itens.filter(i => !grupo || i.grupo === grupo)
+  const marcados = noFiltro.filter(i => !folhaDesmarcados.has(i.id))
+  if (marcados.length === 0) { alert('Marque ao menos um colaborador pra sair no PDF!'); return }
+  // Todos marcados = PDF normal do grupo/folha, sem lista de ids na URL
+  const itens = marcados.length < noFiltro.length ? marcados.map(i => i.id) : null
+
   // A aba é aberta já no clique: aberta depois do await, o navegador bloquearia como pop-up
   const aba = window.open('', '_blank')
 
@@ -252,7 +290,7 @@ window.abrirPdfFolha = async function () {
     folhaAtual = folha
   }
 
-  const url = urlPdfFolha(folhaAtual.id, grupo)
+  const url = urlPdfFolha(folhaAtual.id, grupo, itens)
   if (aba) aba.location = url
   else window.location.href = url
 }
@@ -272,6 +310,7 @@ function secaoGrupoHtml(grupo, itens, aberta) {
       <table class="table-certificados" style="font-size:13px;">
         <thead>
           <tr>
+            <th style="width:32px; text-align:center;"><input type="checkbox" class="folha-marcar-todos" data-grupo="${grupo.id}" title="Marcar/desmarcar todos pro PDF" onchange="marcarGrupoFolhaPdf(this)" ${itens.some(i => folhaDesmarcados.has(i.id)) ? '' : 'checked'}></th>
             <th>Colaborador</th>
             <th>Embarcado</th>
             <th>Dobras</th>
@@ -284,6 +323,7 @@ function secaoGrupoHtml(grupo, itens, aberta) {
         <tbody>
           ${itens.map(i => `
             <tr>
+              <td style="text-align:center;"><input type="checkbox" class="folha-marcar" data-item="${i.id}" data-grupo="${grupo.id}" title="Sai no PDF" onchange="marcarItemFolhaPdf(this)" ${folhaDesmarcados.has(i.id) ? '' : 'checked'}></td>
               <td style="white-space:nowrap;"><strong>${esc(i.nome)}</strong><br><small style="color:#999;">${esc(labelFuncao(i.funcao))}${i.tipoContrato ? ` · ${TIPOS_CONTRATO[i.tipoContrato] || esc(i.tipoContrato)}` : ''}</small></td>
               <td style="min-width:180px;">
                 ${i.diasEmbarcados > 0
@@ -302,6 +342,7 @@ function secaoGrupoHtml(grupo, itens, aberta) {
             </tr>
           `).join('')}
           <tr style="background:#f8f9fa; font-weight:600;">
+            <td></td>
             <td>Total</td>
             <td></td>
             <td style="text-align:center;">${itens.reduce((s, i) => s + i.diasDobra, 0)}</td>
