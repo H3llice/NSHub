@@ -5,6 +5,8 @@ import path from 'path'
 import { prisma } from '../server.js'
 import { autenticar, exigirPerfil } from '../middleware/auth.js'
 import { desenharPaginaRelatorio, INCLUDE_PDF_RELATORIO, atualizarRelatorioCompleto } from './relatorios.js'
+import { gerarPdf } from '../pdf-browser.js'
+import { MODELOS_LISTA, TIPOS_LISTA, htmlCertificadoLista } from '../templates/certificado-lista.js'
 
 const router = Router()
 
@@ -30,6 +32,20 @@ function extrairEquipamentoCertificado(body) {
     if (body[campo] === '' || body[campo] === null) { dados[campo] = null; continue }
     dados[campo] = campo === 'equipCapacidade' ? parseInt(body[campo]) : body[campo]
   }
+  return dados
+}
+
+// Campos só dos certificados de lista (respiração, cilindros, coletes) — mesmo
+// esquema do extrairEquipamentoCertificado: ausente no body = não mexe.
+const CAMPOS_LISTA = ['imo', 'bandeira', 'classificadora', 'tipoNavio', 'cnpj', 'localEmissao']
+
+function extrairCamposLista(body) {
+  const dados = {}
+  for (const campo of CAMPOS_LISTA) {
+    if (body[campo] === undefined) continue
+    dados[campo] = body[campo] || null
+  }
+  if (Array.isArray(body.itens)) dados.itens = body.itens
   return dados
 }
 
@@ -60,11 +76,12 @@ const INCLUDE_LISTAGEM = {
 // Só cai pro criadoPor em certificados antigos que nunca tiveram tecnicoNome
 // preenchido.
 router.get('/', autenticar, async (req, res) => {
-  const { busca, empresa, status, navio, armador, tecnico, ano, pagina = 1 } = req.query
+  const { busca, empresa, status, navio, armador, tecnico, ano, tipo, pagina = 1 } = req.query
   const porPagina = 50
   const paginaNum = parseInt(pagina)
 
-  const where = {}
+  // Sem tipo = balsa — cada tipo tem sua própria tabela na tela.
+  const where = { tipo: tipo || 'balsa' }
   if (status) where.status = status
   if (empresa) where.empresaId = parseInt(empresa)
   if (ano && !isNaN(ano)) where.ano = parseInt(ano)
@@ -108,6 +125,13 @@ router.get('/', autenticar, async (req, res) => {
   res.json({ certificados, total, pagina: paginaNum, totalPaginas: Math.ceil(total / porPagina) })
 })
 
+// ─── Modelos dos certificados de lista ─────────────────────────────────────────
+// A tela monta o formulário (cabeçalho, colunas, textos padrão) a partir daqui,
+// pra não duplicar a definição dos modelos no frontend. Antes de /:id.
+router.get('/modelos', autenticar, (req, res) => {
+  res.json(MODELOS_LISTA)
+})
+
 // ─── Buscar um certificado pelo ID ──────────────────────────────────────────────
 router.get('/:id', autenticar, async (req, res) => {
   const certificado = await prisma.certificado.findUnique({
@@ -131,7 +155,7 @@ async function proximoNumeroCertificado(ano) {
 // preenchidos no papel) e a futura importação de certificados antigos, que
 // nunca tiveram esse rastro digital — usuário pediu essa exceção explicitamente.
 router.post('/', autenticar, exigirPerfil('usuario', 'gerente', 'admin'), async (req, res) => {
-  const { relatorioId, empresaId, navio, armador, portoRegistro, telefone, email, dataEmissao, validade, observacoes, relatorio: dadosTecnicos } = req.body
+  const { relatorioId, empresaId, navio, armador, portoRegistro, telefone, email, dataEmissao, validade, observacoes, relatorio: dadosTecnicos, tipo = 'balsa' } = req.body
   const ano = new Date().getFullYear()
 
   if (relatorioId) {
@@ -182,14 +206,19 @@ router.post('/', autenticar, exigirPerfil('usuario', 'gerente', 'admin'), async 
   // certificados.js: a tela de criação é o mesmo formulário completo da
   // edição). O cadastro formal de Embarcacao/Cliente, se algum dia for feito,
   // é independente disso — nunca é pré-requisito.
+  if (tipo !== 'balsa' && !TIPOS_LISTA.includes(tipo)) {
+    return res.status(400).json({ erro: 'Tipo de certificado inválido' })
+  }
   if (!empresaId || !navio) {
     return res.status(400).json({ erro: 'Empresa e Navio são obrigatórios' })
   }
 
+  // O tipo só é definido aqui — não muda depois (o formulário e o PDF dependem dele).
   const certificado = await prisma.certificado.create({
     data: {
       numero: await proximoNumeroCertificado(ano),
       ano,
+      tipo,
       empresaId: parseInt(empresaId),
       criadoPorId: req.usuario.id,
       navio,
@@ -201,7 +230,8 @@ router.post('/', autenticar, exigirPerfil('usuario', 'gerente', 'admin'), async 
       validade: validade || null,
       observacoes: observacoes || null,
       dadosTecnicos: dadosTecnicos || undefined,
-      ...extrairEquipamentoCertificado(req.body)
+      ...extrairEquipamentoCertificado(req.body),
+      ...extrairCamposLista(req.body)
     },
     include: INCLUDE_PADRAO
   })
@@ -241,6 +271,7 @@ router.put('/:id', autenticar, exigirPerfil('usuario', 'gerente', 'admin'), asyn
       telefone: telefone || null,
       email: email || null,
       ...extrairEquipamentoCertificado(req.body),
+      ...extrairCamposLista(req.body),
       ...(relatorio && !certificado.relatorioId && { dadosTecnicos: relatorio }),
       ...(empresaId && { empresaId: parseInt(empresaId) })
     },
@@ -291,6 +322,7 @@ router.post('/:id/emitir', autenticar, exigirPerfil('gerente', 'admin'), async (
         telefone: telefone || null,
         email: email || null,
         ...extrairEquipamentoCertificado(req.body),
+        ...extrairCamposLista(req.body),
         ...(relatorio && !certificado.relatorioId && { dadosTecnicos: relatorio }),
         ...(empresaId && { empresaId: parseInt(empresaId) })
       },
@@ -440,6 +472,17 @@ router.get('/:id/pdf', autenticar, async (req, res) => {
     }
   })
   if (!certificado) return res.status(404).json({ erro: 'Certificado não encontrado' })
+
+  // Certificados de lista não têm fundo fixo como o de balsa (são impressos em
+  // papel timbrado) — sai de um template HTML, com a tabela crescendo conforme
+  // o número de itens.
+  if (MODELOS_LISTA[certificado.tipo]) {
+    const pdfBytes = await gerarPdf(htmlCertificadoLista(certificado), { preferCSSPageSize: true })
+    const nomeArquivo = `Certificado ${certificado.numero}.${certificado.ano} - ${MODELOS_LISTA[certificado.tipo].nome}.pdf`
+    res.setHeader('Content-Type', 'application/pdf')
+    res.setHeader('Content-Disposition', `inline; filename*=UTF-8''${encodeURIComponent(nomeArquivo)}`)
+    return res.send(Buffer.from(pdfBytes))
+  }
 
   const pdfDoc = await PDFDocument.create()
   const page = pdfDoc.addPage([595.28, 841.89]) // A4

@@ -15,7 +15,7 @@ import { inicializarProdutosServicos } from './modules/produtos-servicos.js'
 import { inicializarEmbarcacoes } from './modules/embarcacoes.js'
 import { inicializarRelatorios } from './modules/relatorios.js'
 import { inicializarOrdensServico } from './modules/ordens-servico.js'
-import { listarCertificadosBalsa, urlPdfCertificado, badgeStatusCertificado } from './modules/certificados.js'
+import { listarCertificados, urlPdfCertificado, badgeStatusCertificado, nomeTipoCertificado } from './modules/certificados.js'
 import { inicializarPerfil } from './modules/perfil.js'
 import { inicializarAuditoria } from './modules/auditoria.js'
 
@@ -363,16 +363,18 @@ document.addEventListener('click', (event) => {
 
 // ===== FUNÇÕES DE CERTIFICADOS =====
 
-// Cada tipo de certificado (Balsa/Baleeira/Turco/Colete) tem sua própria
-// tabela — o select de tipo ao lado do "Novo certificado" escolhe qual, e o
-// botão já cria o certificado do tipo selecionado direto, sem menu.
+// Cada tipo de certificado tem sua própria tabela — o select de tipo ao lado
+// do "Novo certificado" escolhe qual, e o botão já cria o certificado do tipo
+// selecionado direto, sem menu. Baleeira/Turco ainda são o formulário avulso
+// antigo (localStorage); os demais vivem no backend.
+const TIPOS_CERTIFICADO_LEGADO = ['baleeira', 'turco'];
+
 window.trocarTipoCertificado = function () {
     const tipo = document.getElementById('cert-tipo-ativo')?.value || 'balsa';
-    // Filtros de Ano/Armador/Técnico só existem no fluxo real (Balsa) — os
-    // outros tipos ainda são o formulário avulso antigo (ver comentário mais
-    // abaixo), sem esses dados pra filtrar.
+    // Filtros de Ano/Armador/Técnico só existem nos tipos do backend — o
+    // formulário avulso antigo não tem esses dados pra filtrar.
     document.querySelectorAll('.cert-filtro-balsa').forEach(el => {
-        el.style.display = tipo === 'balsa' ? '' : 'none';
+        el.style.display = TIPOS_CERTIFICADO_LEGADO.includes(tipo) ? 'none' : '';
     });
     atualizarTabelaCertificados(1);
 }
@@ -381,8 +383,10 @@ window.novoCertificadoTipoAtivo = function () {
     const tipo = document.getElementById('cert-tipo-ativo')?.value || 'balsa';
     if (tipo === 'balsa') {
         window.abrirNovoCertificadoAvulso();
-    } else {
+    } else if (TIPOS_CERTIFICADO_LEGADO.includes(tipo)) {
         window.carregarFormulario({ preventDefault() { } }, tipo);
+    } else {
+        window.abrirNovoCertificadoLista(tipo);
     }
 }
 
@@ -480,29 +484,31 @@ window.salvarCertificado = function (event, tipo) {
     alert('Certificado salvo com sucesso!');
 }
 
-// Certificados de balsa gerados pelo fluxo real (OS → Relatório → Certificado,
-// ver js/modules/certificados.js) vêm do backend; os outros tipos (baleeira/
-// turco/colete) ainda são o formulário avulso antigo salvo em localStorage —
-// cada tipo agora tem sua própria tabela (troca no select #cert-tipo-ativo),
-// em vez de aparecerem todos juntos numa lista só.
+// Balsa (fluxo OS → Relatório → Certificado ou avulso) e os certificados de
+// lista (respiração, cilindros, coletes — ver js/modules/certificados.js) vêm
+// do backend; baleeira/turco ainda são o formulário avulso antigo salvo em
+// localStorage — cada tipo tem sua própria tabela (troca no select
+// #cert-tipo-ativo), em vez de aparecerem todos juntos numa lista só.
 let paginaAtualCertificados = 1;
 
 async function atualizarTabelaCertificados(pagina = 1) {
     paginaAtualCertificados = pagina;
     const tipo = document.getElementById('cert-tipo-ativo')?.value || 'balsa';
-    if (tipo === 'balsa') {
-        await renderizarTabelaCertificadosBalsa(pagina);
-    } else {
+    if (TIPOS_CERTIFICADO_LEGADO.includes(tipo)) {
         renderizarTabelaCertificadosLegado(tipo);
+    } else {
+        await renderizarTabelaCertificadosBackend(tipo, pagina);
     }
 }
 // Exposta em window — os inputs de filtro (Navio/Armador/Técnico) chamam via
 // oninput inline no HTML, que roda no escopo global, não no do módulo.
 window.atualizarTabelaCertificados = atualizarTabelaCertificados;
 
-async function renderizarTabelaCertificadosBalsa(pagina) {
+async function renderizarTabelaCertificadosBackend(tipo, pagina) {
     const tabela = document.getElementById('tabela-certificados');
+    const nomeTipo = tipo === 'balsa' ? 'balsa' : (await nomeTipoCertificado(tipo)).toLowerCase();
     const filtros = {
+        tipo,
         numero: document.getElementById('filtro-cert-numero')?.value.trim() || '',
         ano: document.getElementById('filtro-cert-ano')?.value.trim() || '',
         navio: document.getElementById('filtro-cert-navio')?.value.trim() || '',
@@ -510,13 +516,13 @@ async function renderizarTabelaCertificadosBalsa(pagina) {
         tecnico: document.getElementById('filtro-cert-tecnico')?.value.trim() || '',
         pagina,
     };
-    const { certificados: reais, total, totalPaginas } = await listarCertificadosBalsa(filtros);
+    const { certificados: reais, total, totalPaginas } = await listarCertificados(filtros);
 
     const contador = document.getElementById('contador-certificados');
     if (contador) {
         contador.innerHTML = `
             <div style="display:flex; justify-content:space-between; align-items:center;">
-                <span>${total} certificado(s) de balsa encontrado(s)</span>
+                <span>${total} certificado(s) de ${nomeTipo} encontrado(s)</span>
                 <div style="display:flex; gap:8px; align-items:center;">
                     <button class="btn btn-sm btn-secondary" onclick="atualizarTabelaCertificados(${pagina - 1})" ${pagina <= 1 ? 'disabled' : ''}>← Anterior</button>
                     <span>Página ${pagina} de ${totalPaginas || 1}</span>
@@ -527,7 +533,7 @@ async function renderizarTabelaCertificadosBalsa(pagina) {
     }
 
     if (reais.length === 0) {
-        tabela.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #999; padding: 30px;">Nenhum certificado de balsa encontrado</td></tr>';
+        tabela.innerHTML = `<tr><td colspan="7" style="text-align: center; color: #999; padding: 30px;">Nenhum certificado de ${nomeTipo} encontrado</td></tr>`;
         return;
     }
 
@@ -559,9 +565,9 @@ async function renderizarTabelaCertificadosBalsa(pagina) {
     }).join('');
 }
 
-const LABEL_TIPO_CERTIFICADO_LEGADO = { baleeira: 'baleeira', turco: 'turco', colete: 'colete' };
+const LABEL_TIPO_CERTIFICADO_LEGADO = { baleeira: 'baleeira', turco: 'turco' };
 
-// Baleeira/Turco/Colete: sem contador nem paginação (lista pequena, local no
+// Baleeira/Turco: sem contador nem paginação (lista pequena, local no
 // navegador), com filtro simples client-side por número/navio.
 function renderizarTabelaCertificadosLegado(tipo) {
     const tabela = document.getElementById('tabela-certificados');

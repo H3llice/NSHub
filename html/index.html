@@ -246,11 +246,14 @@
             <div id="certificado-lista-container" class="certificado-lista">
                 <div class="tab">Certificados</div>
                 <div style="display:flex; gap:8px; align-items:center; margin-bottom: 20px; flex-wrap:wrap;">
-                    <select id="cert-tipo-ativo" class="form-control" style="max-width:200px;" onchange="trocarTipoCertificado()">
+                    <select id="cert-tipo-ativo" class="form-control" style="max-width:280px;" onchange="trocarTipoCertificado()">
                         <option value="balsa">Balsa</option>
                         <option value="baleeira">Baleeira</option>
                         <option value="turco">Turco</option>
-                        <option value="colete">Colete</option>
+                        <option value="respiracao">Aparelho de Respiração Autônoma</option>
+                        <option value="cilindros_reserva">Cilindros de Ar Reserva</option>
+                        <option value="colete">Coletes Salva-Vidas</option>
+                        <option value="colete_aeronave">Coletes Salva-Vidas (Aeronave)</option>
                     </select>
                     <button class="btn btn-success" onclick="novoCertificadoTipoAtivo()">＋ Novo certificado</button>
                 </div>

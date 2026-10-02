@@ -1134,6 +1134,21 @@ model Certificado {
   // vinculado ignora este campo (usa os dados do Relatorio de verdade).
   dadosTecnicos Json?
 
+  // tipo: balsa | respiracao | cilindros_reserva | colete | colete_aeronave
+  // Fora a balsa, todos são certificados de "lista de itens iguais" (uma linha
+  // por cilindro/colete) — modelos e colunas em backend/templates/certificado-lista.js.
+  // Nesses, navio/armador viram Aeronave/Cliente no colete de aeronave, validade
+  // é o texto impresso ("08/2027", "02 (Dois) ANOS") e o técnico responsável
+  // fica em dadosTecnicos.tecnicoNome, igual ao avulso de balsa.
+  tipo           String  @default("balsa")
+  imo            String?
+  bandeira       String?
+  classificadora String?
+  tipoNavio      String?
+  cnpj           String?
+  localEmissao   String?
+  itens          Json?
+
   dataEmissao DateTime?
   validade    String?
   // validade é texto livre (digitável), mesmo padrão dos outros campos de validade do Relatorio
@@ -1150,6 +1165,7 @@ model Certificado {
 
   @@index([status])
   @@index([ano, numero])
+  @@index([tipo])
 }
 
 model Colaborador {
