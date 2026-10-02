@@ -249,6 +249,10 @@ async function formularioColaboradorHtml(c = {}) {
   const usuarios = await apiFetch(`${API}/auth/simples`).then(r => r.json()).catch(() => [])
   // Se o login vinculado estiver inativo, ele não vem em /auth/simples — mantém como opção
   if (c.usuario && !usuarios.some(u => u.id === c.usuario.id)) usuarios.push(c.usuario)
+  // Permissões extras do login (ex.: registrar embarques sem ser gerente) — só admin vê e marca
+  const permissoes = perfil === 'admin'
+    ? await apiFetch(`${API}/auth/permissoes`).then(r => r.json()).catch(() => ({}))
+    : {}
 
   return `
     <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
@@ -298,7 +302,7 @@ async function formularioColaboradorHtml(c = {}) {
       </div>
       <div>
         <label>Usuário do sistema</label>
-        <select id="colaborador-usuarioId" class="form-control">
+        <select id="colaborador-usuarioId" class="form-control" onchange="limparPermissoesColaborador()">
           <option value="">Sem login vinculado</option>
           ${usuarios.map(u => `<option value="${u.id}" ${c.usuario?.id === u.id ? 'selected' : ''}>${esc(u.nome)}</option>`).join('')}
         </select>
@@ -311,6 +315,18 @@ async function formularioColaboradorHtml(c = {}) {
         </div>
         <small style="color:#999;">Desmarcar também desativa o login vinculado.</small>
       </div>
+      ${Object.keys(permissoes).length ? `
+      <div style="grid-column:span 2;">
+        ${Object.entries(permissoes).map(([chave, p]) => `
+          <div style="display:flex; align-items:center; gap:8px;">
+            <input type="checkbox" class="colaborador-permissao" id="colaborador-permissao-${chave}" value="${chave}"
+              ${(c.usuario?.permissoes || []).includes(chave) ? 'checked' : ''}>
+            <label for="colaborador-permissao-${chave}" style="margin:0;">Login pode ${esc(p.descricao.charAt(0).toLowerCase() + p.descricao.slice(1))}</label>
+          </div>
+        `).join('')}
+        <small style="color:#999;">Vale para o usuário do sistema escolhido acima. A pessoa precisa sair e entrar de novo pra ver os botões.</small>
+      </div>
+      ` : ''}
       <div><label>Início das férias</label><input type="date" id="colaborador-feriasInicio" class="form-control" value="${c.feriasInicio ? c.feriasInicio.slice(0, 10) : ''}"></div>
       <div>
         <label>Fim das férias</label><input type="date" id="colaborador-feriasFim" class="form-control" value="${c.feriasFim ? c.feriasFim.slice(0, 10) : ''}">
@@ -318,6 +334,11 @@ async function formularioColaboradorHtml(c = {}) {
       </div>
     </div>
   `
+}
+
+// Trocou o login vinculado: as permissões marcadas eram do login anterior
+window.limparPermissoesColaborador = function () {
+  document.querySelectorAll('.colaborador-permissao').forEach(el => { el.checked = false })
 }
 
 // Campo de valor só aparece com a caixa marcada
@@ -343,6 +364,10 @@ function lerFormularioColaborador() {
     feriasFim: document.getElementById('colaborador-feriasFim').value,
     usuarioId: document.getElementById('colaborador-usuarioId').value || null,
     ativo: document.getElementById('colaborador-ativo').checked,
+    // Só existe na tela do admin — sem as caixas, o campo nem vai e o backend não mexe
+    ...(perfil === 'admin' && {
+      permissoes: [...document.querySelectorAll('.colaborador-permissao:checked')].map(el => el.value)
+    }),
   }
 }
 

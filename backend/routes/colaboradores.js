@@ -4,7 +4,7 @@ import path from 'path'
 import fs from 'fs'
 import { fileURLToPath } from 'url'
 import { prisma } from '../server.js'
-import { autenticar, exigirPerfil } from '../middleware/auth.js'
+import { autenticar, exigirPerfil, PERMISSOES } from '../middleware/auth.js'
 
 const router = Router()
 
@@ -142,7 +142,18 @@ function erroUnico(err, res) {
   return res.status(400).json({ erro: `${campo} já está vinculado a outro colaborador` })
 }
 
-const incluirUsuario = { usuario: { select: { id: true, nome: true, email: true, perfil: true } } }
+const incluirUsuario = { usuario: { select: { id: true, nome: true, email: true, perfil: true, permissoes: true } } }
+
+// Permissões extras (ver PERMISSOES em middleware/auth.js) do login vinculado ao
+// colaborador — marcadas no próprio formulário do colaborador. Só admin mexe
+// nelas: gerente salvando o colaborador não manda o campo, e se mandar é ignorado.
+async function salvarPermissoesLogin(colaborador, req) {
+  const { permissoes } = req.body
+  if (req.usuario.perfil !== 'admin' || !Array.isArray(permissoes) || !colaborador.usuarioId) return colaborador
+  const validas = [...new Set(permissoes.filter(p => PERMISSOES[p]))]
+  await prisma.usuario.update({ where: { id: colaborador.usuarioId }, data: { permissoes: validas } })
+  return { ...colaborador, usuario: { ...colaborador.usuario, permissoes: validas } }
+}
 
 // Colaborador desativado (saiu da empresa) → desativa também o login vinculado.
 // Reativar o colaborador NÃO reativa o login: isso fica a cargo do admin, no
@@ -259,7 +270,7 @@ router.post('/', autenticar, exigirPerfil(...PERFIS_GESTAO), async (req, res) =>
   try {
     const colaborador = await prisma.colaborador.create({ data: dados, include: incluirUsuario })
     await desativarLoginSeInativo(colaborador, req)
-    res.json(colaborador)
+    res.json(await salvarPermissoesLogin(colaborador, req))
   } catch (err) {
     return erroUnico(err, res)
   }
@@ -284,7 +295,7 @@ router.put('/:id', autenticar, exigirPerfil(...PERFIS_GESTAO), async (req, res) 
     if (anterior.ativo || anterior.usuarioId !== colaborador.usuarioId) {
       await desativarLoginSeInativo(colaborador, req)
     }
-    res.json(colaborador)
+    res.json(await salvarPermissoesLogin(colaborador, req))
   } catch (err) {
     if (err.code === 'P2025') return res.status(404).json({ erro: 'Colaborador não encontrado' })
     return erroUnico(err, res)

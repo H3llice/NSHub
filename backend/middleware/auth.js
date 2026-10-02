@@ -26,7 +26,7 @@ export function autenticar(req, res, next) {
 
 // Permissões que dá pra liberar por usuário, sem trocar o perfil dele — pra
 // quem precisa de UMA ação de gerente sem ganhar todas as outras. `perfis` são
-// os que já têm a permissão sem precisar marcar nada. A tela de Usuários lista
+// os que já têm a permissão sem precisar marcar nada. O formulário do colaborador lista
 // este catálogo (GET /auth/permissoes).
 export const PERMISSOES = {
   embarques: { descricao: 'Registrar, editar e excluir embarques', perfis: ['admin', 'gerente'] }

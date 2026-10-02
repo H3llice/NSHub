@@ -64,7 +64,7 @@ model Usuario {
   perfil           String    @default("usuario")
   // Permissões extras além do perfil (ex.: "embarques") — catálogo e o que cada
   // uma libera em PERMISSOES (backend/middleware/auth.js). Marcadas pelo admin
-  // em Cadastros → Usuários.
+  // no formulário do colaborador vinculado ao login.
   permissoes       String[]  @default([])
   tema             String    @default("azul")
   // tema: azul (padrão) | classico (verde) — preferência de UI, editável em "Editar Perfil"

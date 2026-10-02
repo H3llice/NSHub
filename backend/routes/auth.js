@@ -96,7 +96,7 @@ router.get('/simples', autenticar, async (req, res) => {
   res.json(usuarios)
 })
 
-// ─── Catálogo de permissões extras (admin) — tela de Usuários ────────────────
+// ─── Catálogo de permissões extras (admin) — formulário do colaborador ───────
 router.get('/permissoes', autenticar, exigirPerfil('admin'), (req, res) => {
   res.json(PERMISSOES)
 })
