@@ -63,7 +63,6 @@ const CAMPOS_VALOR = [
   { campo: 'auxilioMoradia', titulo: 'Auxílio moradia' },
   { campo: 'coparticipacaoPlanoSaude', titulo: 'Coparticipação plano' },
   { campo: 'ajudaCusto', titulo: 'Ajuda de custo' },
-  { campo: 'provisaoAjudaCusto', titulo: 'Prov. adiant. ajuda de custo' },
   { campo: 'premio', titulo: 'Prêmio' },
   { campo: 'comissao', titulo: 'Comissão' },
 ]

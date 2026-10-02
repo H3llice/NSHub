@@ -16,7 +16,7 @@ const grupoDaFuncao = funcao => (FUNCOES_TECNICO.includes(funcao) ? 'tecnicos' :
 
 // Campos em R$ digitados na tela (descontoPlanoSaude e comissao vêm
 // preenchidos pela geração, mas também são editáveis)
-const CAMPOS_VALOR = ['descontoPlanoSaude', 'coparticipacaoPlanoSaude', 'auxilioMoradia', 'ajudaCusto', 'provisaoAjudaCusto', 'premio', 'comissao']
+const CAMPOS_VALOR = ['descontoPlanoSaude', 'coparticipacaoPlanoSaude', 'auxilioMoradia', 'ajudaCusto', 'premio', 'comissao']
 
 const INCLUDE_ITENS = { itens: { orderBy: [{ grupo: 'asc' }, { nome: 'asc' }] } }
 
@@ -246,7 +246,7 @@ router.post('/:id/atualizar', autenticar, exigirPerfil(...PERFIS_FOLHA), async (
 })
 
 // ─── Salvar valores digitados (folha aberta) ───────────────────────────────────
-// body.itens: [{ id, diasTrabalhados, atestados, faltasNaoJustificadas, descontoPlanoSaude, coparticipacaoPlanoSaude, ajudaCusto, provisaoAjudaCusto, premio, comissao, observacoes }]
+// body.itens: [{ id, diasTrabalhados, atestados, faltasNaoJustificadas, descontoPlanoSaude, coparticipacaoPlanoSaude, ajudaCusto, premio, comissao, observacoes }]
 router.put('/:id/itens', autenticar, exigirPerfil(...PERFIS_FOLHA), async (req, res) => {
   const folha = await buscarFolhaAberta(Number(req.params.id), res)
   if (!folha) return
