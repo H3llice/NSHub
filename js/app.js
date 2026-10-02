@@ -18,6 +18,7 @@ import { inicializarOrdensServico } from './modules/ordens-servico.js'
 import { listarCertificados, urlPdfCertificado, badgeStatusCertificado, nomeTipoCertificado } from './modules/certificados.js'
 import { inicializarPerfil } from './modules/perfil.js'
 import { inicializarAuditoria } from './modules/auditoria.js'
+import { inicializarUsuarios } from './modules/usuarios.js'
 
 
 let favoritos = JSON.parse(localStorage.getItem('favoritos')) || [];
@@ -175,6 +176,10 @@ window.abrirPagina = function (event, id) {
 
     if (id === 'auditoria') {
         inicializarAuditoria()
+    }
+
+    if (id === 'usuarios') {
+        inicializarUsuarios()
     }
 
     if (id === 'embarcacoes') {

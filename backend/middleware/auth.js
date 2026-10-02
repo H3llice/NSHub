@@ -1,4 +1,5 @@
 import jwt from 'jsonwebtoken'
+import { prisma } from '../server.js'
 
 const JWT_SECRET = process.env.JWT_SECRET
 if (!JWT_SECRET) {
@@ -20,6 +21,29 @@ export function autenticar(req, res, next) {
     next()
   } catch {
     return res.status(401).json({ erro: 'Token inválido ou expirado' })
+  }
+}
+
+// Permissões que dá pra liberar por usuário, sem trocar o perfil dele — pra
+// quem precisa de UMA ação de gerente sem ganhar todas as outras. `perfis` são
+// os que já têm a permissão sem precisar marcar nada. A tela de Usuários lista
+// este catálogo (GET /auth/permissoes).
+export const PERMISSOES = {
+  embarques: { descricao: 'Registrar, editar e excluir embarques', perfis: ['admin', 'gerente'] }
+}
+
+// Middleware de permissão — uso: exigirPermissao('embarques')
+// A permissão extra é lida do banco a cada requisição (não do token): tirar a
+// permissão de alguém vale na hora, sem esperar o login de 8h expirar.
+export function exigirPermissao(chave) {
+  return async (req, res, next) => {
+    if (PERMISSOES[chave].perfis.includes(req.usuario?.perfil)) return next()
+    const usuario = await prisma.usuario.findUnique({
+      where: { id: req.usuario?.id },
+      select: { ativo: true, permissoes: true }
+    })
+    if (usuario?.ativo && usuario.permissoes.includes(chave)) return next()
+    return res.status(403).json({ erro: 'Sem permissão para esta ação' })
   }
 }
 

@@ -3,7 +3,7 @@ import bcrypt from 'bcrypt'
 import jwt from 'jsonwebtoken'
 import crypto from 'crypto'
 import { prisma } from '../server.js'
-import { autenticar, exigirPerfil } from '../middleware/auth.js'
+import { autenticar, exigirPerfil, PERMISSOES } from '../middleware/auth.js'
 import { enviarEmailResetSenha } from '../email.js'
 
 const router = Router()
@@ -80,7 +80,9 @@ router.post('/login', async (req, res) => {
   res.json({
     token,
     primeiroLogin: usuario.primeiroLogin,
-    usuario: { id: usuario.id, nome: usuario.nome, email: usuario.email, perfil: usuario.perfil, tema: usuario.tema }
+    // permissoes vai pro frontend só pra mostrar/esconder botões — quem decide
+    // de verdade é o exigirPermissao, que lê do banco a cada requisição
+    usuario: { id: usuario.id, nome: usuario.nome, email: usuario.email, perfil: usuario.perfil, tema: usuario.tema, permissoes: usuario.permissoes }
   })
 })
 
@@ -94,10 +96,15 @@ router.get('/simples', autenticar, async (req, res) => {
   res.json(usuarios)
 })
 
+// ─── Catálogo de permissões extras (admin) — tela de Usuários ────────────────
+router.get('/permissoes', autenticar, exigirPerfil('admin'), (req, res) => {
+  res.json(PERMISSOES)
+})
+
 // ─── Listar usuários (admin) ──────────────────────────────────────────────────
 router.get('/', autenticar, exigirPerfil('admin'), async (req, res) => {
   const usuarios = await prisma.usuario.findMany({
-    select: { id: true, nome: true, email: true, perfil: true, ativo: true, criadoEm: true },
+    select: { id: true, nome: true, email: true, perfil: true, ativo: true, criadoEm: true, permissoes: true },
     orderBy: { nome: 'asc' }
   })
   res.json(usuarios)
@@ -156,10 +163,16 @@ router.put('/perfil', autenticar, async (req, res) => {
 
 // ─── Editar usuário (admin) ───────────────────────────────────────────────────
 router.put('/:id', autenticar, exigirPerfil('admin'), async (req, res) => {
-  const { nome, email, perfil, ativo, senha } = req.body
+  const { nome, email, perfil, ativo, senha, permissoes } = req.body
   const id = Number(req.params.id)
 
   const dados = {}
+  if (permissoes !== undefined) {
+    if (!Array.isArray(permissoes) || permissoes.some(p => !PERMISSOES[p])) {
+      return res.status(400).json({ erro: `Permissão inválida. Use: ${Object.keys(PERMISSOES).join(', ')}` })
+    }
+    dados.permissoes = [...new Set(permissoes)]
+  }
   if (nome) dados.nome = nome
   if (email) dados.email = email
   if (perfil) dados.perfil = perfil
@@ -172,7 +185,7 @@ router.put('/:id', autenticar, exigirPerfil('admin'), async (req, res) => {
   const usuario = await prisma.usuario.update({
     where: { id },
     data: dados,
-    select: { id: true, nome: true, email: true, perfil: true, ativo: true }
+    select: { id: true, nome: true, email: true, perfil: true, ativo: true, permissoes: true }
   })
 
   res.json(usuario)

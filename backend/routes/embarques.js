@@ -1,12 +1,12 @@
 import { Router } from 'express'
 import { prisma } from '../server.js'
-import { autenticar, exigirPerfil } from '../middleware/auth.js'
+import { autenticar, exigirPermissao } from '../middleware/auth.js'
 
 const router = Router()
 
-// Qualquer perfil logado vê embarques e folgas/dobras; só admin/gerente criam,
-// editam e excluem (folga/dobra vira pagamento na folha).
-const PERFIS_GESTAO = ['admin', 'gerente']
+// Qualquer perfil logado vê embarques e folgas/dobras; só admin/gerente — ou
+// quem tiver a permissão extra "embarques" — criam, editam e excluem
+// (folga/dobra vira pagamento na folha).
 
 const UM_DIA = 24 * 60 * 60 * 1000
 
@@ -285,7 +285,7 @@ router.get('/:id', autenticar, async (req, res) => {
 })
 
 // ─── Criar embarque ────────────────────────────────────────────────────────────
-router.post('/', autenticar, exigirPerfil(...PERFIS_GESTAO), async (req, res) => {
+router.post('/', autenticar, exigirPermissao('embarques'), async (req, res) => {
   const { dados, colaboradores, erro } = lerCorpo(req.body)
   if (erro) return res.status(400).json({ erro })
 
@@ -309,7 +309,7 @@ router.post('/', autenticar, exigirPerfil(...PERFIS_GESTAO), async (req, res) =>
 
 // ─── Editar embarque ───────────────────────────────────────────────────────────
 // Troca a lista de colaboradores inteira (apaga os vínculos e recria)
-router.put('/:id', autenticar, exigirPerfil(...PERFIS_GESTAO), async (req, res) => {
+router.put('/:id', autenticar, exigirPermissao('embarques'), async (req, res) => {
   const id = Number(req.params.id)
   const atual = await prisma.embarque.findUnique({ where: { id } })
   if (!atual) return res.status(404).json({ erro: 'Embarque não encontrado' })
@@ -338,7 +338,7 @@ router.put('/:id', autenticar, exigirPerfil(...PERFIS_GESTAO), async (req, res) 
 // ─── Excluir embarque ──────────────────────────────────────────────────────────
 // Vínculos com colaboradores caem junto (onDelete: Cascade); folgas/dobras se
 // recalculam sozinhas por não serem gravadas.
-router.delete('/:id', autenticar, exigirPerfil(...PERFIS_GESTAO), async (req, res) => {
+router.delete('/:id', autenticar, exigirPermissao('embarques'), async (req, res) => {
   const id = Number(req.params.id)
   const atual = await prisma.embarque.findUnique({ where: { id } })
   if (!atual) return res.status(404).json({ erro: 'Embarque não encontrado' })

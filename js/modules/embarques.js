@@ -43,8 +43,10 @@ async function apiJson(url, options = {}) {
 
 
 const usuarioAtual = JSON.parse(localStorage.getItem('ns_usuario') || 'null')
-// Todos veem; só admin/gerente criam, editam e excluem (backend também bloqueia)
+// Todos veem; só admin/gerente — ou quem tem a permissão extra "embarques",
+// marcada em Cadastros → Usuários — criam, editam e excluem (backend também bloqueia)
 const podeEditarEmbarques = ['admin', 'gerente'].includes(usuarioAtual?.perfil)
+  || (usuarioAtual?.permissoes || []).includes('embarques')
 const colunasEmbarques = podeEditarEmbarques ? 7 : 6
 
 function esc(texto) {
