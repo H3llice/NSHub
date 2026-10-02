@@ -48,6 +48,7 @@ const CAMPOS_VALOR = [
   { campo: 'auxilioMoradia', titulo: 'Auxílio moradia' },
   { campo: 'coparticipacaoPlanoSaude', titulo: 'Coparticip. plano' },
   { campo: 'ajudaCusto', titulo: 'Ajuda de custo' },
+  { campo: 'provisaoAjudaCusto', titulo: 'Prov. adiant. ajuda de custo' },
   { campo: 'premio', titulo: 'Prêmio' },
   { campo: 'comissao', titulo: 'Comissão' }
 ]
@@ -90,13 +91,13 @@ function secaoGrupo(grupo, itens) {
       <thead>
         <tr>
           <th style="width:15%;">Colaborador</th>
-          <th style="width:14%;">Embarcado</th>
+          <th style="width:12%;">Embarcado</th>
           <th style="width:4.5%;">Dobras</th>
           <th style="width:4.5%;">Dias trab.</th>
           <th style="width:4.5%;">Atest.</th>
           <th style="width:4.5%;">Faltas não just.</th>
           <th style="width:4.5%;">Vale-transp.</th>
-          ${CAMPOS_VALOR.map(c => `<th style="width:6.5%;">${c.titulo}</th>`).join('')}
+          ${CAMPOS_VALOR.map(c => `<th style="width:6%;">${c.titulo}</th>`).join('')}
           <th>Observações</th>
         </tr>
       </thead>
@@ -191,8 +192,8 @@ export function htmlFolhaPagamento(folha, filtro) {
         <h2>Total geral <span>(${folha.itens.length})</span></h2>
         <table>
           <colgroup>
-            <col style="width:15%;"><col style="width:14%;">${'<col style="width:4.5%;">'.repeat(5)}
-            ${CAMPOS_VALOR.map(() => '<col style="width:6.5%;">').join('')}
+            <col style="width:15%;"><col style="width:12%;">${'<col style="width:4.5%;">'.repeat(5)}
+            ${CAMPOS_VALOR.map(() => '<col style="width:6%;">').join('')}
             <col>
           </colgroup>
           <tbody>${linhaTotal('Total geral', folha.itens, 'geral')}</tbody>

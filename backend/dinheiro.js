@@ -9,7 +9,7 @@ import { Prisma } from '@prisma/client'
 const CAMPOS_DINHEIRO = new Set([
   'valor', 'valorTotal', 'valorUni', 'valorUnitario', 'frete', 'comissao',
   'descontoValor', 'ipi', 'salario', 'descontoPlanoSaude', 'valorAuxilioMoradia',
-  'auxilioMoradia', 'coparticipacaoPlanoSaude', 'ajudaCusto', 'premio'
+  'auxilioMoradia', 'coparticipacaoPlanoSaude', 'ajudaCusto', 'provisaoAjudaCusto', 'premio'
 ])
 
 const OPERACOES_ESCRITA = new Set(['create', 'createMany', 'update', 'updateMany', 'upsert'])

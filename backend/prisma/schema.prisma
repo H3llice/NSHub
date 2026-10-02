@@ -1345,6 +1345,8 @@ model ItemFolhaPagamento {
   auxilioMoradia           Float?
   coparticipacaoPlanoSaude Float?
   ajudaCusto               Float?
+  // Provisão de adiantamento de ajuda de custo — digitada na folha
+  provisaoAjudaCusto       Float?
   premio                   Float?
   comissao                 Float?
   observacoes              String?
