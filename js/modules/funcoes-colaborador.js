@@ -16,6 +16,9 @@ export const FUNCOES = {
   estagiario: 'ESTAGIÁRIO',
 }
 
+// Técnicos (têm SISPAT) — mesma lista de FUNCOES_TECNICO em backend/routes/colaboradores.js
+export const FUNCOES_TECNICO = ['tecnico_n1', 'tecnico_n2', 'tecnico_n3']
+
 // Tipo de contrato — mesmas chaves de TIPOS_CONTRATO em backend/routes/colaboradores.js
 export const TIPOS_CONTRATO = {
   mensalista: 'Mensalista',

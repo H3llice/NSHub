@@ -8,8 +8,8 @@ import { autenticar, exigirPerfil, PERMISSOES } from '../middleware/auth.js'
 
 const router = Router()
 
-// Perfis que podem editar e ver dados pessoais (CPF, email pessoal, documentos).
-// Os demais perfis só enxergam nome, email corporativo e função.
+// Perfis que podem editar e ver dados pessoais (CPF, email pessoal, nascimento,
+// contato de emergência, documentos). Os demais perfis só enxergam os dados de trabalho.
 const PERFIS_GESTAO = ['admin', 'gerente']
 // Funções (cargos) — mesmas chaves de js/modules/funcoes-colaborador.js
 const FUNCOES = [
@@ -61,7 +61,7 @@ const podeGerir = req => PERFIS_GESTAO.includes(req.usuario?.perfil)
 // Remove os campos pessoais para quem não é admin/gerente
 function filtrarCampos(colaborador, completo) {
   if (completo) return colaborador
-  const { cpf, emailPessoal, descontoPlanoSaude, salario, valeTransporte, descontoValeTransporte, auxilioMoradia, valorAuxilioMoradia, documentos, usuario, ...publico } = colaborador
+  const { cpf, emailPessoal, dataNascimento, contatoEmergenciaNome, contatoEmergenciaTelefone, descontoPlanoSaude, salario, valeTransporte, descontoValeTransporte, auxilioMoradia, valorAuxilioMoradia, documentos, usuario, ...publico } = colaborador
   return { ...publico, usuario: usuario && { id: usuario.id, nome: usuario.nome } }
 }
 
@@ -99,6 +99,10 @@ function lerCorpo(body) {
   }
   const feriasInicio = lerData(body.feriasInicio)
   const feriasFim = lerData(body.feriasFim)
+  const dataNascimento = lerData(body.dataNascimento)
+  const dataAdmissao = lerData(body.dataAdmissao)
+  const contatoEmergenciaNome = (body.contatoEmergenciaNome || '').trim()
+  const contatoEmergenciaTelefone = (body.contatoEmergenciaTelefone || '').trim()
 
   if (!nome) return { erro: 'Nome é obrigatório' }
   if (!FUNCOES.includes(funcao)) return { erro: 'Função inválida' }
@@ -111,6 +115,11 @@ function lerCorpo(body) {
   if (feriasInicio === undefined || feriasFim === undefined) return { erro: 'Data de férias inválida' }
   if (!feriasInicio !== !feriasFim) return { erro: 'Informe início e fim das férias (ou deixe os dois vazios)' }
   if (feriasInicio && feriasFim < feriasInicio) return { erro: 'O fim das férias não pode ser antes do início' }
+  if (dataNascimento === undefined) return { erro: 'Data de nascimento inválida' }
+  if (dataAdmissao === undefined) return { erro: 'Data de admissão inválida' }
+  if (!dataNascimento) return { erro: 'Data de nascimento é obrigatória' }
+  if (!dataAdmissao) return { erro: 'Data de admissão é obrigatória' }
+  if (!contatoEmergenciaNome || !contatoEmergenciaTelefone) return { erro: 'Informe nome e telefone do contato de emergência' }
 
   return {
     dados: {
@@ -127,6 +136,11 @@ function lerCorpo(body) {
       valorAuxilioMoradia,
       feriasInicio,
       feriasFim,
+      dataNascimento,
+      dataAdmissao,
+      sispat: FUNCOES_TECNICO.includes(funcao) ? (body.sispat || '').trim() || null : null,
+      contatoEmergenciaNome,
+      contatoEmergenciaTelefone,
       ativo: body.ativo !== false,
       usuarioId: body.usuarioId ? Number(body.usuarioId) : null
     }
