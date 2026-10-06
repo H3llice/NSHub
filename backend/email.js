@@ -23,8 +23,7 @@ const FINANCEIRO = listaEmails(process.env.EMAIL_FINANCEIRO)
 
 const GERENTES = listaEmails(
   process.env.EMAIL_GERENTE,
-  process.env.EMAIL_CHEFE,
-  process.env.EMAIL_USER1
+  process.env.EMAIL_CHEFE
 )
 
 const CONTAS_A_RECEBER = listaEmails(
