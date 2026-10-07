@@ -348,6 +348,8 @@ router.get('/solicitacao/:id', autenticar, async (req, res) => {
   const asAprovacao = sc.assinaturas.find(a => a.etapa === 'aprovacao')
   const nomeSolicitante = sc.criadoPor?.nome || ''
   const fornecedorEscolhido = sc.fornecedores.find(f => f.escolhido)
+  // Favorito = indicação do solicitante (pode ser mais de um); escolhido = decisão da aprovação
+  const fornecedoresFavoritos = sc.fornecedores.filter(f => f.favorito)
 
   // Total cotado por fornecedor, considerando só os itens que ele cotou
   const totais = sc.fornecedores.map(f => {
@@ -421,6 +423,7 @@ router.get('/solicitacao/:id', autenticar, async (req, res) => {
         .tabela-comparativo { margin-bottom: 6px; }
         .col-escolhido { background: #eafaf0; }
         .tag-escolhido { color: #158815; font-weight: bold; }
+        .tag-favorito { display: inline-block; margin-top: 2px; padding: 1px 4px; background: #fff3cd; border: 1px solid #c9a227; color: #7a5c00; font-weight: bold; font-size: 8.5px; }
         .linha-label td:first-child { font-weight: bold; background: #f7f7f7; }
         .total-row td { font-weight: bold; }
 
@@ -480,6 +483,7 @@ router.get('/solicitacao/:id', autenticar, async (req, res) => {
               <th class="${f.escolhido ? 'col-escolhido' : ''}">
                 FORNECEDOR ${i + 1}<br>
                 ${escapeHtml(f.nome)}${f.telefone ? ' / ' + escapeHtml(f.telefone) : ''}
+                ${f.favorito ? '<br><span class="tag-favorito">★ FAVORITO DO SOLICITANTE</span>' : ''}
                 ${f.escolhido ? '<br><span class="tag-escolhido">✓ ESCOLHIDO</span>' : ''}
               </th>
             `).join('')}
@@ -556,6 +560,10 @@ router.get('/solicitacao/:id', autenticar, async (req, res) => {
         ${linhaDadosTopo}
 
         <table class="tabela-selecao">
+          <tr>
+            <td class="rotulo">Fornecedor indicado pelo solicitante:</td>
+            <td colspan="2">${fornecedoresFavoritos.length ? fornecedoresFavoritos.map(f => escapeHtml(f.nome)).join(', ') : '—'}</td>
+          </tr>
           <tr>
             <td class="rotulo">Fornecedor Selecionado:</td>
             <td colspan="2">${fornecedorEscolhido ? escapeHtml(fornecedorEscolhido.nome) : '—'}</td>
