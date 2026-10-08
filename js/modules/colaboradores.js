@@ -264,14 +264,14 @@ async function formularioColaboradorHtml(c = {}) {
           ${Object.entries(FUNCOES).map(([v, t]) => `<option value="${v}" ${c.funcao === v ? 'selected' : ''}>${t}</option>`).join('')}
         </select>
       </div>
-      <div><label>Data de nascimento *</label><input type="date" id="colaborador-dataNascimento" class="form-control" value="${c.dataNascimento ? c.dataNascimento.slice(0, 10) : ''}"></div>
-      <div><label>Data de admissão *</label><input type="date" id="colaborador-dataAdmissao" class="form-control" value="${c.dataAdmissao ? c.dataAdmissao.slice(0, 10) : ''}"></div>
+      <div><label>Data de nascimento</label><input type="date" id="colaborador-dataNascimento" class="form-control" value="${c.dataNascimento ? c.dataNascimento.slice(0, 10) : ''}"></div>
+      <div><label>Data de admissão</label><input type="date" id="colaborador-dataAdmissao" class="form-control" value="${c.dataAdmissao ? c.dataAdmissao.slice(0, 10) : ''}"></div>
       <div id="colaborador-sispat-campo" style="${FUNCOES_TECNICO.includes(c.funcao) ? '' : 'display:none;'}">
         <label>SISPAT</label><input type="text" id="colaborador-sispat" class="form-control" value="${esc(c.sispat)}">
       </div>
       <div style="grid-column:span 2; display:grid; grid-template-columns:1fr 1fr; gap:16px;">
-        <div><label>Contato de emergência (nome) *</label><input type="text" id="colaborador-contatoEmergenciaNome" class="form-control" value="${esc(c.contatoEmergenciaNome)}" placeholder="Ex.: Maria (esposa)"></div>
-        <div><label>Telefone de emergência *</label><input type="tel" id="colaborador-contatoEmergenciaTelefone" class="form-control" value="${esc(c.contatoEmergenciaTelefone)}" placeholder="(00) 00000-0000"></div>
+        <div><label>Contato de emergência (nome)</label><input type="text" id="colaborador-contatoEmergenciaNome" class="form-control" value="${esc(c.contatoEmergenciaNome)}" placeholder="Ex.: Maria (esposa)"></div>
+        <div><label>Telefone de emergência</label><input type="tel" id="colaborador-contatoEmergenciaTelefone" class="form-control" value="${esc(c.contatoEmergenciaTelefone)}" placeholder="(00) 00000-0000"></div>
       </div>
       <div>
         <label>Tipo de contrato *</label>
@@ -521,9 +521,6 @@ window.salvarColaborador = async function (id) {
   if (estavaAtivo && !body.ativo && body.usuarioId &&
     !confirm('Colaborador inativo: o login vinculado também será desativado e a pessoa não conseguirá mais entrar no sistema. Continuar?')) return
   if (!body.funcao) { alert('Selecione a função!'); return }
-  if (!body.dataNascimento) { alert('Informe a data de nascimento!'); return }
-  if (!body.dataAdmissao) { alert('Informe a data de admissão!'); return }
-  if (!body.contatoEmergenciaNome || !body.contatoEmergenciaTelefone) { alert('Informe nome e telefone do contato de emergência!'); return }
   if (!body.tipoContrato) { alert('Selecione o tipo de contrato!'); return }
   if (!(parseFloat(body.salario) > 0)) { alert('Informe o salário!'); return }
   if (body.auxilioMoradia && !(parseFloat(body.valorAuxilioMoradia) > 0)) { alert('Informe o valor do auxílio moradia!'); return }

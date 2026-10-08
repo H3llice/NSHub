@@ -101,8 +101,8 @@ function lerCorpo(body) {
   const feriasFim = lerData(body.feriasFim)
   const dataNascimento = lerData(body.dataNascimento)
   const dataAdmissao = lerData(body.dataAdmissao)
-  const contatoEmergenciaNome = (body.contatoEmergenciaNome || '').trim()
-  const contatoEmergenciaTelefone = (body.contatoEmergenciaTelefone || '').trim()
+  const contatoEmergenciaNome = (body.contatoEmergenciaNome || '').trim() || null
+  const contatoEmergenciaTelefone = (body.contatoEmergenciaTelefone || '').trim() || null
 
   if (!nome) return { erro: 'Nome é obrigatório' }
   if (!FUNCOES.includes(funcao)) return { erro: 'Função inválida' }
@@ -117,9 +117,6 @@ function lerCorpo(body) {
   if (feriasInicio && feriasFim < feriasInicio) return { erro: 'O fim das férias não pode ser antes do início' }
   if (dataNascimento === undefined) return { erro: 'Data de nascimento inválida' }
   if (dataAdmissao === undefined) return { erro: 'Data de admissão inválida' }
-  if (!dataNascimento) return { erro: 'Data de nascimento é obrigatória' }
-  if (!dataAdmissao) return { erro: 'Data de admissão é obrigatória' }
-  if (!contatoEmergenciaNome || !contatoEmergenciaTelefone) return { erro: 'Informe nome e telefone do contato de emergência' }
 
   return {
     dados: {

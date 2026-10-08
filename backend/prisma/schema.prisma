@@ -1221,13 +1221,12 @@ model Colaborador {
   // antes do início até o fim (GET /colaboradores/ferias-avisos)
   feriasInicio DateTime?
   feriasFim    DateTime?
-  // Datas puras (meia-noite UTC). Obrigatórias no cadastro (routes/colaboradores.js),
-  // opcionais no banco pelos cadastrados antes dos campos
+  // Datas puras (meia-noite UTC). Opcionais
   dataNascimento DateTime?
   dataAdmissao   DateTime?
   // Nº SISPAT — só para técnicos (FUNCOES_TECNICO); descartado nas outras funções
   sispat         String?
-  // Contato de emergência — obrigatório no cadastro, opcional no banco (mesmo motivo)
+  // Contato de emergência — opcional
   contatoEmergenciaNome     String?
   contatoEmergenciaTelefone String?
   ativo            Boolean  @default(true)
