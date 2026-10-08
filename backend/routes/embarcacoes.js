@@ -9,11 +9,16 @@ const CAMPOS_VENCIMENTO = ['vencLsaBaleeiras', 'vencBalsa', 'vencFfe', 'vencIloC
 
 // IMO: 7 dígitos, o último é verificador — soma dos 6 primeiros × (7, 6, 5, 4, 3, 2),
 // último dígito da soma. Validar aqui evita IMO digitado errado, que é a chave pra
-// achar o navio em serviços externos (ex.: rastreamento por AIS).
-function imoValido(imo) {
-  if (!/^\d{7}$/.test(imo)) return false
+// achar o navio em serviços externos (ex.: botão do MarineTraffic).
+// Devolve a mensagem de erro (ou null se válido) — tamanho e dígito verificador
+// têm mensagens separadas porque "inválido" genérico parecia erro de tamanho.
+function erroImo(imo) {
+  if (!/^\d{7}$/.test(imo)) return `Número IMO deve ter 7 dígitos (foram digitados ${imo.length})`
   const soma = [...imo.slice(0, 6)].reduce((acc, d, i) => acc + Number(d) * (7 - i), 0)
-  return soma % 10 === Number(imo[6])
+  const esperado = soma % 10
+  if (esperado === Number(imo[6])) return null
+  return `Número IMO ${imo} não confere: pelo dígito verificador, o último dígito deveria ser ${esperado}. ` +
+    'Confira no documento do navio — provavelmente há um dígito trocado.'
 }
 
 // Lê os campos opcionais do body. Só inclui o que veio (PUT parcial); string vazia
@@ -27,7 +32,8 @@ function lerCamposOpcionais(body) {
   if (body.imo !== undefined) {
     // Aceita "IMO 9074729" / "9.074.729" — guarda só os dígitos
     const imo = String(body.imo ?? '').replace(/^\s*IMO\s*/i, '').replace(/\D/g, '')
-    if (imo && !imoValido(imo)) return { erro: 'Número IMO inválido — são 7 dígitos e o último é verificador' }
+    const erro = imo && erroImo(imo)
+    if (erro) return { erro }
     dados.imo = imo || null
   }
 
