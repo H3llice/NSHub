@@ -133,8 +133,8 @@ window.carregarOrdensServico = async function (pagina = 1) {
           <div style="display:flex; flex-wrap:wrap; gap:6px;">
             <button class="btn btn-sm btn-info" onclick="editarOS(${os.id})">${os.status === 'aberta' && podeGerenciarOS ? 'Editar' : 'Ver'}</button>
             ${!os.relatorio ? `<button class="btn btn-sm btn-warning" onclick="gerarRelatorioDeOS(${os.id})">Gerar Relatório</button>` : `<button class="btn btn-sm btn-secondary" onclick="editarRelatorio(${os.relatorio.id})">Ver Relatório</button>`}
-            ${podeCancelarOuExcluirOS && !os.relatorio ? `
-              ${os.status !== 'cancelada' ? `<button class="btn btn-sm btn-warning" onclick="cancelarOS(${os.id})">Cancelar</button>` : ''}
+            ${podeCancelarOuExcluirOS ? `
+              ${os.status !== 'cancelada' && !os.relatorio ? `<button class="btn btn-sm btn-warning" onclick="cancelarOS(${os.id})">Cancelar</button>` : ''}
               <button class="btn btn-sm btn-danger" onclick="excluirOS(${os.id})">Excluir</button>
             ` : ''}
           </div>
@@ -247,9 +247,9 @@ function renderFormularioOS(os, empresas) {
             <button type="button" class="btn btn-success" onclick="${os ? `atualizarOS(${os.id})` : 'salvarOS()'}">Salvar</button>
             ${os ? `<button type="button" class="btn btn-warning" onclick="concluirOS(${os.id})">Concluir OS (retirada do equipamento)</button>` : ''}
           </div>
-          ${os?.id && podeCancelarOuExcluirOS && !os.relatorio ? `
+          ${os?.id && podeCancelarOuExcluirOS ? `
             <div style="display:flex; gap:12px;">
-              <button type="button" class="btn btn-warning" onclick="cancelarOS(${os.id})">Cancelar OS</button>
+              ${!os.relatorio ? `<button type="button" class="btn btn-warning" onclick="cancelarOS(${os.id})">Cancelar OS</button>` : ''}
               <button type="button" class="btn btn-danger" onclick="excluirOS(${os.id})">Excluir OS</button>
             </div>
           ` : ''}
@@ -259,9 +259,9 @@ function renderFormularioOS(os, empresas) {
       ${cancelada ? `
         <p style="margin-top:20px; color:#dc3545; font-size:13px; font-weight:600;">Ordem de Serviço cancelada.</p>
         ${podeCancelarOuExcluirOS ? `<button type="button" class="btn btn-danger" onclick="excluirOS(${os.id})">Excluir OS</button>` : ''}
-      ` : os?.status === 'concluida' && podeCancelarOuExcluirOS && !os.relatorio ? `
+      ` : os?.status === 'concluida' && podeCancelarOuExcluirOS ? `
         <div style="margin-top:20px; display:flex; gap:12px;">
-          <button type="button" class="btn btn-warning" onclick="cancelarOS(${os.id})">Cancelar OS</button>
+          ${!os.relatorio ? `<button type="button" class="btn btn-warning" onclick="cancelarOS(${os.id})">Cancelar OS</button>` : ''}
           <button type="button" class="btn btn-danger" onclick="excluirOS(${os.id})">Excluir OS</button>
         </div>
       ` : ''}
@@ -529,15 +529,30 @@ window.cancelarOS = async function (id) {
   }
 }
 
-// Excluir: some do banco de vez — libera o número pra próxima OS. Bloqueado
-// (no backend) se já tiver gerado um Relatório.
+// Excluir: some do banco de vez — libera o número pra próxima OS. Se já gerou
+// Relatório (e Certificado), apaga tudo junto — busca a OS na hora pra mostrar
+// no confirm exatamente o que vai ser apagado.
 window.excluirOS = async function (id) {
-  if (!confirm('Excluir esta Ordem de Serviço permanentemente? Essa ação não pode ser desfeita, e o número volta a ficar disponível.')) return
+  const os = await apiFetch(`${API}/ordens-servico/${id}`).then(res => res.json())
+  const relatorio = os.relatorio
+  const certificado = relatorio?.certificado
 
-  const res = await apiJson(`${API}/ordens-servico/${id}`, { method: 'DELETE' })
+  let mensagem = 'Excluir esta Ordem de Serviço permanentemente? Essa ação não pode ser desfeita, e o número volta a ficar disponível.'
+  if (relatorio) {
+    const junto = [`o Relatório ${relatorio.numero}/${relatorio.ano}`]
+    if (certificado) junto.push(`o Certificado ${certificado.numero}/${certificado.ano}`)
+    mensagem = `ATENÇÃO: esta Ordem de Serviço já tem ${junto.join(' e ')}.\n\n` +
+      `Excluir a OS vai apagar também ${junto.join(' e ')}, com assinaturas, cilindros e testes. ` +
+      'Essa ação não pode ser desfeita, e os números voltam a ficar disponíveis.\n\nContinuar?'
+  }
+  if (!confirm(mensagem)) return
+
+  const res = await apiJson(`${API}/ordens-servico/${id}${relatorio ? '?comRelatorio=1' : ''}`, { method: 'DELETE' })
 
   if (res.ok) {
-    alert('Ordem de Serviço excluída.')
+    const r = await res.json()
+    const extras = [r.relatorioExcluido && `Relatório ${r.relatorioExcluido}`, r.certificadoExcluido && `Certificado ${r.certificadoExcluido}`].filter(Boolean)
+    alert(extras.length ? `Ordem de Serviço excluída, junto com ${extras.join(' e ')}.` : 'Ordem de Serviço excluída.')
     inicializarOrdensServico()
   } else {
     const err = await res.json()

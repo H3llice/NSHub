@@ -54,7 +54,8 @@ router.get('/:id', autenticar, async (req, res) => {
       cliente: true,
       empresa: true,
       criadoPor: true,
-      relatorio: true
+      // certificado (resumido) pro aviso de exclusão em cascata da OS
+      relatorio: { include: { certificado: { select: { id: true, numero: true, ano: true } } } }
     }
   })
   if (!os) return res.status(404).json({ erro: 'Ordem de Serviço não encontrada' })
@@ -169,20 +170,48 @@ router.post('/:id/cancelar', autenticar, exigirPerfil('gerente', 'admin'), async
 
 // ─── Excluir OS (só gerente/admin) ──────────────────────────────────────────────
 // Diferente de cancelar: apaga de vez do banco — libera o número pro próximo
-// (proximoNumero só olha o maior número já existente). Mesmo bloqueio de
-// Relatório vinculado do cancelamento acima (o FK de Relatorio.ordemServicoId
-// nem deixaria apagar mesmo se não bloqueássemos aqui).
+// (proximoNumero só olha o maior número já existente).
+// Com Relatório vinculado, apaga em cascata OS → Relatório → Certificado, mas
+// só com ?comRelatorio=1: o frontend manda isso depois de mostrar o que vai
+// junto no confirm. Sem o parâmetro continua bloqueado — se o relatório foi
+// gerado depois que a tela abriu, ninguém apaga sem ter visto o aviso.
 router.delete('/:id', autenticar, exigirPerfil('gerente', 'admin'), async (req, res) => {
   const id = Number(req.params.id)
-  const os = await prisma.ordemServico.findUnique({ where: { id }, include: { relatorio: true } })
+  const comRelatorio = req.query.comRelatorio === '1'
+
+  const os = await prisma.ordemServico.findUnique({
+    where: { id },
+    include: { relatorio: { include: { certificado: true } } }
+  })
   if (!os) return res.status(404).json({ erro: 'Ordem de Serviço não encontrada' })
-  if (os.relatorio) {
-    return res.status(400).json({ erro: 'Esta Ordem de Serviço já gerou um Relatório — exclua o Relatório primeiro' })
+  if (os.relatorio && !comRelatorio) {
+    return res.status(409).json({ erro: 'Esta Ordem de Serviço já gerou um Relatório — recarregue a tela e confirme a exclusão junto com ele' })
   }
 
-  await prisma.ordemServico.delete({ where: { id } })
+  const relatorio = os.relatorio
+  const certificado = relatorio?.certificado
 
-  res.json({ ok: true })
+  // Mesma ordem dos DELETE de certificado e relatório (filhos antes dos pais,
+  // sem cascade no schema)
+  await prisma.$transaction([
+    ...(certificado ? [
+      prisma.assinatura.deleteMany({ where: { certificadoId: certificado.id } }),
+      prisma.certificado.delete({ where: { id: certificado.id } })
+    ] : []),
+    ...(relatorio ? [
+      prisma.assinatura.deleteMany({ where: { relatorioId: relatorio.id } }),
+      prisma.cilindroRelatorio.deleteMany({ where: { relatorioId: relatorio.id } }),
+      prisma.testeImo.deleteMany({ where: { relatorioId: relatorio.id } }),
+      prisma.relatorio.delete({ where: { id: relatorio.id } })
+    ] : []),
+    prisma.ordemServico.delete({ where: { id } })
+  ])
+
+  res.json({
+    ok: true,
+    relatorioExcluido: relatorio ? `${relatorio.numero}/${relatorio.ano}` : null,
+    certificadoExcluido: certificado ? `${certificado.numero}/${certificado.ano}` : null
+  })
 })
 
 export default router
