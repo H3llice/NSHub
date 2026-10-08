@@ -151,15 +151,24 @@ router.delete('/:id', autenticar, exigirPerfil('gerente', 'admin'), async (req, 
   const embarcacao = await prisma.embarcacao.findUnique({ where: { id } })
   if (!embarcacao) return res.status(404).json({ erro: 'Embarcação não encontrada' })
 
-  const [qtdOS, qtdRelatorios, qtdCertificados] = await Promise.all([
+  // Todo model com FK pra Embarcacao entra aqui — o que faltar faz o delete
+  // estourar no banco em vez de virar aviso (era o caso dos embarques)
+  const [qtdOS, qtdRelatorios, qtdCertificados, qtdEmbarques] = await Promise.all([
     prisma.ordemServico.count({ where: { embarcacaoId: id } }),
     prisma.relatorio.count({ where: { embarcacaoId: id } }),
     prisma.certificado.count({ where: { embarcacaoId: id } }),
+    prisma.embarque.count({ where: { embarcacaoId: id } }),
   ])
 
-  if (qtdOS || qtdRelatorios || qtdCertificados) {
+  const vinculos = [
+    qtdOS && `${qtdOS} Ordem(ns) de Serviço`,
+    qtdRelatorios && `${qtdRelatorios} Relatório(s)`,
+    qtdCertificados && `${qtdCertificados} Certificado(s)`,
+    qtdEmbarques && `${qtdEmbarques} Embarque(s)`,
+  ].filter(Boolean)
+  if (vinculos.length) {
     return res.status(400).json({
-      erro: `Não é possível excluir: existem ${qtdOS} Ordem(ns) de Serviço, ${qtdRelatorios} Relatório(s) e ${qtdCertificados} Certificado(s) vinculados a esta embarcação.`
+      erro: `Não é possível excluir: existem ${vinculos.join(', ')} vinculados a esta embarcação.`
     })
   }
 
