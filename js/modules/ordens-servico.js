@@ -1,3 +1,4 @@
+import { esc } from './html.js'
 const API = 'https://override-steerable-professed.ngrok-free.dev'
 
 // ─── Auth helper (mesmo padrão dos outros módulos) ────────────────────────────
@@ -60,7 +61,7 @@ const STATUS_LABEL = {
 
 function badgeStatus(status) {
   const s = STATUS_LABEL[status] || { texto: status, cor: '#6c757d' }
-  return `<span style="background:${s.cor}; color:white; padding:2px 8px; border-radius:12px; font-size:12px;">${s.texto}</span>`
+  return `<span style="background:${s.cor}; color:white; padding:2px 8px; border-radius:12px; font-size:12px;">${esc(s.texto)}</span>`
 }
 
 export function inicializarOrdensServico() {
@@ -124,8 +125,8 @@ window.carregarOrdensServico = async function (pagina = 1) {
     tabela.innerHTML = resp.ordensServico.map(os => `
       <tr>
         <td style="cursor:pointer;" onclick="editarOS(${os.id})">${os.numero}/${os.ano}</td>
-        <td style="cursor:pointer;" onclick="editarOS(${os.id})">${os.embarcacao?.nome || '-'}</td>
-        <td>${os.cliente?.nome || '-'}</td>
+        <td style="cursor:pointer;" onclick="editarOS(${os.id})">${esc(os.embarcacao?.nome || '-')}</td>
+        <td>${esc(os.cliente?.nome || '-')}</td>
         <td>${new Date(os.dataEmissao).toLocaleDateString('pt-BR', { timeZone: 'UTC' })}</td>
         <td>${badgeStatus(os.status)}</td>
         <td class="col-acoes">
@@ -167,7 +168,7 @@ function renderFormularioOS(os, empresas) {
   const somenteLeitura = os?.status === 'concluida' || cancelada || !podeGerenciarOS
   const dis = somenteLeitura ? 'disabled' : ''
   const opcoesEmpresas = empresas.map(e =>
-    `<option value="${e.id}" ${os?.empresaId === e.id ? 'selected' : ''}>${e.nome} (${e.sigla})</option>`
+    `<option value="${e.id}" ${os?.empresaId === e.id ? 'selected' : ''}>${esc(e.nome)} (${esc(e.sigla)})</option>`
   ).join('')
 
   return `
@@ -186,28 +187,28 @@ function renderFormularioOS(os, empresas) {
 
       <div style="background:white; border-radius:6px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06); margin-bottom:16px; display:grid; grid-template-columns:1fr 1fr; gap:16px;">
         <div><label>Empresa executante *</label><select id="os-empresaId" class="form-control" ${dis}>${opcoesEmpresas}</select></div>
-        <div><label>Aos cuidados de</label><input type="text" id="os-aosCuidadosDe" class="form-control" value="${os?.aosCuidadosDe || ''}" ${dis}></div>
+        <div><label>Aos cuidados de</label><input type="text" id="os-aosCuidadosDe" class="form-control" value="${esc(os?.aosCuidadosDe || '')}" ${dis}></div>
 
         <div style="position:relative; grid-column: span 2;">
           <label>Embarcação (navio) * <small style="color:#999;">(busca por nome — sugere o armador como cliente)</small></label>
           <input type="text" id="os-embarcacao-busca" class="form-control" placeholder="Digite o nome do navio..."
-            value="${os?.embarcacao?.nome || ''}" oninput="buscarEmbarcacaoOS(this.value)" autocomplete="off" ${dis}>
+            value="${esc(os?.embarcacao?.nome || '')}" oninput="buscarEmbarcacaoOS(this.value)" autocomplete="off" ${dis}>
           <div id="sugestoes-embarcacao-os" style="position:absolute; background:white; border:1px solid #ccc; border-radius:4px; width:100%; z-index:999; display:none; top:100%;"></div>
           <input type="hidden" id="os-embarcacaoId" value="${os?.embarcacaoId || ''}">
         </div>
-        <div><label>Porto de Registro</label><input type="text" id="os-embarcacao-porto" class="form-control" value="${os?.embarcacao?.portoRegistro || ''}" ${dis}></div>
+        <div><label>Porto de Registro</label><input type="text" id="os-embarcacao-porto" class="form-control" value="${esc(os?.embarcacao?.portoRegistro || '')}" ${dis}></div>
         <div></div>
 
         <div style="position:relative;">
           <label>Cliente *</label>
           <input type="text" id="os-cliente-busca" class="form-control" placeholder="Digite nome ou CPF/CNPJ..."
-            value="${os?.cliente?.nome || ''}" oninput="buscarClienteOS(this.value)" autocomplete="off" ${dis}>
+            value="${esc(os?.cliente?.nome || '')}" oninput="buscarClienteOS(this.value)" autocomplete="off" ${dis}>
           <div id="sugestoes-cliente-os" style="position:absolute; background:white; border:1px solid #ccc; border-radius:4px; width:100%; z-index:999; display:none; top:100%;"></div>
           <input type="hidden" id="os-clienteId" value="${os?.clienteId || ''}">
         </div>
         <div>
           <label>CPF/CNPJ do cliente <small style="color:#999;">(só p/ cadastrar cliente novo)</small></label>
-          <input type="text" id="os-cliente-cpfCnpj" class="form-control" placeholder="Somente números" value="${os?.cliente?.cpfCnpj || ''}" ${dis}>
+          <input type="text" id="os-cliente-cpfCnpj" class="form-control" placeholder="Somente números" value="${esc(os?.cliente?.cpfCnpj || '')}" ${dis}>
         </div>
 
         <div><label>Data de Início</label><input type="date" id="os-dataInicio" class="form-control" value="${os?.dataInicio ? os.dataInicio.split('T')[0] : ''}" ${dis}></div>
@@ -217,26 +218,26 @@ function renderFormularioOS(os, empresas) {
       <div style="background:white; border-radius:6px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06); margin-bottom:16px;">
         <div style="font-weight:700; color:var(--acento); margin-bottom:10px;">Equipamento Recebido</div>
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
-          <div style="grid-column: span 2;"><label>Equipamento</label><input type="text" id="os-equipamentoRecebido" class="form-control" placeholder="Ex: Balsa de resgate inflável salva vidas" value="${os?.equipamentoRecebido || ''}" ${dis}></div>
-          <div><label>Nº de Série</label><input type="text" id="os-equipNumeroSerie" class="form-control" value="${os?.equipNumeroSerie || ''}" ${dis}></div>
-          <div><label>Marca</label><input type="text" id="os-equipMarca" class="form-control" value="${os?.equipMarca || ''}" ${dis}></div>
-          <div><label>Modelo</label><input type="text" id="os-equipModelo" class="form-control" value="${os?.equipModelo || ''}" ${dis}></div>
-          <div><label>Vencimento da Certificação</label><input type="text" id="os-vencimentoCertificacao" class="form-control" placeholder="Ex: 05/2027" value="${os?.vencimentoCertificacao || ''}" ${dis}></div>
+          <div style="grid-column: span 2;"><label>Equipamento</label><input type="text" id="os-equipamentoRecebido" class="form-control" placeholder="Ex: Balsa de resgate inflável salva vidas" value="${esc(os?.equipamentoRecebido || '')}" ${dis}></div>
+          <div><label>Nº de Série</label><input type="text" id="os-equipNumeroSerie" class="form-control" value="${esc(os?.equipNumeroSerie || '')}" ${dis}></div>
+          <div><label>Marca</label><input type="text" id="os-equipMarca" class="form-control" value="${esc(os?.equipMarca || '')}" ${dis}></div>
+          <div><label>Modelo</label><input type="text" id="os-equipModelo" class="form-control" value="${esc(os?.equipModelo || '')}" ${dis}></div>
+          <div><label>Vencimento da Certificação</label><input type="text" id="os-vencimentoCertificacao" class="form-control" placeholder="Ex: 05/2027" value="${esc(os?.vencimentoCertificacao || '')}" ${dis}></div>
         </div>
       </div>
 
       <div style="background:white; border-radius:6px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06); margin-bottom:16px;">
         <div style="margin-bottom:16px;">
           <label>Problema ou defeito apresentado</label>
-          <textarea id="os-problemaApresentado" class="form-control" rows="2" ${dis}>${os?.problemaApresentado || ''}</textarea>
+          <textarea id="os-problemaApresentado" class="form-control" rows="2" ${dis}>${esc(os?.problemaApresentado || '')}</textarea>
         </div>
         <div style="margin-bottom:16px;">
           <label>Serviço que será prestado</label>
-          <textarea id="os-servicoApresentado" class="form-control" rows="2" ${dis}>${os?.servicoApresentado || ''}</textarea>
+          <textarea id="os-servicoApresentado" class="form-control" rows="2" ${dis}>${esc(os?.servicoApresentado || '')}</textarea>
         </div>
         <div>
           <label>Observações</label>
-          <textarea id="os-observacoes" class="form-control" rows="3" ${dis}>${os?.observacoes || ''}</textarea>
+          <textarea id="os-observacoes" class="form-control" rows="3" ${dis}>${esc(os?.observacoes || '')}</textarea>
         </div>
       </div>
 
@@ -289,12 +290,12 @@ window.buscarEmbarcacaoOS = async function (q) {
 
   div.style.display = 'block'
   div.innerHTML = results.map(e => `
-    <div onclick='selecionarEmbarcacaoOS(${JSON.stringify(e).replace(/'/g, '&apos;')})'
+    <div onclick="selecionarEmbarcacaoOS(${esc(JSON.stringify(e))})"
       style="padding: 8px 12px; cursor:pointer; border-bottom: 1px solid #eee;"
       onmouseover="this.style.background='#f5f5f5'"
       onmouseout="this.style.background='white'">
-      <strong>${e.nome}</strong>
-      <span style="color:#999; font-size:12px; margin-left:8px;">${e.armador?.nome || ''}</span>
+      <strong>${esc(e.nome)}</strong>
+      <span style="color:#999; font-size:12px; margin-left:8px;">${esc(e.armador?.nome || '')}</span>
     </div>
   `).join('')
 }
@@ -346,12 +347,12 @@ window.buscarClienteOS = async function (q) {
 
   div.style.display = 'block'
   div.innerHTML = results.map(c => `
-    <div onclick='selecionarClienteOS(${JSON.stringify(c)})'
+    <div onclick="selecionarClienteOS(${esc(JSON.stringify(c))})"
       style="padding: 8px 12px; cursor:pointer; border-bottom: 1px solid #eee;"
       onmouseover="this.style.background='#f5f5f5'"
       onmouseout="this.style.background='white'">
-      <strong>${c.nome}</strong>
-      <span style="color:#999; font-size:12px; margin-left:8px;">${c.cpfCnpj}</span>
+      <strong>${esc(c.nome)}</strong>
+      <span style="color:#999; font-size:12px; margin-left:8px;">${esc(c.cpfCnpj)}</span>
     </div>
   `).join('')
 }

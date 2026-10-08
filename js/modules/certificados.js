@@ -1,4 +1,5 @@
 import { renderSecoesTecnicasRelatorio, prepararCilindros, renderizarCilindros, lerCamposTecnicosRelatorio, hojeISO, preencherQuantidadesPadraoKit } from './relatorios.js'
+import { esc } from './html.js'
 
 const API = 'https://override-steerable-professed.ngrok-free.dev'
 
@@ -74,7 +75,7 @@ export function badgeStatusCertificado(status) {
 
 function badgeStatus(status) {
   const s = STATUS_LABEL[status] || { texto: status, cor: '#6c757d' }
-  return `<span style="background:${s.cor}; color:white; padding:2px 8px; border-radius:12px; font-size:12px;">${s.texto}</span>`
+  return `<span style="background:${s.cor}; color:white; padding:2px 8px; border-radius:12px; font-size:12px;">${esc(s.texto)}</span>`
 }
 
 // Renderiza dentro do mesmo container da página de Relatórios — reaproveita a
@@ -192,7 +193,7 @@ function renderCertificado(c, empresas) {
   const dataEmissaoValor = c.dataEmissao ? c.dataEmissao.split('T')[0] : hojeISO()
   const validadeValor = c.validade || validadePadrao(dataEmissaoValor)
   const opcoesEmpresas = empresas.map(e =>
-    `<option value="${e.id}" ${c.empresaId === e.id ? 'selected' : ''}>${e.nome} (${e.sigla})</option>`
+    `<option value="${e.id}" ${c.empresaId === e.id ? 'selected' : ''}>${esc(e.nome)} (${esc(e.sigla)})</option>`
   ).join('')
 
   const origem = novo
@@ -224,23 +225,23 @@ function renderCertificado(c, empresas) {
         <div style="font-weight:700; color:var(--acento); margin-bottom:10px;">Identificação</div>
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
           <div><label>Empresa executante *</label><select id="cert-empresaId" class="form-control" ${dis}>${opcoesEmpresas}</select></div>
-          <div><label>Navio *</label><input type="text" id="cert-navio" class="form-control" value="${c.navio || c.embarcacao?.nome || ''}" ${dis}></div>
-          <div><label>Armador</label><input type="text" id="cert-armador" class="form-control" value="${c.armador || ''}" ${dis}></div>
-          <div><label>Porto de Registro</label><input type="text" id="cert-portoRegistro" class="form-control" value="${c.portoRegistro || ''}" ${dis}></div>
-          <div><label>Telefone</label><input type="text" id="cert-telefone" class="form-control" value="${c.telefone || ''}" ${dis}></div>
-          <div><label>Email</label><input type="text" id="cert-email" class="form-control" value="${c.email || ''}" ${dis}></div>
+          <div><label>Navio *</label><input type="text" id="cert-navio" class="form-control" value="${esc(c.navio || c.embarcacao?.nome || '')}" ${dis}></div>
+          <div><label>Armador</label><input type="text" id="cert-armador" class="form-control" value="${esc(c.armador || '')}" ${dis}></div>
+          <div><label>Porto de Registro</label><input type="text" id="cert-portoRegistro" class="form-control" value="${esc(c.portoRegistro || '')}" ${dis}></div>
+          <div><label>Telefone</label><input type="text" id="cert-telefone" class="form-control" value="${esc(c.telefone || '')}" ${dis}></div>
+          <div><label>Email</label><input type="text" id="cert-email" class="form-control" value="${esc(c.email || '')}" ${dis}></div>
         </div>
       </div>
 
       <div style="background:white; border-radius:6px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06); margin-bottom:16px;">
         <div style="font-weight:700; color:var(--acento); margin-bottom:10px;">Equipamento</div>
         <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:16px;">
-          <div><label>Equipamento</label><input type="text" id="cert-equipTipo" class="form-control" value="${c.equipTipo || r?.equipTipo || 'BALSA INFLÁVEL'}" ${dis}></div>
-          <div><label>Nº Série</label><input type="text" id="cert-equipNumeroSerie" class="form-control" value="${c.equipNumeroSerie || r?.equipNumeroSerie || ''}" ${dis}></div>
-          <div><label>Ano Fabricação</label><input type="text" id="cert-equipAnoFabricacao" class="form-control" placeholder="Ex: 01/2010" value="${c.equipAnoFabricacao || r?.equipAnoFabricacao || ''}" ${dis}></div>
-          <div><label>Marca/Fabricante</label><input type="text" id="cert-equipFabricante" class="form-control" value="${c.equipFabricante || r?.equipFabricante || ''}" ${dis}></div>
-          <div><label>Modelo</label><input type="text" id="cert-equipModelo" class="form-control" value="${c.equipModelo || r?.equipModelo || ''}" ${dis}></div>
-          <div><label>Classe</label><input type="text" id="cert-equipClasse" class="form-control" placeholder="Ex: Classe II Pack B" value="${c.equipClasse || r?.equipClasse || ''}" ${dis}></div>
+          <div><label>Equipamento</label><input type="text" id="cert-equipTipo" class="form-control" value="${esc(c.equipTipo || r?.equipTipo || 'BALSA INFLÁVEL')}" ${dis}></div>
+          <div><label>Nº Série</label><input type="text" id="cert-equipNumeroSerie" class="form-control" value="${esc(c.equipNumeroSerie || r?.equipNumeroSerie || '')}" ${dis}></div>
+          <div><label>Ano Fabricação</label><input type="text" id="cert-equipAnoFabricacao" class="form-control" placeholder="Ex: 01/2010" value="${esc(c.equipAnoFabricacao || r?.equipAnoFabricacao || '')}" ${dis}></div>
+          <div><label>Marca/Fabricante</label><input type="text" id="cert-equipFabricante" class="form-control" value="${esc(c.equipFabricante || r?.equipFabricante || '')}" ${dis}></div>
+          <div><label>Modelo</label><input type="text" id="cert-equipModelo" class="form-control" value="${esc(c.equipModelo || r?.equipModelo || '')}" ${dis}></div>
+          <div><label>Classe</label><input type="text" id="cert-equipClasse" class="form-control" placeholder="Ex: Classe II Pack B" value="${esc(c.equipClasse || r?.equipClasse || '')}" ${dis}></div>
           <div><label>Capacidade (pessoas)</label><input type="number" id="cert-equipCapacidade" class="form-control" value="${c.equipCapacidade ?? r?.equipCapacidade ?? ''}" ${novo ? 'onchange="atualizarQuantidadesPadraoCertificado()"' : ''} ${dis}></div>
         </div>
       </div>
@@ -257,12 +258,12 @@ function renderCertificado(c, empresas) {
           </div>
           <div>
             <label>Validade *</label>
-            <input type="text" id="cert-validade" class="form-control" placeholder="Ex: 04/09/2027" value="${validadeValor}" ${dis}>
+            <input type="text" id="cert-validade" class="form-control" placeholder="Ex: 04/09/2027" value="${esc(validadeValor)}" ${dis}>
           </div>
         </div>
         <div style="margin-top:16px;">
           <label>Observações</label>
-          <textarea id="cert-observacoes" class="form-control" rows="3" ${dis}>${c.observacoes || ''}</textarea>
+          <textarea id="cert-observacoes" class="form-control" rows="3" ${dis}>${esc(c.observacoes || '')}</textarea>
         </div>
 
         ${botoesCertificado(c, { criar: 'criarCertificadoAvulso', salvar: 'atualizarCertificado', emitir: 'emitirCertificado' })}
@@ -465,10 +466,6 @@ export async function nomeTipoCertificado(tipo) {
   return modelos[tipo]?.nome || tipo
 }
 
-function escapeAttr(valor) {
-  return String(valor ?? '').replaceAll('&', '&amp;').replaceAll('"', '&quot;').replaceAll('<', '&lt;')
-}
-
 // "mesAnoSeguinte": respiração/cilindros imprimem "Próxima inspeção: 08/2027"
 // — um ano depois do mês da inspeção. Os demais tipos têm texto fixo.
 function validadePadraoLista(modelo, dataEmissaoStr) {
@@ -508,12 +505,12 @@ function renderCertificadoLista(c, modelo, empresas) {
   const observacaoValor = novo ? modelo.observacaoPadrao : (c.observacoes || '')
   const tecnicoValor = c.dadosTecnicos?.tecnicoNome ?? (novo ? usuarioAtual?.nome || '' : '')
   const opcoesEmpresas = empresas.map(e =>
-    `<option value="${e.id}" ${c.empresaId === e.id ? 'selected' : ''}>${e.nome} (${e.sigla})</option>`
+    `<option value="${e.id}" ${c.empresaId === e.id ? 'selected' : ''}>${esc(e.nome)} (${esc(e.sigla)})</option>`
   ).join('')
 
   const camposCabecalho = modelo.cabecalho.map(f => `
     <div><label>${f.rotulo}${f.obrigatorio ? ' *' : ''}</label>
-      <input type="text" id="cert-${f.campo}" class="form-control" value="${escapeAttr(c[f.campo])}" ${dis}></div>
+      <input type="text" id="cert-${f.campo}" class="form-control" value="${esc(c[f.campo])}" ${dis}></div>
   `).join('')
 
   return `
@@ -574,20 +571,20 @@ function renderCertificadoLista(c, modelo, empresas) {
           </div>
           <div>
             <label>${modelo.validade.rotulo} *</label>
-            <input type="text" id="cert-validade" class="form-control" placeholder="${modelo.validade.placeholder}" value="${escapeAttr(validadeValor)}" ${dis}>
+            <input type="text" id="cert-validade" class="form-control" placeholder="${modelo.validade.placeholder}" value="${esc(validadeValor)}" ${dis}>
           </div>
           <div>
             <label>Local</label>
-            <input type="text" id="cert-localEmissao" class="form-control" placeholder="Ex: Natal" value="${escapeAttr(c.localEmissao)}" ${dis}>
+            <input type="text" id="cert-localEmissao" class="form-control" placeholder="Ex: Natal" value="${esc(c.localEmissao)}" ${dis}>
           </div>
           <div>
             <label>Técnico responsável</label>
-            <input type="text" id="cert-tecnicoNome" class="form-control" value="${escapeAttr(tecnicoValor)}" ${dis}>
+            <input type="text" id="cert-tecnicoNome" class="form-control" value="${esc(tecnicoValor)}" ${dis}>
           </div>
         </div>
         <div style="margin-top:16px;">
           <label>Observação (sai impressa no certificado)</label>
-          <textarea id="cert-observacoes" class="form-control" rows="4" ${dis}>${escapeAttr(observacaoValor)}</textarea>
+          <textarea id="cert-observacoes" class="form-control" rows="4" ${dis}>${esc(observacaoValor)}</textarea>
         </div>
 
         ${botoesCertificado(c, { criar: 'criarCertificadoLista', salvar: 'atualizarCertificadoLista', emitir: 'emitirCertificadoLista' })}
@@ -613,7 +610,7 @@ function renderizarItensLista() {
       <td>${String(i + 1).padStart(2, '0')}</td>
       ${modelo.colunas.map(col => `
         <td><input type="text" class="form-control cert-item" data-linha="${i}" data-campo="${col.campo}"
-          placeholder="${col.placeholder || ''}" value="${escapeAttr(item[col.campo])}" ${dis}></td>
+          placeholder="${col.placeholder || ''}" value="${esc(item[col.campo])}" ${dis}></td>
       `).join('')}
       ${dis ? '' : `<td><button type="button" class="btn btn-sm btn-danger" title="Remover linha" onclick="removerItemLista(${i})">✕</button></td>`}
     </tr>

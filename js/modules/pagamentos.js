@@ -1,3 +1,4 @@
+import { esc } from './html.js'
 const API = 'https://override-steerable-professed.ngrok-free.dev'
 
 // ─── Auth helper (mesmo padrão dos outros módulos) ────────────────────────────
@@ -51,7 +52,7 @@ const STATUS_PAGAMENTO_LABEL = {
 
 function badgeStatusPagamento(status) {
   const s = STATUS_PAGAMENTO_LABEL[status] || { texto: status, cor: '#6c757d' }
-  return `<span style="background:${s.cor}; color:white; padding:2px 8px; border-radius:12px; font-size:12px;">${s.texto}</span>`
+  return `<span style="background:${s.cor}; color:white; padding:2px 8px; border-radius:12px; font-size:12px;">${esc(s.texto)}</span>`
 }
 
 function formatarMoeda(v) {
@@ -215,8 +216,8 @@ function renderizarTabelaPagamentos(pagamentos) {
     return `
       <tr>
         <td>${contratoTxt}</td>
-        <td>${cliente}</td>
-        <td>${refTxt}</td>
+        <td>${esc(cliente)}</td>
+        <td>${esc(refTxt)}</td>
         <td>${venc}</td>
         <td>${formatarMoeda(p.valor)}</td>
         <td>${badgeStatusPagamento(p.status)}</td>
@@ -342,7 +343,7 @@ export async function renderizarDashboardInicio() {
           <ul style="list-style:none; padding:0; margin:0;">
             ${d.proximosVencimentos.map(p => `
               <li style="padding:6px 0; border-bottom:1px solid #eee; font-size:13px; display:flex; justify-content:space-between;">
-                <span>${p.contrato?.cliente?.nome || p.venda?.cliente?.nome || '-'} — ${p.contrato ? `Contrato ${p.contrato.numero}.${p.contrato.ano}` : p.venda ? `Venda ${p.venda.numero}.${p.venda.ano}` : 'Avulsa'}</span>
+                <span>${esc(p.contrato?.cliente?.nome || p.venda?.cliente?.nome || '-')} — ${p.contrato ? `Contrato ${p.contrato.numero}.${p.contrato.ano}` : p.venda ? `Venda ${p.venda.numero}.${p.venda.ano}` : 'Avulsa'}</span>
                 <span>${new Date(p.dataVencimento).toLocaleDateString('pt-BR')} · ${formatarMoeda(p.valor)}</span>
               </li>
             `).join('')}

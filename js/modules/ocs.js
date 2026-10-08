@@ -1,3 +1,4 @@
+import { esc } from './html.js'
 const API = 'https://override-steerable-professed.ngrok-free.dev'
 
 // ─── Auth helper ──────────────────────────────────────────────────────────────
@@ -57,7 +58,7 @@ const STATUS_LABEL = {
 
 function badgeStatus(status) {
   const s = STATUS_LABEL[status] || { texto: status, cor: '#6c757d' }
-  return `<span style="background:${s.cor}; color:white; padding:2px 8px; border-radius:12px; font-size:12px;">${s.texto}</span>`
+  return `<span style="background:${s.cor}; color:white; padding:2px 8px; border-radius:12px; font-size:12px;">${esc(s.texto)}</span>`
 }
 
 function formatarDesconto(item) {
@@ -133,7 +134,7 @@ export function inicializarOCs() {
   apiFetch(`${API}/empresas`).then(r => r.json()).then(empresas => {
     const select = document.getElementById('filtro-empresa')
     empresas.forEach(e => {
-      select.innerHTML += `<option value="${e.id}">${e.sigla}</option>`
+      select.innerHTML += `<option value="${e.id}">${esc(e.sigla)}</option>`
     })
   })
 
@@ -216,8 +217,8 @@ function renderizarTabela(ocs) {
 
     return `
       <tr style="${cancelada ? 'opacity:0.6; background:#fff5f5;' : ''}">
-        <td><a href="#" onclick="verOC(${oc.id}); return false;" style="color:var(--acento); font-weight:600; text-decoration:none;">${numero}</a></td>
-        <td><a href="#" onclick="verOC(${oc.id}); return false;" style="color:inherit; text-decoration:none;">${oc.fornecedor?.nome || '-'}</a></td>
+        <td><a href="#" onclick="verOC(${oc.id}); return false;" style="color:var(--acento); font-weight:600; text-decoration:none;">${esc(numero)}</a></td>
+        <td><a href="#" onclick="verOC(${oc.id}); return false;" style="color:inherit; text-decoration:none;">${esc(oc.fornecedor?.nome || '-')}</a></td>
         <td>${data}</td>
         <td>R$ ${total.toFixed(2)}</td>
         <td>${badgeStatus(oc.status)}</td>
@@ -250,7 +251,7 @@ function botoesParaPerfil(oc, numero) {
   }
 
   if (!['aprovada'].includes(s)) {
-    btns.push(`<button class="btn btn-sm btn-danger" onclick="deletarOC(${oc.id}, '${numero}')">Cancelar</button>`)
+    btns.push(`<button class="btn btn-sm btn-danger" onclick="deletarOC(${oc.id}, ${esc(JSON.stringify(numero))})">Cancelar</button>`)
   }
 
   return btns.join(' ')
@@ -289,17 +290,17 @@ window.verOC = async function (id) {
       <div style="text-align:center; border:1px solid ${podeAssinar ? 'var(--acento)' : '#ddd'}; border-radius:6px; padding:16px; ${cursor}" ${hover} ${click}>
         <div style="font-weight:700; font-size:12px; color:#555; margin-bottom:8px;">${cargo}</div>
         ${assinatura?.assinaturaImg
-        ? `<img src="${assinatura.assinaturaImg}" style="max-height:60px; max-width:160px; margin:0 auto 8px; display:block;">`
+        ? `<img src="${esc(assinatura.assinaturaImg)}" style="max-height:60px; max-width:160px; margin:0 auto 8px; display:block;">`
         : `<div style="height:60px; border-bottom:1px solid #ccc; margin-bottom:8px;"></div>`
       }
         <div style="font-size:12px; color:${cor}; font-weight:600;">
           ${assinatura
-        ? `${assinatura.acao === 'aprovada' ? '✓' : '✗'} ${assinatura.usuario?.nome}`
+        ? `${assinatura.acao === 'aprovada' ? '✓' : '✗'} ${esc(assinatura.usuario?.nome)}`
         : `<span style="color:#999;">${podeAssinar ? '— Sua assinatura —' : 'Aguardando'}</span>`
       }
         </div>
         ${assinatura ? `<div style="font-size:11px; color:#999;">${new Date(assinatura.criadoEm).toLocaleDateString('pt-BR')}</div>` : ''}
-        ${recusada && assinatura?.motivo ? `<div style="font-size:11px; color:#dc3545; margin-top:4px;">Motivo: ${assinatura.motivo}</div>` : ''}
+        ${recusada && assinatura?.motivo ? `<div style="font-size:11px; color:#dc3545; margin-top:4px;">Motivo: ${esc(assinatura.motivo)}</div>` : ''}
         ${dica}
       </div>
     `
@@ -321,7 +322,7 @@ window.verOC = async function (id) {
     botoesVer.push(`<button class="btn btn-danger" onclick="abrirModalRecusa(${oc.id})">✗ Recusar</button>`)
   }
   if (!['aprovada'].includes(s) && s !== 'cancelada') {
-    botoesVer.push(`<button class="btn btn-danger" onclick="deletarOC(${oc.id}, '${numero}')">Cancelar</button>`)
+    botoesVer.push(`<button class="btn btn-danger" onclick="deletarOC(${oc.id}, ${esc(JSON.stringify(numero))})">Cancelar</button>`)
   }
   if (s === 'cancelada') {
     botoesVer.push(`<button class="btn btn-success" onclick="restaurarOC(${oc.id})">Restaurar</button>`)
@@ -335,36 +336,36 @@ window.verOC = async function (id) {
       </div>
 
       <div style="display:flex; align-items:center; gap:12px; margin-bottom:20px;">
-        <h3 style="margin:0;">${numero}</h3>
+        <h3 style="margin:0;">${esc(numero)}</h3>
         ${badgeStatus(oc.status)}
       </div>
 
       <div class="info-grid-2" style="margin-bottom:20px;">
         <div style="background:white; border-radius:6px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06);">
           <div style="font-weight:700; color:var(--acento); margin-bottom:10px;">Fornecedor</div>
-          <div><strong>${oc.fornecedor?.nome || '-'}</strong></div>
-          ${oc.fornecedor?.documento ? `<div style="color:#666; font-size:13px;">CNPJ: ${oc.fornecedor.documento}</div>` : ''}
-          ${oc.fornecedor?.endereco ? `<div style="color:#666; font-size:13px;">${oc.fornecedor.endereco}</div>` : ''}
-          ${oc.fornecedor?.cidade ? `<div style="color:#666; font-size:13px;">${oc.fornecedor.cidade}</div>` : ''}
-          ${oc.fornecedor?.telefone ? `<div style="color:#666; font-size:13px;">Tel: ${oc.fornecedor.telefone}</div>` : ''}
-          ${oc.vendedor?.nome ? `<div style="color:#666; font-size:13px;">Vendedor: ${oc.vendedor.nome}</div>` : ''}
+          <div><strong>${esc(oc.fornecedor?.nome || '-')}</strong></div>
+          ${oc.fornecedor?.documento ? `<div style="color:#666; font-size:13px;">CNPJ: ${esc(oc.fornecedor.documento)}</div>` : ''}
+          ${oc.fornecedor?.endereco ? `<div style="color:#666; font-size:13px;">${esc(oc.fornecedor.endereco)}</div>` : ''}
+          ${oc.fornecedor?.cidade ? `<div style="color:#666; font-size:13px;">${esc(oc.fornecedor.cidade)}</div>` : ''}
+          ${oc.fornecedor?.telefone ? `<div style="color:#666; font-size:13px;">Tel: ${esc(oc.fornecedor.telefone)}</div>` : ''}
+          ${oc.vendedor?.nome ? `<div style="color:#666; font-size:13px;">Vendedor: ${esc(oc.vendedor.nome)}</div>` : ''}
         </div>
 
         <div style="background:white; border-radius:6px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06);">
           <div style="font-weight:700; color:var(--acento); margin-bottom:10px;">Condições Comerciais</div>
           <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px; font-size:13px;">
             <div><span style="color:#999;">Data</span><br><strong>${dataPedido}</strong></div>
-            <div><span style="color:#999;">Empresa</span><br><strong>${oc.empresa?.sigla || '-'}</strong></div>
-            <div><span style="color:#999;">Cond. Pagto</span><br><strong>${oc.condicoesPagto || '-'}</strong></div>
-            <div><span style="color:#999;">Forma Pagto</span><br><strong>${FORMAS_PAGAMENTO[oc.formaPagto] || oc.formaPagto || '-'}</strong></div>
-            ${oc.formaPagto === 'pix' && oc.chavePix ? `<div><span style="color:#999;">Chave PIX</span><br><strong>${oc.chavePix}</strong></div>` : ''}
-            ${oc.formaPagto === 'boleto' && oc.codigoBarras ? `<div><span style="color:#999;">Código de Barras</span><br><strong>${oc.codigoBarras}</strong></div>` : ''}
-            ${oc.formaPagto === 'transferencia' ? `<div><span style="color:#999;">Dados Bancários</span><br><strong>${TIPOS_CONTA[oc.tipoConta] || oc.tipoConta || '-'} — Ag. ${oc.agencia || '-'} — Cc ${oc.contaNumero || '-'}</strong></div>` : ''}
-            ${oc.formaPagto === 'outro' && oc.formaPagtoOutro ? `<div><span style="color:#999;">Especificação</span><br><strong>${oc.formaPagtoOutro}</strong></div>` : ''}
-            <div><span style="color:#999;">Prazo Entrega</span><br><strong>${oc.prazoEntrega || '-'}</strong></div>
-            <div><span style="color:#999;">Incoterms</span><br><strong>${oc.incoterms || '-'}</strong></div>
-            <div><span style="color:#999;">Solicitante</span><br><strong>${oc.solicitante || '-'}</strong></div>
-            <div><span style="color:#999;">Transportadora</span><br><strong>${oc.transportadora || '-'}</strong></div>
+            <div><span style="color:#999;">Empresa</span><br><strong>${esc(oc.empresa?.sigla || '-')}</strong></div>
+            <div><span style="color:#999;">Cond. Pagto</span><br><strong>${esc(oc.condicoesPagto || '-')}</strong></div>
+            <div><span style="color:#999;">Forma Pagto</span><br><strong>${esc(FORMAS_PAGAMENTO[oc.formaPagto] || oc.formaPagto || '-')}</strong></div>
+            ${oc.formaPagto === 'pix' && oc.chavePix ? `<div><span style="color:#999;">Chave PIX</span><br><strong>${esc(oc.chavePix)}</strong></div>` : ''}
+            ${oc.formaPagto === 'boleto' && oc.codigoBarras ? `<div><span style="color:#999;">Código de Barras</span><br><strong>${esc(oc.codigoBarras)}</strong></div>` : ''}
+            ${oc.formaPagto === 'transferencia' ? `<div><span style="color:#999;">Dados Bancários</span><br><strong>${esc(TIPOS_CONTA[oc.tipoConta] || oc.tipoConta || '-')} — Ag. ${esc(oc.agencia || '-')} — Cc ${esc(oc.contaNumero || '-')}</strong></div>` : ''}
+            ${oc.formaPagto === 'outro' && oc.formaPagtoOutro ? `<div><span style="color:#999;">Especificação</span><br><strong>${esc(oc.formaPagtoOutro)}</strong></div>` : ''}
+            <div><span style="color:#999;">Prazo Entrega</span><br><strong>${esc(oc.prazoEntrega || '-')}</strong></div>
+            <div><span style="color:#999;">Incoterms</span><br><strong>${esc(oc.incoterms || '-')}</strong></div>
+            <div><span style="color:#999;">Solicitante</span><br><strong>${esc(oc.solicitante || '-')}</strong></div>
+            <div><span style="color:#999;">Transportadora</span><br><strong>${esc(oc.transportadora || '-')}</strong></div>
           </div>
         </div>
       </div>
@@ -378,8 +379,8 @@ window.verOC = async function (id) {
               ${oc.itens.map(item => `
                 <tr>
                   <td>${item.quantidade}</td>
-                  <td>${item.unidade || '-'}</td>
-                  <td>${item.descricao}</td>
+                  <td>${esc(item.unidade || '-')}</td>
+                  <td>${esc(item.descricao)}</td>
                   <td>${item.valorUni ? 'R$ ' + item.valorUni.toFixed(2) : '-'}</td>
                   <td>${formatarDesconto(item)}</td>
                   <td>${item.ipi ? item.ipi + '%' : '-'}</td>
@@ -398,7 +399,7 @@ window.verOC = async function (id) {
       ${oc.instrucoes ? `
         <div style="background:white; border-radius:6px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06); margin-bottom:16px;">
           <div style="font-weight:700; color:var(--acento); margin-bottom:8px;">Instruções Especiais</div>
-          <div style="font-size:13px; color:#444;">${oc.instrucoes}</div>
+          <div style="font-size:13px; color:#444;">${esc(oc.instrucoes)}</div>
         </div>
       ` : ''}
 
@@ -408,7 +409,7 @@ window.verOC = async function (id) {
           <ul style="list-style:none; padding:0; margin:0;">
             ${oc.anexos.map(a => `
               <li style="padding:6px 0; border-bottom:1px solid #eee; display:flex; justify-content:space-between; font-size:13px;">
-                <span>📎 ${a.nomeOriginal} <small style="color:#999;">(${a.tipo})</small></span>
+                <span>📎 ${esc(a.nomeOriginal)} <small style="color:#999;">(${esc(a.tipo)})</small></span>
                 <a href="${API}/uploads/${a.nomeArquivo}?token=${encodeURIComponent(tokenAtual)}" target="_blank" style="color:var(--acento);">Ver</a>
               </li>
             `).join('')}
@@ -629,7 +630,7 @@ window.confirmarRecusa = async function (ocId) {
 window.abrirFormularioOC = async function () {
   const empresas = await apiFetch(`${API}/empresas`).then(r => r.json())
   const opcoesEmpresas = empresas.map(e =>
-    `<option value="${e.id}">${e.nome} (${e.sigla})</option>`
+    `<option value="${e.id}">${esc(e.nome)} (${esc(e.sigla)})</option>`
   ).join('')
 
   document.getElementById('ocs').innerHTML = `
@@ -702,7 +703,7 @@ window.abrirFormularioOC = async function () {
           </div>
           <div>
             <label>Arquivo</label>
-            <input type="file" id="anexo-arquivo" class="form-control" onchange="adicionarAnexoPendente(event)">
+            <input type="file" id="anexo-arquivo" class="form-control" accept="${EXTENSOES_ANEXO}" onchange="adicionarAnexoPendente(event)">
           </div>
         </div>
         <ul id="lista-anexos-pendentes" style="margin-top: 12px; padding: 0; list-style: none;"></ul>
@@ -860,7 +861,7 @@ window.editarOC = async function (id) {
   ])
 
   const opcoesEmpresas = empresas.map(e =>
-    `<option value="${e.id}" ${e.id === oc.empresaId ? 'selected' : ''}>${e.nome} (${e.sigla})</option>`
+    `<option value="${e.id}" ${e.id === oc.empresaId ? 'selected' : ''}>${esc(e.nome)} (${esc(e.sigla)})</option>`
   ).join('')
 
   // Declaradas antes de anexosHtml, que já usa podeRemoverAnexo — declaradas
@@ -873,7 +874,7 @@ window.editarOC = async function (id) {
   const anexosHtml = oc.anexos?.length > 0
     ? oc.anexos.map(a => `
         <li style="padding: 6px 0; border-bottom: 1px solid #eee; display:flex; justify-content:space-between;">
-          <span>📎 ${a.nomeOriginal} <small style="color:#999">(${a.tipo})</small></span>
+          <span>📎 ${esc(a.nomeOriginal)} <small style="color:#999">(${esc(a.tipo)})</small></span>
           ${podeRemoverAnexo ? `<button class="btn btn-sm btn-danger" onclick="deletarAnexo(${a.id}, this)">✕</button>` : ''}
         </li>
       `).join('')
@@ -887,9 +888,9 @@ window.editarOC = async function (id) {
             <li style="padding:8px 0; border-bottom:1px solid #eee; font-size:13px;">
               ${a.acao === 'aprovada' ? '✅' : '❌'}
               <strong>${a.etapa === 'aprovacao' ? 'Aprovação' : a.etapa === 'autorizacao' ? 'Autorização' : 'Solicitante'}</strong>
-              — ${a.acao} por <strong>${a.usuario?.nome}</strong>
+              — ${a.acao} por <strong>${esc(a.usuario?.nome)}</strong>
               em ${new Date(a.criadoEm).toLocaleDateString('pt-BR')}
-              ${a.motivo ? `<br><span style="color:#dc3545;">Motivo: ${a.motivo}</span>` : ''}
+              ${a.motivo ? `<br><span style="color:#dc3545;">Motivo: ${esc(a.motivo)}</span>` : ''}
             </li>
           `).join('')}
         </ul>
@@ -900,7 +901,7 @@ window.editarOC = async function (id) {
     <div id="formulario-oc" style="margin-top: 20px;">
       <button class="btn btn-secondary" onclick="fecharFormularioOC()">← Voltar</button>
       <h3 style="margin: 20px 0;">
-        Editar OC ${oc.numero}.${oc.ano}-${oc.empresa?.sigla || ''}
+        Editar OC ${oc.numero}.${oc.ano}-${esc(oc.empresa?.sigla || '')}
         ${badgeStatus(oc.status)}
       </h3>
 
@@ -921,29 +922,29 @@ window.editarOC = async function (id) {
             placeholder="Digite nome ou CNPJ..."
             oninput="buscarFornecedor(this.value)"
             autocomplete="off"
-            value="${oc.fornecedor?.nome || ''}"
+            value="${esc(oc.fornecedor?.nome || '')}"
             ${somenteLeitura ? 'disabled' : ''}>
           <div id="sugestoes-fornecedor" style="position:absolute; background:white; border:1px solid #ccc; border-radius:4px; width:100%; z-index:999; display:none; top:100%;"></div>
-          <input type="hidden" id="oc-fornecedorId" value="${oc.fornecedorId}">
+          <input type="hidden" id="oc-fornecedorId" value="${esc(oc.fornecedorId)}">
         </div>
-        <div><label>CNPJ/CPF</label><input type="text" id="oc-fornecedor-doc" class="form-control" value="${oc.fornecedor?.documento || ''}" ${somenteLeitura ? 'disabled' : ''}></div>
-        <div><label>Endereço</label><input type="text" id="oc-fornecedor-end" class="form-control" value="${oc.fornecedor?.endereco || ''}" ${somenteLeitura ? 'disabled' : ''}></div>
-        <div><label>Cidade</label><input type="text" id="oc-fornecedor-cidade" class="form-control" value="${oc.fornecedor?.cidade || ''}" ${somenteLeitura ? 'disabled' : ''}></div>
-        <div><label>Telefone</label><input type="text" id="oc-fornecedor-tel" class="form-control" value="${oc.fornecedor?.telefone || ''}" ${somenteLeitura ? 'disabled' : ''}></div>
-        <div><label>Vendedor</label><input type="text" id="oc-vendedor-nome" class="form-control" value="${oc.vendedor?.nome || ''}" ${somenteLeitura ? 'disabled' : ''}></div>
-        <div><label>Data do Pedido *</label><input type="date" id="oc-dataPedido" class="form-control" value="${oc.dataPedido?.split('T')[0] || ''}" ${somenteLeitura ? 'disabled' : ''}></div>
-        <div><label>Condições de Pagamento</label><input type="text" id="oc-condicoesPagto" class="form-control" value="${oc.condicoesPagto || ''}" ${somenteLeitura ? 'disabled' : ''}></div>
+        <div><label>CNPJ/CPF</label><input type="text" id="oc-fornecedor-doc" class="form-control" value="${esc(oc.fornecedor?.documento || '')}" ${somenteLeitura ? 'disabled' : ''}></div>
+        <div><label>Endereço</label><input type="text" id="oc-fornecedor-end" class="form-control" value="${esc(oc.fornecedor?.endereco || '')}" ${somenteLeitura ? 'disabled' : ''}></div>
+        <div><label>Cidade</label><input type="text" id="oc-fornecedor-cidade" class="form-control" value="${esc(oc.fornecedor?.cidade || '')}" ${somenteLeitura ? 'disabled' : ''}></div>
+        <div><label>Telefone</label><input type="text" id="oc-fornecedor-tel" class="form-control" value="${esc(oc.fornecedor?.telefone || '')}" ${somenteLeitura ? 'disabled' : ''}></div>
+        <div><label>Vendedor</label><input type="text" id="oc-vendedor-nome" class="form-control" value="${esc(oc.vendedor?.nome || '')}" ${somenteLeitura ? 'disabled' : ''}></div>
+        <div><label>Data do Pedido *</label><input type="date" id="oc-dataPedido" class="form-control" value="${esc(oc.dataPedido?.split('T')[0] || '')}" ${somenteLeitura ? 'disabled' : ''}></div>
+        <div><label>Condições de Pagamento</label><input type="text" id="oc-condicoesPagto" class="form-control" value="${esc(oc.condicoesPagto || '')}" ${somenteLeitura ? 'disabled' : ''}></div>
         <div>
           <label>Forma de Pagamento</label>
           <select id="oc-formaPagto" class="form-control" onchange="togglePagtoDetalhesOC()" ${somenteLeitura ? 'disabled' : ''}>${opcoesFormaPagto(oc.formaPagto)}</select>
         </div>
         ${blocoDetalhesPagtoOC(oc, somenteLeitura)}
-        <div><label>Prazo de Entrega</label><input type="text" id="oc-prazoEntrega" class="form-control" value="${oc.prazoEntrega || ''}" ${somenteLeitura ? 'disabled' : ''}></div>
-        <div><label>Incoterms</label><input type="text" id="oc-incoterms" class="form-control" value="${oc.incoterms || ''}" ${somenteLeitura ? 'disabled' : ''}></div>
-        <div><label>Transportadora</label><input type="text" id="oc-transportadora" class="form-control" value="${oc.transportadora || ''}" ${somenteLeitura ? 'disabled' : ''}></div>
-        <div><label>Endereço Transportadora</label><input type="text" id="oc-enderecoTransp" class="form-control" value="${oc.enderecoTransp || ''}" ${somenteLeitura ? 'disabled' : ''}></div>
-        <div><label>Tel/Contato Transportadora</label><input type="text" id="oc-telefoneTransp" class="form-control" value="${oc.telefoneTransp || ''}" ${somenteLeitura ? 'disabled' : ''}></div>
-        <div><label>Solicitante</label><input type="text" id="oc-solicitante" class="form-control" value="${oc.solicitante || ''}" ${somenteLeitura ? 'disabled' : ''}></div>
+        <div><label>Prazo de Entrega</label><input type="text" id="oc-prazoEntrega" class="form-control" value="${esc(oc.prazoEntrega || '')}" ${somenteLeitura ? 'disabled' : ''}></div>
+        <div><label>Incoterms</label><input type="text" id="oc-incoterms" class="form-control" value="${esc(oc.incoterms || '')}" ${somenteLeitura ? 'disabled' : ''}></div>
+        <div><label>Transportadora</label><input type="text" id="oc-transportadora" class="form-control" value="${esc(oc.transportadora || '')}" ${somenteLeitura ? 'disabled' : ''}></div>
+        <div><label>Endereço Transportadora</label><input type="text" id="oc-enderecoTransp" class="form-control" value="${esc(oc.enderecoTransp || '')}" ${somenteLeitura ? 'disabled' : ''}></div>
+        <div><label>Tel/Contato Transportadora</label><input type="text" id="oc-telefoneTransp" class="form-control" value="${esc(oc.telefoneTransp || '')}" ${somenteLeitura ? 'disabled' : ''}></div>
+        <div><label>Solicitante</label><input type="text" id="oc-solicitante" class="form-control" value="${esc(oc.solicitante || '')}" ${somenteLeitura ? 'disabled' : ''}></div>
       </div>
 
       <h5 style="margin: 24px 0 12px;">Itens</h5>
@@ -953,21 +954,21 @@ window.editarOC = async function (id) {
           <tbody id="itens-oc">
             ${oc.itens.map((item, i) => `
               <tr>
-                <td><input type="number" class="form-control" id="item-qtd-${i}" value="${item.quantidade}" oninput="calcularTotal(${i})" ${somenteLeitura ? 'disabled' : ''}></td>
-                <td><input type="text" class="form-control" id="item-unid-${i}" value="${item.unidade || ''}" ${somenteLeitura ? 'disabled' : ''}></td>
-                <td><input type="text" class="form-control" id="item-desc-${i}" value="${item.descricao}" ${somenteLeitura ? 'disabled' : ''}></td>
-                <td><input type="number" class="form-control" id="item-vuni-${i}" value="${item.valorUni || ''}" oninput="calcularTotal(${i})" ${somenteLeitura ? 'disabled' : ''}></td>
+                <td><input type="number" class="form-control" id="item-qtd-${i}" value="${esc(item.quantidade)}" oninput="calcularTotal(${i})" ${somenteLeitura ? 'disabled' : ''}></td>
+                <td><input type="text" class="form-control" id="item-unid-${i}" value="${esc(item.unidade || '')}" ${somenteLeitura ? 'disabled' : ''}></td>
+                <td><input type="text" class="form-control" id="item-desc-${i}" value="${esc(item.descricao)}" ${somenteLeitura ? 'disabled' : ''}></td>
+                <td><input type="number" class="form-control" id="item-vuni-${i}" value="${esc(item.valorUni || '')}" oninput="calcularTotal(${i})" ${somenteLeitura ? 'disabled' : ''}></td>
                 <td>
                   <div style="display:flex; gap:4px;">
                     <select class="form-control form-control-sm" id="item-descTipo-${i}" style="width:60px; flex-shrink:0;" onchange="calcularTotal(${i})" ${somenteLeitura ? 'disabled' : ''}>
                       <option value="percentual" ${item.descontoTipo !== 'fixo' ? 'selected' : ''}>%</option>
                       <option value="fixo" ${item.descontoTipo === 'fixo' ? 'selected' : ''}>R$</option>
                     </select>
-                    <input type="number" class="form-control form-control-sm" id="item-descValor-${i}" value="${item.descontoValor || ''}" min="0" step="0.01" oninput="calcularTotal(${i})" ${somenteLeitura ? 'disabled' : ''}>
+                    <input type="number" class="form-control form-control-sm" id="item-descValor-${i}" value="${esc(item.descontoValor || '')}" min="0" step="0.01" oninput="calcularTotal(${i})" ${somenteLeitura ? 'disabled' : ''}>
                   </div>
                 </td>
-                <td><input type="number" class="form-control" id="item-ipi-${i}" value="${item.ipi || ''}" oninput="calcularTotal(${i})" ${somenteLeitura ? 'disabled' : ''}></td>
-                <td><input type="number" class="form-control" id="item-vtotal-${i}" value="${item.valorTotal || ''}" readonly></td>
+                <td><input type="number" class="form-control" id="item-ipi-${i}" value="${esc(item.ipi || '')}" oninput="calcularTotal(${i})" ${somenteLeitura ? 'disabled' : ''}></td>
+                <td><input type="number" class="form-control" id="item-vtotal-${i}" value="${esc(item.valorTotal || '')}" readonly></td>
                 ${somenteLeitura ? '' : `<td><button class="btn btn-sm btn-danger" onclick="this.closest('tr').remove()">✕</button></td>`}
               </tr>
             `).join('')}
@@ -978,7 +979,7 @@ window.editarOC = async function (id) {
 
       <div style="margin-top: 20px;">
         <label>Instruções ou Condições Especiais</label>
-        <textarea id="oc-instrucoes" class="form-control" rows="3" ${somenteLeitura ? 'disabled' : ''}>${oc.instrucoes || ''}</textarea>
+        <textarea id="oc-instrucoes" class="form-control" rows="3" ${somenteLeitura ? 'disabled' : ''}>${esc(oc.instrucoes || '')}</textarea>
       </div>
 
       <div style="margin-top: 20px;">
@@ -997,7 +998,7 @@ window.editarOC = async function (id) {
             </div>
             <div>
               <label>Arquivo</label>
-              <input type="file" id="anexo-arquivo" class="form-control" onchange="adicionarAnexoPendente(event)">
+              <input type="file" id="anexo-arquivo" class="form-control" accept="${EXTENSOES_ANEXO}" onchange="adicionarAnexoPendente(event)">
             </div>
           </div>
           <ul id="lista-anexos-pendentes" style="margin-top: 12px; padding: 0; list-style: none;"></ul>
@@ -1034,15 +1035,15 @@ function blocoDetalhesPagtoOC(oc = {}, desabilitado = false) {
     <div style="grid-column: 1 / -1; display:grid; grid-template-columns: 1fr 1fr; gap:16px;">
       <div id="oc-detalhe-pix" style="display:${oc.formaPagto === 'pix' ? 'block' : 'none'};">
         <label>Chave PIX *</label>
-        <input type="text" id="oc-chavePix" class="form-control" value="${oc.chavePix || ''}" ${dis}>
+        <input type="text" id="oc-chavePix" class="form-control" value="${esc(oc.chavePix || '')}" ${dis}>
       </div>
       <div id="oc-detalhe-boleto" style="display:${oc.formaPagto === 'boleto' ? 'block' : 'none'};">
         <label>Código de Barras</label>
-        <input type="text" id="oc-codigoBarras" class="form-control" value="${oc.codigoBarras || ''}" ${dis}>
+        <input type="text" id="oc-codigoBarras" class="form-control" value="${esc(oc.codigoBarras || '')}" ${dis}>
       </div>
       <div id="oc-detalhe-outro" style="display:${oc.formaPagto === 'outro' ? 'block' : 'none'};">
         <label>Especifique</label>
-        <input type="text" id="oc-formaPagtoOutro" class="form-control" value="${oc.formaPagtoOutro || ''}" ${dis}>
+        <input type="text" id="oc-formaPagtoOutro" class="form-control" value="${esc(oc.formaPagtoOutro || '')}" ${dis}>
       </div>
       <div id="oc-detalhe-transferencia" style="grid-column: 1 / -1; display:${oc.formaPagto === 'transferencia' ? 'grid' : 'none'}; grid-template-columns: 1fr 1fr 1fr; gap:16px;">
         <div>
@@ -1052,8 +1053,8 @@ function blocoDetalhesPagtoOC(oc = {}, desabilitado = false) {
             ${Object.entries(TIPOS_CONTA).map(([valor, label]) => `<option value="${valor}" ${oc.tipoConta === valor ? 'selected' : ''}>${label}</option>`).join('')}
           </select>
         </div>
-        <div><label>Agência *</label><input type="text" id="oc-agencia" class="form-control" value="${oc.agencia || ''}" ${dis}></div>
-        <div><label>Número da Conta *</label><input type="text" id="oc-contaNumero" class="form-control" value="${oc.contaNumero || ''}" ${dis}></div>
+        <div><label>Agência *</label><input type="text" id="oc-agencia" class="form-control" value="${esc(oc.agencia || '')}" ${dis}></div>
+        <div><label>Número da Conta *</label><input type="text" id="oc-contaNumero" class="form-control" value="${esc(oc.contaNumero || '')}" ${dis}></div>
       </div>
     </div>
   `
@@ -1116,12 +1117,12 @@ window.buscarFornecedor = async function (q) {
 
   div.style.display = 'block'
   div.innerHTML = results.map(f => `
-    <div onclick="selecionarFornecedor(${JSON.stringify(f).replace(/"/g, '&quot;')})"
+    <div onclick="selecionarFornecedor(${esc(JSON.stringify(f))})"
       style="padding: 8px 12px; cursor:pointer; border-bottom: 1px solid #eee;"
       onmouseover="this.style.background='#f5f5f5'"
       onmouseout="this.style.background='white'">
-      <strong>${f.nome}</strong>
-      ${f.documento ? `<span style="color:#999; font-size:12px; margin-left:8px;">${f.documento}</span>` : ''}
+      <strong>${esc(f.nome)}</strong>
+      ${f.documento ? `<span style="color:#999; font-size:12px; margin-left:8px;">${esc(f.documento)}</span>` : ''}
     </div>
   `).join('')
 }
@@ -1165,6 +1166,7 @@ window.calcularTotal = function (index) {
 }
 
 let anexosPendentes = []
+const EXTENSOES_ANEXO = '.pdf,.png,.jpg,.jpeg,.jfif,.doc,.docx,.xls,.xlsx'
 
 window.adicionarAnexoPendente = function (event) {
   if (event) event.preventDefault()
@@ -1173,13 +1175,26 @@ window.adicionarAnexoPendente = function (event) {
   if (!input.files[0]) { alert('Selecione um arquivo!'); return }
 
   const arquivo = input.files[0]
+  // Mesma regra do backend (routes/anexos.js) — avisa aqui pra não descobrir só
+  // depois de salvar a OC que o anexo foi recusado
+  const extensao = arquivo.name.slice(arquivo.name.lastIndexOf('.')).toLowerCase()
+  if (!EXTENSOES_ANEXO.split(',').includes(extensao)) {
+    alert('Tipo de arquivo não permitido. Envie PDF, imagem (PNG/JPG), Word ou Excel.')
+    input.value = ''
+    return
+  }
+  if (arquivo.size > 20 * 1024 * 1024) {
+    alert('Arquivo maior que 20 MB.')
+    input.value = ''
+    return
+  }
   anexosPendentes.push({ arquivo, tipo })
 
   const lista = document.getElementById('lista-anexos-pendentes')
   const li = document.createElement('li')
   li.style = 'padding: 6px 0; border-bottom: 1px solid #eee; display:flex; justify-content:space-between;'
   li.innerHTML = `
-    <span>📎 ${arquivo.name} <small style="color:#999">(${tipo})</small></span>
+    <span>📎 ${esc(arquivo.name)} <small style="color:#999">(${tipo})</small></span>
     <button class="btn btn-sm btn-danger" onclick="removerAnexoPendente(${anexosPendentes.length - 1}, this)">✕</button>
   `
   lista.appendChild(li)
@@ -1370,7 +1385,7 @@ export async function renderizarDashboardOCs() {
           <ul style="list-style:none; padding:0; margin:0;">
             ${d.contasAPagar.map(oc => `
               <li style="padding:6px 0; border-bottom:1px solid #eee; font-size:13px; display:flex; justify-content:space-between;">
-                <span>OC ${oc.numero}.${oc.ano} — ${oc.fornecedor?.nome || '-'}</span>
+                <span>OC ${oc.numero}.${oc.ano} — ${esc(oc.fornecedor?.nome || '-')}</span>
                 <span>${formatarMoeda(oc.valorTotal)}</span>
               </li>
             `).join('')}
@@ -1555,8 +1570,8 @@ function renderizarTabelaContasAPagar(ocs) {
     return `
       <tr>
         <td style="cursor:pointer;" onclick="${abrir}">${numeroTxt}</td>
-        <td style="cursor:pointer;" onclick="${abrir}">${oc.fornecedor?.nome || '-'}</td>
-        <td>${oc.empresa?.nome || '-'}</td>
+        <td style="cursor:pointer;" onclick="${abrir}">${esc(oc.fornecedor?.nome || '-')}</td>
+        <td>${esc(oc.empresa?.nome || '-')}</td>
         <td>${dataPedido}</td>
         <td>${formatarMoeda(oc.valorTotal)}</td>
         <td>${badgeStatusPagtoOC(oc.pago)}</td>
@@ -1607,10 +1622,10 @@ function renderFormularioContaPagarAvulsa(c = {}) {
       <p style="font-size:13px; color:#999;">Use isso para despesas que não vêm de uma Ordem de Compra.</p>
 
       <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
-        <div style="grid-column:span 2;"><label>Fornecedor</label><input type="text" id="conta-pagar-fornecedorNome" class="form-control" placeholder="Nome do fornecedor (opcional)" value="${c.fornecedorNome || ''}"></div>
-        <div style="grid-column:span 2;"><label>Descrição *</label><input type="text" id="conta-pagar-descricao" class="form-control" placeholder="Ex: Serviço avulso, taxa, etc." value="${c.descricao || ''}"></div>
-        <div><label>Valor *</label><input type="number" id="conta-pagar-valor" class="form-control" step="0.01" value="${c.valor ?? ''}"></div>
-        <div><label>Data de Vencimento *</label><input type="date" id="conta-pagar-dataVencimento" class="form-control" value="${c.dataVencimento ? c.dataVencimento.split('T')[0] : new Date().toISOString().split('T')[0]}"></div>
+        <div style="grid-column:span 2;"><label>Fornecedor</label><input type="text" id="conta-pagar-fornecedorNome" class="form-control" placeholder="Nome do fornecedor (opcional)" value="${esc(c.fornecedorNome || '')}"></div>
+        <div style="grid-column:span 2;"><label>Descrição *</label><input type="text" id="conta-pagar-descricao" class="form-control" placeholder="Ex: Serviço avulso, taxa, etc." value="${esc(c.descricao || '')}"></div>
+        <div><label>Valor *</label><input type="number" id="conta-pagar-valor" class="form-control" step="0.01" value="${esc(c.valor ?? '')}"></div>
+        <div><label>Data de Vencimento *</label><input type="date" id="conta-pagar-dataVencimento" class="form-control" value="${esc(c.dataVencimento ? c.dataVencimento.split('T')[0] : new Date().toISOString().split('T')[0])}"></div>
       </div>
 
       <button type="button" class="btn btn-success" style="margin-top:20px;" onclick="${c.id ? `atualizarContaPagarAvulsa(${c.id})` : 'salvarContaPagarAvulsa()'}">${c.id ? 'Salvar Alterações' : 'Salvar Conta'}</button>

@@ -1,3 +1,4 @@
+import { esc } from './html.js'
 const API = 'https://override-steerable-professed.ngrok-free.dev'
 
 // ─── Auth helper (mesmo padrão dos outros módulos) ────────────────────────────
@@ -139,9 +140,9 @@ window.carregarProdutosCatalogo = async function (pagina = 1) {
 
     tabela.innerHTML = produtos.map(p => `
       <tr>
-        <td>${p.codigo}</td>
-        <td>${p.nome}</td>
-        <td>${p.unidade}</td>
+        <td>${esc(p.codigo)}</td>
+        <td>${esc(p.nome)}</td>
+        <td>${esc(p.unidade)}</td>
         <td>${formatarMoedaProdServ(p.valor)}</td>
         ${isAdminProdServ ? `<td><button class="btn btn-sm btn-danger" onclick="excluirProdutoCatalogo(${p.id})">Excluir</button></td>` : ''}
       </tr>
@@ -254,8 +255,8 @@ function renderizarTabelaServicos(servicos, dados) {
 
   tabela.innerHTML = servicos.map(s => `
     <tr>
-      <td>${s.nome}</td>
-      <td>${s.descricao || '-'}</td>
+      <td>${esc(s.nome)}</td>
+      <td>${esc(s.descricao || '-')}</td>
       <td>${formatarMoedaProdServ(s.valor)}</td>
       ${podeGerenciar ? `<td>
         <button class="btn btn-sm btn-info" onclick="editarServico(${s.id})">Editar</button>
@@ -313,8 +314,8 @@ window.editarServico = async function (id) {
       <button class="btn btn-secondary" onclick="inicializarProdutosServicos()">← Voltar</button>
       <h3 style="margin:20px 0;">Editar Serviço</h3>
 
-      <div><label>Nome *</label><input type="text" id="servico-nome" class="form-control" value="${s.nome}"></div>
-      <div style="margin-top:16px;"><label>Descrição</label><textarea id="servico-descricao" class="form-control" rows="2">${s.descricao || ''}</textarea></div>
+      <div><label>Nome *</label><input type="text" id="servico-nome" class="form-control" value="${esc(s.nome)}"></div>
+      <div style="margin-top:16px;"><label>Descrição</label><textarea id="servico-descricao" class="form-control" rows="2">${esc(s.descricao || '')}</textarea></div>
       <div style="margin-top:16px;"><label>Valor (R$)</label><input type="number" step="0.01" id="servico-valor" class="form-control" value="${s.valor ?? ''}"></div>
 
       <button type="button" class="btn btn-success" style="margin-top:20px;" onclick="atualizarServico(${s.id})">Salvar Alterações</button>

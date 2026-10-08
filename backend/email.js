@@ -179,11 +179,21 @@ export async function notificarVencimentoContrato(contrato, vencido) {
 }
 
 // ─── Aviso de pagamento atrasado (contas a receber) ───────────────────────────
+// Pagamento pode ser de contrato, de venda de balsa, de venda de orçamento ou
+// avulso — mesma ordem de prioridade da tela de Contas a Receber
+function origemPagamento(p) {
+  if (p.contrato) return { numero: `Contrato ${p.contrato.numero}.${p.contrato.ano}`, cliente: p.contrato.cliente?.nome }
+  if (p.venda) return { numero: `Venda ${p.venda.numero}.${p.venda.ano}`, cliente: p.venda.cliente?.nome }
+  if (p.vendaOrcamento) return { numero: `Venda ${p.vendaOrcamento.numero}.${p.vendaOrcamento.ano}`, cliente: p.vendaOrcamento.cliente?.nome }
+  return { numero: `Conta avulsa${p.descricao ? ` (${p.descricao})` : ''}`, cliente: p.clienteNome }
+}
+
 export async function notificarPagamentoAtrasado(pagamento) {
-  const contrato = pagamento.contrato
-  const numero = `Contrato ${contrato.numero}.${contrato.ano}`
-  const cliente = contrato.cliente?.nome ?? 'Não informado'
-  const venc = new Date(pagamento.dataVencimento).toLocaleDateString('pt-BR')
+  const origem = origemPagamento(pagamento)
+  const numero = origem.numero
+  const cliente = origem.cliente || 'Não informado'
+  // Vencimento é data pura (meia-noite UTC) — sem timeZone UTC, em Brasília sai um dia antes
+  const venc = new Date(pagamento.dataVencimento).toLocaleDateString('pt-BR', { timeZone: 'UTC' })
   const valor = pagamento.valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 
   await enviar({

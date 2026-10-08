@@ -4,6 +4,45 @@ import { autenticar, exigirPerfil } from '../middleware/auth.js'
 
 const router = Router()
 
+const CAMPOS_TEXTO = ['portoRegistro', 'tipo', 'supervisor', 'classe', 'email', 'telefone']
+const CAMPOS_VENCIMENTO = ['vencLsaBaleeiras', 'vencBalsa', 'vencFfe', 'vencIloCrane']
+
+// IMO: 7 dígitos, o último é verificador — soma dos 6 primeiros × (7, 6, 5, 4, 3, 2),
+// último dígito da soma. Validar aqui evita IMO digitado errado, que é a chave pra
+// achar o navio em serviços externos (ex.: rastreamento por AIS).
+function imoValido(imo) {
+  if (!/^\d{7}$/.test(imo)) return false
+  const soma = [...imo.slice(0, 6)].reduce((acc, d, i) => acc + Number(d) * (7 - i), 0)
+  return soma % 10 === Number(imo[6])
+}
+
+// Lê os campos opcionais do body. Só inclui o que veio (PUT parcial); string vazia
+// vira null. Devolve { erro } se algum valor for inválido.
+function lerCamposOpcionais(body) {
+  const dados = {}
+  for (const campo of CAMPOS_TEXTO) {
+    if (body[campo] !== undefined) dados[campo] = String(body[campo] ?? '').trim() || null
+  }
+
+  if (body.imo !== undefined) {
+    // Aceita "IMO 9074729" / "9.074.729" — guarda só os dígitos
+    const imo = String(body.imo ?? '').replace(/^\s*IMO\s*/i, '').replace(/\D/g, '')
+    if (imo && !imoValido(imo)) return { erro: 'Número IMO inválido — são 7 dígitos e o último é verificador' }
+    dados.imo = imo || null
+  }
+
+  // Datas chegam como YYYY-MM-DD do <input type="date"> → meia-noite UTC
+  for (const campo of CAMPOS_VENCIMENTO) {
+    if (body[campo] === undefined) continue
+    if (!body[campo]) { dados[campo] = null; continue }
+    const data = new Date(body[campo])
+    if (isNaN(data)) return { erro: `Data inválida em ${campo}` }
+    dados[campo] = data
+  }
+
+  return { dados }
+}
+
 // ─── Listar embarcações (paginado, com filtros opcionais por navio/armador) ───
 router.get('/', autenticar, async (req, res) => {
   const { nome, armador, pagina = 1 } = req.query
@@ -54,11 +93,14 @@ router.get('/:id', autenticar, async (req, res) => {
 
 // ─── Cadastrar embarcação (qualquer usuário logado) ────────────────────────────
 router.post('/', autenticar, async (req, res) => {
-  const { nome, armadorId, portoRegistro, email, telefone } = req.body
+  const { nome, armadorId } = req.body
 
   if (!nome || !armadorId) {
     return res.status(400).json({ erro: 'Nome do navio e armador são obrigatórios' })
   }
+
+  const { dados, erro } = lerCamposOpcionais(req.body)
+  if (erro) return res.status(400).json({ erro })
 
   const armador = await prisma.cliente.findUnique({ where: { id: parseInt(armadorId) } })
   if (!armador) {
@@ -67,11 +109,9 @@ router.post('/', autenticar, async (req, res) => {
 
   const embarcacao = await prisma.embarcacao.create({
     data: {
+      ...dados,
       nome,
       armadorId: parseInt(armadorId),
-      portoRegistro: portoRegistro || null,
-      email: email || null,
-      telefone: telefone || null,
     },
     include: { armador: true }
   })
@@ -82,18 +122,17 @@ router.post('/', autenticar, async (req, res) => {
 // ─── Editar embarcação (qualquer usuário logado) ───────────────────────────────
 router.put('/:id', autenticar, async (req, res) => {
   const id = Number(req.params.id)
-  const { nome, armadorId, portoRegistro, email, telefone } = req.body
+  const { nome, armadorId } = req.body
 
-  const dados = {}
+  const { dados, erro } = lerCamposOpcionais(req.body)
+  if (erro) return res.status(400).json({ erro })
+
   if (nome) dados.nome = nome
   if (armadorId) {
     const armador = await prisma.cliente.findUnique({ where: { id: parseInt(armadorId) } })
     if (!armador) return res.status(400).json({ erro: 'Armador não encontrado' })
     dados.armadorId = parseInt(armadorId)
   }
-  if (portoRegistro !== undefined) dados.portoRegistro = portoRegistro || null
-  if (email !== undefined) dados.email = email || null
-  if (telefone !== undefined) dados.telefone = telefone || null
 
   try {
     const embarcacao = await prisma.embarcacao.update({ where: { id }, data: dados, include: { armador: true } })

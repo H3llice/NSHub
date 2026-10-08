@@ -89,7 +89,19 @@ app.use('/auth', authRouter)
 app.use('/empresas', empresasRouter)
 app.use('/fornecedores', fornecedoresRouter)
 app.use('/anexos', anexosRouter)
-app.use('/uploads', autenticar, express.static('uploads'))
+// Anexos de OC são servidos na mesma origem do app (e o token fica no localStorage),
+// então só PDF/imagem abrem no navegador; qualquer outra coisa — inclusive arquivo
+// antigo enviado antes do filtro de tipos em routes/anexos.js — sai como download,
+// pra um .html/.svg nunca rodar script com a sessão de quem abriu.
+const EXTENSOES_INLINE = new Set(['.pdf', '.png', '.jpg', '.jpeg', '.jfif'])
+app.use('/uploads', autenticar, express.static('uploads', {
+  setHeaders(res, caminho) {
+    res.setHeader('X-Content-Type-Options', 'nosniff')
+    if (!EXTENSOES_INLINE.has(path.extname(caminho).toLowerCase())) {
+      res.setHeader('Content-Disposition', 'attachment')
+    }
+  }
+}))
 app.use('/pdf', pdfRouter)
 app.use('/ocs', ocsRouter)
 app.use('/solicitacoes', solicitacoesRouter)
@@ -159,7 +171,11 @@ async function marcarPagamentosAtrasados() {
 
   const vencidos = await prisma.pagamento.findMany({
     where: { status: 'pendente', dataVencimento: { lt: hoje } },
-    include: { contrato: { include: { cliente: true } } }
+    include: {
+      contrato: { include: { cliente: true } },
+      venda: { include: { cliente: true } },
+      vendaOrcamento: { include: { cliente: true } }
+    }
   })
 
   for (const p of vencidos) {

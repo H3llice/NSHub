@@ -1,3 +1,4 @@
+import { esc } from './html.js'
 const API = 'https://override-steerable-professed.ngrok-free.dev'
 
 // ─── Auth helper (mesmo padrão dos outros módulos) ────────────────────────────
@@ -42,17 +43,6 @@ async function apiJson(url, options = {}) {
 const usuarioAtual = JSON.parse(localStorage.getItem('ns_usuario') || 'null')
 const perfil = usuarioAtual?.perfil || 'usuario'
 const podeGerenciarContratos = perfil === 'admin' || perfil === 'gerente'
-
-// Escapa texto livre antes de interpolar em HTML (títulos de documento, observações)
-function esc(valor) {
-  if (valor === null || valor === undefined) return ''
-  return String(valor)
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#39;')
-}
 
 // Datas puras (início, fim, devolução) são gravadas à meia-noite UTC — formatar
 // em UTC evita mostrar o dia anterior no fuso do Brasil
@@ -164,11 +154,11 @@ function renderizarTabelaClientes(clientes) {
 
   tabela.innerHTML = clientes.map(c => `
     <tr>
-      <td style="cursor:pointer;" onclick="editarCliente(${c.id})">${c.nome}</td>
-      <td>${formatarDocumento(c.cpfCnpj)}</td>
+      <td style="cursor:pointer;" onclick="editarCliente(${c.id})">${esc(c.nome)}</td>
+      <td>${esc(formatarDocumento(c.cpfCnpj))}</td>
       <td>${c.tipoPessoa === 'fisica' ? 'Física' : 'Jurídica'}</td>
-      <td>${c.telefone || '-'}</td>
-      <td>${c.cidade || '-'}</td>
+      <td>${esc(c.telefone || '-')}</td>
+      <td>${esc(c.cidade || '-')}</td>
       <td><button class="btn btn-sm btn-info" onclick="editarCliente(${c.id})">Editar</button></td>
     </tr>
   `).join('')
@@ -202,12 +192,12 @@ function formularioClienteHtml(c = {}) {
           <option value="juridica" ${c.tipoPessoa === 'juridica' ? 'selected' : ''}>Pessoa Jurídica</option>
         </select>
       </div>
-      <div><label>CPF/CNPJ *</label><input type="text" id="cliente-cpfCnpj" class="form-control" value="${c.cpfCnpj || ''}" placeholder="Somente números"></div>
-      <div style="grid-column: span 2;"><label>Nome / Razão Social *</label><input type="text" id="cliente-nome" class="form-control" value="${c.nome || ''}"></div>
-      <div><label>Telefone</label><input type="text" id="cliente-telefone" class="form-control" value="${c.telefone || ''}"></div>
-      <div><label>Email</label><input type="text" id="cliente-email" class="form-control" value="${c.email || ''}"></div>
-      <div><label>Endereço</label><input type="text" id="cliente-endereco" class="form-control" value="${c.endereco || ''}"></div>
-      <div><label>Cidade</label><input type="text" id="cliente-cidade" class="form-control" value="${c.cidade || ''}"></div>
+      <div><label>CPF/CNPJ *</label><input type="text" id="cliente-cpfCnpj" class="form-control" value="${esc(c.cpfCnpj || '')}" placeholder="Somente números"></div>
+      <div style="grid-column: span 2;"><label>Nome / Razão Social *</label><input type="text" id="cliente-nome" class="form-control" value="${esc(c.nome || '')}"></div>
+      <div><label>Telefone</label><input type="text" id="cliente-telefone" class="form-control" value="${esc(c.telefone || '')}"></div>
+      <div><label>Email</label><input type="text" id="cliente-email" class="form-control" value="${esc(c.email || '')}"></div>
+      <div><label>Endereço</label><input type="text" id="cliente-endereco" class="form-control" value="${esc(c.endereco || '')}"></div>
+      <div><label>Cidade</label><input type="text" id="cliente-cidade" class="form-control" value="${esc(c.cidade || '')}"></div>
     </div>
   `
 }
@@ -278,7 +268,7 @@ const STATUS_CONTRATO_LABEL = {
 
 function badgeStatusContrato(status) {
   const s = STATUS_CONTRATO_LABEL[status] || { texto: status, cor: '#6c757d' }
-  return `<span style="background:${s.cor}; color:white; padding:2px 8px; border-radius:12px; font-size:12px;">${s.texto}</span>`
+  return `<span style="background:${s.cor}; color:white; padding:2px 8px; border-radius:12px; font-size:12px;">${esc(s.texto)}</span>`
 }
 
 export function inicializarContratos() {
@@ -388,8 +378,8 @@ function renderizarTabelaContratos(contratos) {
     return `
       <tr>
         <td><a href="#" onclick="verContrato(${c.id}); return false;" style="color:var(--acento); font-weight:600; text-decoration:none;">${c.numero}.${c.ano}</a></td>
-        <td>${c.cliente.nome}</td>
-        <td>${balsasTxt}</td>
+        <td>${esc(c.cliente.nome)}</td>
+        <td>${esc(balsasTxt)}</td>
         <td>${inicio}</td>
         <td>${fim} ${avisoVencimentoContrato(c)}</td>
         <td>${valor}</td>
@@ -566,10 +556,10 @@ window.verContrato = async function (id) {
 
       <div style="background:white; border-radius:6px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06); margin-bottom:16px;">
         <div style="font-weight:700; color:var(--acento); margin-bottom:10px;">Cliente</div>
-        <div><strong>${c.cliente.nome}</strong></div>
-        <div style="color:#666; font-size:13px;">${formatarDocumento(c.cliente.cpfCnpj)}</div>
-        ${c.cliente.telefone ? `<div style="color:#666; font-size:13px;">Tel: ${c.cliente.telefone}</div>` : ''}
-        ${c.cliente.email ? `<div style="color:#666; font-size:13px;">${c.cliente.email}</div>` : ''}
+        <div><strong>${esc(c.cliente.nome)}</strong></div>
+        <div style="color:#666; font-size:13px;">${esc(formatarDocumento(c.cliente.cpfCnpj))}</div>
+        ${c.cliente.telefone ? `<div style="color:#666; font-size:13px;">Tel: ${esc(c.cliente.telefone)}</div>` : ''}
+        ${c.cliente.email ? `<div style="color:#666; font-size:13px;">${esc(c.cliente.email)}</div>` : ''}
       </div>
 
       <div style="background:white; border-radius:6px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06); margin-bottom:16px;">
@@ -578,7 +568,7 @@ window.verContrato = async function (id) {
           ${c.balsas.map(cb => `
             <li style="padding:6px 0; border-bottom:1px solid #eee; font-size:13px; display:flex; justify-content:space-between; align-items:center; gap:12px; ${cb.devolvidaEm ? 'color:#888;' : ''}">
               <span>
-                <strong>${cb.balsa.patrimonio ? esc(cb.balsa.patrimonio) + ' · ' : ''}${cb.balsa.numeroSerie}</strong> — ${cb.balsa.fabricante} ${cb.balsa.modelo}, capacidade ${cb.balsa.capacidade}
+                <strong>${cb.balsa.patrimonio ? esc(cb.balsa.patrimonio) + ' · ' : ''}${esc(cb.balsa.numeroSerie)}</strong> — ${esc(cb.balsa.fabricante)} ${esc(cb.balsa.modelo)}, capacidade ${esc(cb.balsa.capacidade)}
                 ${cb.aditivo ? `<span style="background:#e7f1ff; color:#0d6efd; padding:1px 6px; border-radius:10px; font-size:11px;">Aditivo ${cb.aditivo}</span>` : ''}
                 ${cb.devolvidaEm ? `<br><small>${cb.estadoDevolucao
                   ? `Devolvida em ${dataPura(cb.devolvidaEm)} — ${ESTADO_DEVOLUCAO_LABEL[cb.estadoDevolucao] || esc(cb.estadoDevolucao)}`
@@ -602,7 +592,7 @@ window.verContrato = async function (id) {
                 <label style="font-size:12px;">Balsa disponível</label>
                 <select id="aditivo-balsa-${c.id}" class="form-control form-control-sm">
                   <option value="">Selecione...</option>
-                  ${disponiveis.map(b => `<option value="${b.id}">${b.patrimonio ? esc(b.patrimonio) + ' · ' : ''}${b.numeroSerie} — ${b.fabricante} ${b.modelo}, capacidade ${b.capacidade}</option>`).join('')}
+                  ${disponiveis.map(b => `<option value="${b.id}">${b.patrimonio ? esc(b.patrimonio) + ' · ' : ''}${esc(b.numeroSerie)} — ${esc(b.fabricante)} ${esc(b.modelo)}, capacidade ${esc(b.capacidade)}</option>`).join('')}
                 </select>
               </div>
               <div>
@@ -624,15 +614,15 @@ window.verContrato = async function (id) {
           <div><span style="color:#999;">Frete</span><br><strong>${frete}</strong></div>
           <div><span style="color:#999;">Desconto</span><br><strong>${desconto}</strong></div>
           <div><span style="color:#999;">Valor</span><br><strong>${valor}</strong></div>
-          <div><span style="color:#999;">Forma Pagto</span><br><strong>${c.formaPagamento || '-'}</strong></div>
-          <div style="grid-column:span 2;"><span style="color:#999;">Condições Pagto</span><br><strong>${c.condicoesPagto || '-'}</strong></div>
+          <div><span style="color:#999;">Forma Pagto</span><br><strong>${esc(c.formaPagamento || '-')}</strong></div>
+          <div style="grid-column:span 2;"><span style="color:#999;">Condições Pagto</span><br><strong>${esc(c.condicoesPagto || '-')}</strong></div>
         </div>
       </div>
 
       ${c.observacoes ? `
         <div style="background:white; border-radius:6px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06); margin-bottom:16px;">
           <div style="font-weight:700; color:var(--acento); margin-bottom:8px;">Observações</div>
-          <div style="font-size:13px; color:#444;">${c.observacoes}</div>
+          <div style="font-size:13px; color:#444;">${esc(c.observacoes)}</div>
         </div>
       ` : ''}
 
@@ -726,7 +716,7 @@ function renderizarListaBalsasContrato(lista) {
           <input type="checkbox" value="${b.id}" class="checkbox-balsa-contrato"
             ${marcado ? 'checked' : ''}
             onchange="toggleBalsaSelecionada(${b.id}, this.checked)">
-          <span>${b.patrimonio ? b.patrimonio + ' · ' : ''}${b.numeroSerie} — ${b.fabricante} ${b.modelo}, capacidade ${b.capacidade}</span>
+          <span>${b.patrimonio ? esc(b.patrimonio) + ' · ' : ''}${esc(b.numeroSerie)} — ${esc(b.fabricante)} ${esc(b.modelo)}, capacidade ${esc(b.capacidade)}</span>
         </label>
         <input type="number" step="0.01" min="0" placeholder="Valor" class="form-control form-control-sm"
           style="width:130px;" value="${balsaValoresSelecionados.get(b.id) || ''}" ${marcado ? '' : 'disabled'}
@@ -889,12 +879,12 @@ window.buscarClienteContrato = async function (q) {
 
   div.style.display = 'block'
   div.innerHTML = results.map(c => `
-    <div onclick='selecionarClienteContrato(${JSON.stringify(c)})'
+    <div onclick="selecionarClienteContrato(${esc(JSON.stringify(c))})"
       style="padding: 8px 12px; cursor:pointer; border-bottom: 1px solid #eee;"
       onmouseover="this.style.background='#f5f5f5'"
       onmouseout="this.style.background='white'">
-      <strong>${c.nome}</strong>
-      <span style="color:#999; font-size:12px; margin-left:8px;">${formatarDocumento(c.cpfCnpj)}</span>
+      <strong>${esc(c.nome)}</strong>
+      <span style="color:#999; font-size:12px; margin-left:8px;">${esc(formatarDocumento(c.cpfCnpj))}</span>
     </div>
   `).join('')
 }

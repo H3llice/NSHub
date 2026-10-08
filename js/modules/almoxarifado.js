@@ -1,3 +1,4 @@
+import { esc } from './html.js'
 const API = 'https://override-steerable-professed.ngrok-free.dev'
 
 // ─── Auth helper (mesmo padrão dos outros módulos) ────────────────────────────
@@ -144,9 +145,9 @@ function renderizarTabelaProdutosAlmox(produtos, dados) {
         <tbody>
           ${produtos.map(p => `
             <tr${estoqueCriticoAlmox(p) ? ' style="background:#fff3cd;"' : ''}>
-              <td${podeGerenciar ? ` style="cursor:pointer;" onclick="editarProdutoAlmox(${p.id})"` : ''}>${p.codigo}</td>
-              <td${podeGerenciar ? ` style="cursor:pointer;" onclick="editarProdutoAlmox(${p.id})"` : ''}>${p.nome}</td>
-              <td>${p.unidade}</td>
+              <td${podeGerenciar ? ` style="cursor:pointer;" onclick="editarProdutoAlmox(${p.id})"` : ''}>${esc(p.codigo)}</td>
+              <td${podeGerenciar ? ` style="cursor:pointer;" onclick="editarProdutoAlmox(${p.id})"` : ''}>${esc(p.nome)}</td>
+              <td>${esc(p.unidade)}</td>
               <td>${formatarMoedaAlmox(p.valor)}</td>
               <td><strong>${p.quantidade}</strong>${estoqueCriticoAlmox(p) ? ' ⚠️' : ''}</td>
               <td>${p.quantidadeCritica ?? 0}</td>
@@ -242,9 +243,9 @@ window.editarProdutoAlmox = async function (id) {
       <h3 style="margin:20px 0;">Editar Produto</h3>
 
       <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
-        <div><label>Código *</label><input type="text" id="prod-codigo" class="form-control" value="${p.codigo}"></div>
-        <div><label>Material *</label><input type="text" id="prod-nome" class="form-control" value="${p.nome}"></div>
-        <div><label>Unidade de medida *</label><input type="text" id="prod-unidade" class="form-control" value="${p.unidade}"></div>
+        <div><label>Código *</label><input type="text" id="prod-codigo" class="form-control" value="${esc(p.codigo)}"></div>
+        <div><label>Material *</label><input type="text" id="prod-nome" class="form-control" value="${esc(p.nome)}"></div>
+        <div><label>Unidade de medida *</label><input type="text" id="prod-unidade" class="form-control" value="${esc(p.unidade)}"></div>
         <div><label>Valor (R$)</label><input type="number" step="0.01" id="prod-valor" class="form-control" value="${p.valor ?? ''}"></div>
         <div><label>Quantidade em estoque</label><input type="number" step="0.01" id="prod-quantidade" class="form-control" value="${p.quantidade}"></div>
         <div>
@@ -338,7 +339,7 @@ function renderizarTabelaPedidosAlmox(pedidos, dados) {
             <tr>
               <td style="cursor:pointer;" onclick="verPedidoAlmox(${p.id})">${p.numero}.${p.ano}</td>
               <td>${new Date(p.criadoEm).toLocaleDateString('pt-BR')}</td>
-              <td>${p.solicitante?.nome || '-'}</td>
+              <td>${esc(p.solicitante?.nome || '-')}</td>
               <td>${p.itens.length}</td>
               <td>
                 <button class="btn btn-sm btn-info" onclick="verPedidoAlmox(${p.id})">Ver detalhes</button>
@@ -377,7 +378,7 @@ function renderizarItensPedidoAlmox() {
         <option value="">Selecione um produto...</option>
         ${produtosCacheAlmox.map(p => `
           <option value="${p.id}" ${String(item.produtoId) === String(p.id) ? 'selected' : ''}>
-            ${p.codigo} — ${p.nome} (disp: ${p.quantidade} ${p.unidade})
+            ${esc(p.codigo)} — ${esc(p.nome)} (disp: ${p.quantidade} ${esc(p.unidade)})
           </option>
         `).join('')}
       </select>
@@ -474,7 +475,7 @@ window.verPedidoAlmox = async function (id) {
       <div style="background:white; border-radius:6px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06); margin-bottom:16px;">
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px; font-size:13px;">
           <div><span style="color:#999;">Data</span><br><strong>${new Date(p.criadoEm).toLocaleDateString('pt-BR')}</strong></div>
-          <div><span style="color:#999;">Solicitante</span><br><strong>${p.solicitante?.nome || '-'}</strong></div>
+          <div><span style="color:#999;">Solicitante</span><br><strong>${esc(p.solicitante?.nome || '-')}</strong></div>
         </div>
       </div>
 
@@ -487,9 +488,9 @@ window.verPedidoAlmox = async function (id) {
           <tbody>
             ${p.itens.map(i => `
               <tr>
-                <td>${i.produto.codigo}</td>
-                <td>${i.produto.nome}</td>
-                <td>${i.quantidade} ${i.produto.unidade}</td>
+                <td>${esc(i.produto.codigo)}</td>
+                <td>${esc(i.produto.nome)}</td>
+                <td>${i.quantidade} ${esc(i.produto.unidade)}</td>
                 <td>${formatarMoedaAlmox(i.valorUni)}</td>
                 <td>${formatarMoedaAlmox((i.valorUni || 0) * i.quantidade)}</td>
               </tr>
@@ -502,7 +503,7 @@ window.verPedidoAlmox = async function (id) {
       ${p.observacoes ? `
         <div style="background:white; border-radius:6px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06); margin-bottom:16px;">
           <div style="font-weight:700; color:var(--acento); margin-bottom:8px;">Observações</div>
-          <div style="font-size:13px; color:#444;">${p.observacoes}</div>
+          <div style="font-size:13px; color:#444;">${esc(p.observacoes)}</div>
         </div>
       ` : ''}
     </div>
@@ -557,8 +558,8 @@ export async function renderizarDashboardAlmoxarifado() {
         <ul style="list-style:none; padding:0; margin:0;">
           ${criticos.map(p => `
             <li style="padding:6px 0; border-bottom:1px solid #ffe69c; font-size:13px; display:flex; justify-content:space-between;">
-              <span>${p.codigo} — ${p.nome}</span>
-              <span>Disponível: <strong>${p.quantidade} ${p.unidade}</strong> (crítico: ${p.quantidadeCritica})</span>
+              <span>${esc(p.codigo)} — ${esc(p.nome)}</span>
+              <span>Disponível: <strong>${p.quantidade} ${esc(p.unidade)}</strong> (crítico: ${p.quantidadeCritica})</span>
             </li>
           `).join('')}
         </ul>

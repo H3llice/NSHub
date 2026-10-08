@@ -1,3 +1,4 @@
+import { esc } from './html.js'
 const API = 'https://override-steerable-professed.ngrok-free.dev'
 
 // ─── Auth helper (mesmo padrão dos outros módulos) ────────────────────────────
@@ -54,7 +55,7 @@ const STATUS_LABEL = {
 
 function badgeStatus(status) {
   const s = STATUS_LABEL[status] || { texto: status, cor: '#6c757d' }
-  return `<span style="background:${s.cor}; color:white; padding:2px 8px; border-radius:12px; font-size:12px;">${s.texto}</span>`
+  return `<span style="background:${s.cor}; color:white; padding:2px 8px; border-radius:12px; font-size:12px;">${esc(s.texto)}</span>`
 }
 
 // ===== RENDERIZA A PÁGINA DE SOLICITAÇÕES =====
@@ -114,7 +115,7 @@ export function inicializarSolicitacoes() {
   apiFetch(`${API}/empresas`).then(r => r.json()).then(empresas => {
     const select = document.getElementById('filtro-sc-empresa')
     empresas.forEach(e => {
-      select.innerHTML += `<option value="${e.id}">${e.sigla}</option>`
+      select.innerHTML += `<option value="${e.id}">${esc(e.sigla)}</option>`
     })
   })
 
@@ -187,13 +188,13 @@ function renderizarTabelaSC(solicitacoes) {
     }
 
     if (!cancelada) {
-      btns.push(`<button class="btn btn-sm btn-danger" onclick="cancelarSolicitacao(${sc.id}, '${numero}')">Cancelar</button>`)
+      btns.push(`<button class="btn btn-sm btn-danger" onclick="cancelarSolicitacao(${sc.id}, ${esc(JSON.stringify(numero))})">Cancelar</button>`)
     }
 
     return `
       <tr style="${cancelada ? 'opacity:0.6; background:#fff5f5;' : ''}">
-        <td><a href="#" onclick="verSolicitacao(${sc.id}); return false;" style="color:var(--acento); font-weight:600; text-decoration:none;">${numero}</a></td>
-        <td style="cursor:pointer;" onclick="verSolicitacao(${sc.id})">${sc.empresa?.sigla || '-'}</td>
+        <td><a href="#" onclick="verSolicitacao(${sc.id}); return false;" style="color:var(--acento); font-weight:600; text-decoration:none;">${esc(numero)}</a></td>
+        <td style="cursor:pointer;" onclick="verSolicitacao(${sc.id})">${esc(sc.empresa?.sigla || '-')}</td>
         <td>${sc.itens?.length || 0}</td>
         <td>${sc.fornecedores?.length || 0}</td>
         <td>${badgeStatus(sc.status)}</td>
@@ -244,7 +245,7 @@ function novoFornecedorSC() {
 window.abrirFormularioSolicitacao = async function (dadosExistentes = null) {
   const empresas = await apiFetch(`${API}/empresas`).then(r => r.json())
   const opcoesEmpresas = empresas.map(e =>
-    `<option value="${e.id}" ${dadosExistentes?.empresaId === e.id ? 'selected' : ''}>${e.nome} (${e.sigla})</option>`
+    `<option value="${e.id}" ${dadosExistentes?.empresaId === e.id ? 'selected' : ''}>${esc(e.nome)} (${esc(e.sigla)})</option>`
   ).join('')
 
   if (dadosExistentes) {
@@ -296,7 +297,7 @@ window.abrirFormularioSolicitacao = async function (dadosExistentes = null) {
 
       <div style="margin-bottom:16px;">
         <label>Instruções</label>
-        <textarea id="sc-instrucoes" class="form-control" rows="2">${dadosExistentes?.instrucoes || ''}</textarea>
+        <textarea id="sc-instrucoes" class="form-control" rows="2">${esc(dadosExistentes?.instrucoes || '')}</textarea>
       </div>
 
       <h5 style="margin: 20px 0 10px;">Itens</h5>
@@ -327,8 +328,8 @@ function renderizarItensSC() {
   container.innerHTML = window.scEstado.itens.map((item, i) => `
     <div style="display:grid; grid-template-columns: 100px 100px 1fr 40px; gap:8px; margin-bottom:8px;">
       <input type="number" class="form-control" placeholder="Qtd" value="${item.quantidade}" oninput="scEstado.itens[${i}].quantidade = this.value">
-      <input type="text" class="form-control" placeholder="Unid" value="${item.unidade}" oninput="scEstado.itens[${i}].unidade = this.value">
-      <input type="text" class="form-control" placeholder="Descrição" value="${item.descricao}" oninput="scEstado.itens[${i}].descricao = this.value; renderizarMatrizPrecosSC()">
+      <input type="text" class="form-control" placeholder="Unid" value="${esc(item.unidade)}" oninput="scEstado.itens[${i}].unidade = this.value">
+      <input type="text" class="form-control" placeholder="Descrição" value="${esc(item.descricao)}" oninput="scEstado.itens[${i}].descricao = this.value; renderizarMatrizPrecosSC()">
       <button class="btn btn-sm btn-danger" onclick="removerItemSC(${i})">✕</button>
     </div>
   `).join('')
@@ -359,14 +360,14 @@ function renderizarFornecedoresSC() {
   container.innerHTML = window.scEstado.fornecedores.map((f, i) => `
     <div style="border:1px solid #ddd; border-radius:6px; padding:12px; margin-bottom:8px;">
       <div style="display:grid; grid-template-columns: 2fr 1fr 1fr 40px; gap:8px; margin-bottom:8px;">
-        <input type="text" class="form-control" placeholder="Nome *" value="${f.nome}" oninput="scEstado.fornecedores[${i}].nome = this.value; renderizarMatrizPrecosSC()">
-        <input type="text" class="form-control" placeholder="CNPJ/CPF" value="${f.documento}" oninput="scEstado.fornecedores[${i}].documento = this.value">
-        <input type="text" class="form-control" placeholder="Telefone" value="${f.telefone}" oninput="scEstado.fornecedores[${i}].telefone = this.value">
+        <input type="text" class="form-control" placeholder="Nome *" value="${esc(f.nome)}" oninput="scEstado.fornecedores[${i}].nome = this.value; renderizarMatrizPrecosSC()">
+        <input type="text" class="form-control" placeholder="CNPJ/CPF" value="${esc(f.documento)}" oninput="scEstado.fornecedores[${i}].documento = this.value">
+        <input type="text" class="form-control" placeholder="Telefone" value="${esc(f.telefone)}" oninput="scEstado.fornecedores[${i}].telefone = this.value">
         <button class="btn btn-sm btn-danger" onclick="removerFornecedorSC(${i})">✕</button>
       </div>
       <div style="display:grid; grid-template-columns: 1fr 1fr 1fr 100px; gap:8px;">
-        <input type="text" class="form-control" placeholder="Prazo de entrega" value="${f.prazoEntrega}" oninput="scEstado.fornecedores[${i}].prazoEntrega = this.value">
-        <input type="text" class="form-control" placeholder="Condições pagto" value="${f.condicoesPagto}" oninput="scEstado.fornecedores[${i}].condicoesPagto = this.value">
+        <input type="text" class="form-control" placeholder="Prazo de entrega" value="${esc(f.prazoEntrega)}" oninput="scEstado.fornecedores[${i}].prazoEntrega = this.value">
+        <input type="text" class="form-control" placeholder="Condições pagto" value="${esc(f.condicoesPagto)}" oninput="scEstado.fornecedores[${i}].condicoesPagto = this.value">
         <select class="form-control" onchange="scEstado.fornecedores[${i}].formaPagto = this.value; renderizarFornecedoresSC()">${opcoesFormaPagto(f.formaPagto)}</select>
         <label style="display:flex; align-items:center; gap:6px; font-size:13px;">
           <input type="checkbox" ${f.favorito ? 'checked' : ''} onchange="scEstado.fornecedores[${i}].favorito = this.checked">
@@ -375,12 +376,12 @@ function renderizarFornecedoresSC() {
       </div>
       ${f.formaPagto === 'pix' ? `
         <div style="margin-top:8px;">
-          <input type="text" class="form-control" placeholder="Chave PIX *" value="${f.chavePix}" oninput="scEstado.fornecedores[${i}].chavePix = this.value">
+          <input type="text" class="form-control" placeholder="Chave PIX *" value="${esc(f.chavePix)}" oninput="scEstado.fornecedores[${i}].chavePix = this.value">
         </div>
       ` : ''}
       ${f.formaPagto === 'boleto' ? `
         <div style="margin-top:8px;">
-          <input type="text" class="form-control" placeholder="Código de barras (opcional)" value="${f.codigoBarras || ''}" oninput="scEstado.fornecedores[${i}].codigoBarras = this.value">
+          <input type="text" class="form-control" placeholder="Código de barras (opcional)" value="${esc(f.codigoBarras || '')}" oninput="scEstado.fornecedores[${i}].codigoBarras = this.value">
         </div>
       ` : ''}
       ${f.formaPagto === 'transferencia' ? `
@@ -388,13 +389,13 @@ function renderizarFornecedoresSC() {
           <select class="form-control" onchange="scEstado.fornecedores[${i}].tipoConta = this.value">${['', ...Object.keys(TIPOS_CONTA)].map(v =>
     `<option value="${v}" ${f.tipoConta === v ? 'selected' : ''}>${v ? TIPOS_CONTA[v] : 'Tipo de conta *'}</option>`
   ).join('')}</select>
-          <input type="text" class="form-control" placeholder="Agência *" value="${f.agencia || ''}" oninput="scEstado.fornecedores[${i}].agencia = this.value">
-          <input type="text" class="form-control" placeholder="Número da conta *" value="${f.contaNumero || ''}" oninput="scEstado.fornecedores[${i}].contaNumero = this.value">
+          <input type="text" class="form-control" placeholder="Agência *" value="${esc(f.agencia || '')}" oninput="scEstado.fornecedores[${i}].agencia = this.value">
+          <input type="text" class="form-control" placeholder="Número da conta *" value="${esc(f.contaNumero || '')}" oninput="scEstado.fornecedores[${i}].contaNumero = this.value">
         </div>
       ` : ''}
       ${f.formaPagto === 'outro' ? `
         <div style="margin-top:8px;">
-          <input type="text" class="form-control" placeholder="Especifique (opcional)" value="${f.formaPagtoOutro || ''}" oninput="scEstado.fornecedores[${i}].formaPagtoOutro = this.value">
+          <input type="text" class="form-control" placeholder="Especifique (opcional)" value="${esc(f.formaPagtoOutro || '')}" oninput="scEstado.fornecedores[${i}].formaPagtoOutro = this.value">
         </div>
       ` : ''}
     </div>
@@ -439,13 +440,13 @@ window.renderizarMatrizPrecosSC = function () {
         <thead>
           <tr>
             <th>Item</th>
-            ${fornecedores.map(f => `<th>${f.nome || '(sem nome)'}</th>`).join('')}
+            ${fornecedores.map(f => `<th>${esc(f.nome || '(sem nome)')}</th>`).join('')}
           </tr>
         </thead>
         <tbody>
           ${itens.map((item, iIdx) => `
             <tr>
-              <td>${item.descricao || '(sem descrição)'}</td>
+              <td>${esc(item.descricao || '(sem descrição)')}</td>
               ${fornecedores.map((f, fIdx) => `
                 <td>
                   <input type="number" step="0.01" class="form-control form-control-sm"
@@ -554,12 +555,12 @@ window.verSolicitacao = async function (id) {
           ${['aguardando_aprovacao', 'recusada'].includes(sc.status) ? `<button class="btn btn-info" onclick="editarSolicitacao(${sc.id})">Editar</button>` : ''}
           <a class="btn btn-secondary" href="${API}/pdf/solicitacao/${sc.id}?token=${encodeURIComponent(tokenAtual)}" target="_blank">📄 PDF</a>
           ${sc.status === 'aguardando_aprovacao' ? `<button class="btn btn-danger" onclick="abrirModalRecusaSC(${sc.id})">Recusar</button>` : ''}
-          ${sc.status !== 'cancelada' ? `<button class="btn btn-danger" onclick="cancelarSolicitacao(${sc.id}, '${numero}')">Cancelar</button>` : ''}
+          ${sc.status !== 'cancelada' ? `<button class="btn btn-danger" onclick="cancelarSolicitacao(${sc.id}, ${esc(JSON.stringify(numero))})">Cancelar</button>` : ''}
         </div>
       </div>
 
       <div style="display:flex; align-items:center; gap:12px; margin-bottom:20px;">
-        <h3 style="margin:0;">${numero}</h3>
+        <h3 style="margin:0;">${esc(numero)}</h3>
         ${badgeStatus(sc.status)}
       </div>
 
@@ -578,14 +579,14 @@ window.verSolicitacao = async function (id) {
               <tr>
                 <th>Item</th>
                 <th>Qtd</th>
-                ${sc.fornecedores.map(f => `<th>${f.nome} ${f.favorito ? '⭐' : ''} ${f.escolhido ? '<span style="color:#198754;">✓ Escolhido</span>' : ''}</th>`).join('')}
+                ${sc.fornecedores.map(f => `<th>${esc(f.nome)} ${f.favorito ? '⭐' : ''} ${f.escolhido ? '<span style="color:#198754;">✓ Escolhido</span>' : ''}</th>`).join('')}
               </tr>
             </thead>
             <tbody>
               ${sc.itens.map(item => `
                 <tr>
-                  <td>${item.descricao}</td>
-                  <td>${item.quantidade} ${item.unidade || ''}</td>
+                  <td>${esc(item.descricao)}</td>
+                  <td>${item.quantidade} ${esc(item.unidade || '')}</td>
                   ${sc.fornecedores.map(f => {
     const preco = item.precos.find(p => p.fornecedorCotadoId === f.id)
     return `<td>${preco ? 'R$ ' + preco.valor.toFixed(2) : '<span style="color:#ccc;">—</span>'}</td>`
@@ -606,19 +607,19 @@ window.verSolicitacao = async function (id) {
         <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:12px;">
           ${sc.fornecedores.map(f => `
             <div style="border:1px solid #eee; border-radius:6px; padding:10px; font-size:13px;">
-              <strong>${f.nome}</strong> ${f.favorito ? '⭐' : ''}<br>
-              ${f.documento ? `CNPJ: ${f.documento}<br>` : ''}
-              ${f.telefone ? `Tel: ${f.telefone}<br>` : ''}
-              ${f.prazoEntrega ? `Prazo: ${f.prazoEntrega}<br>` : ''}
-              ${f.condicoesPagto ? `Pagto: ${f.condicoesPagto}<br>` : ''}
-              ${f.formaPagto ? `Forma: ${FORMAS_PAGAMENTO[f.formaPagto] || f.formaPagto}${(() => {
-    if (f.formaPagto === 'pix' && f.chavePix) return ` (${f.chavePix})`
-    if (f.formaPagto === 'boleto' && f.codigoBarras) return ` (${f.codigoBarras})`
-    if (f.formaPagto === 'transferencia') return ` (${TIPOS_CONTA[f.tipoConta] || f.tipoConta || ''} Ag.${f.agencia || '-'} Cc${f.contaNumero || '-'})`
-    if (f.formaPagto === 'outro' && f.formaPagtoOutro) return ` (${f.formaPagtoOutro})`
+              <strong>${esc(f.nome)}</strong> ${f.favorito ? '⭐' : ''}<br>
+              ${f.documento ? `CNPJ: ${esc(f.documento)}<br>` : ''}
+              ${f.telefone ? `Tel: ${esc(f.telefone)}<br>` : ''}
+              ${f.prazoEntrega ? `Prazo: ${esc(f.prazoEntrega)}<br>` : ''}
+              ${f.condicoesPagto ? `Pagto: ${esc(f.condicoesPagto)}<br>` : ''}
+              ${f.formaPagto ? `Forma: ${esc(FORMAS_PAGAMENTO[f.formaPagto] || f.formaPagto)}${(() => {
+    if (f.formaPagto === 'pix' && f.chavePix) return ` (${esc(f.chavePix)})`
+    if (f.formaPagto === 'boleto' && f.codigoBarras) return ` (${esc(f.codigoBarras)})`
+    if (f.formaPagto === 'transferencia') return ` (${esc(TIPOS_CONTA[f.tipoConta] || f.tipoConta || '')} Ag.${esc(f.agencia || '-')} Cc${esc(f.contaNumero || '-')})`
+    if (f.formaPagto === 'outro' && f.formaPagtoOutro) return ` (${esc(f.formaPagtoOutro)})`
     return ''
   })()}<br>` : ''}
-              ${f.observacoes ? `<em>${f.observacoes}</em>` : ''}
+              ${f.observacoes ? `<em>${esc(f.observacoes)}</em>` : ''}
             </div>
           `).join('')}
         </div>
@@ -629,7 +630,7 @@ window.verSolicitacao = async function (id) {
           <div style="font-weight:700; color:var(--acento); margin-bottom:10px;">Escolher fornecedor e aprovar</div>
           <select id="sc-fornecedor-escolhido" class="form-control" style="max-width:400px; margin-bottom:12px;">
             <option value="">Selecione o fornecedor...</option>
-            ${sc.fornecedores.map(f => `<option value="${f.id}">${f.nome} ${f.favorito ? '⭐' : ''} — R$ ${totais.find(t => t.fornecedor.id === f.id).total.toFixed(2)}</option>`).join('')}
+            ${sc.fornecedores.map(f => `<option value="${f.id}">${esc(f.nome)} ${f.favorito ? '⭐' : ''} — R$ ${totais.find(t => t.fornecedor.id === f.id).total.toFixed(2)}</option>`).join('')}
           </select>
           <button class="btn btn-success" onclick="abrirModalAssinaturaSC(${sc.id}, 'aprovar')">✓ Aprovar e Gerar OC</button>
         </div>

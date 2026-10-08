@@ -1,3 +1,4 @@
+import { esc } from './html.js'
 const API = 'https://override-steerable-professed.ngrok-free.dev'
 
 // ─── Auth helper (mesmo padrão dos outros módulos) ────────────────────────────
@@ -61,7 +62,7 @@ const STATUS_VENDA_LABEL = {
 
 function badgeStatusVenda(status) {
   const s = STATUS_VENDA_LABEL[status] || { texto: status, cor: '#6c757d' }
-  return `<span style="background:${s.cor}; color:white; padding:2px 8px; border-radius:12px; font-size:12px;">${s.texto}</span>`
+  return `<span style="background:${s.cor}; color:white; padding:2px 8px; border-radius:12px; font-size:12px;">${esc(s.texto)}</span>`
 }
 
 export function inicializarVendas() {
@@ -163,9 +164,9 @@ function renderizarTabelaVendas(vendas) {
     return `
       <tr>
         <td><a href="#" onclick="verVenda(${v.id}); return false;" style="color:var(--acento); font-weight:600; text-decoration:none;">${v.numero}.${v.ano}</a></td>
-        <td>${v.cliente.nome}</td>
-        <td>${v.vendedor?.nome || '-'}</td>
-        <td>${balsasTxt}</td>
+        <td>${esc(v.cliente.nome)}</td>
+        <td>${esc(v.vendedor?.nome || '-')}</td>
+        <td>${esc(balsasTxt)}</td>
         <td>${data}</td>
         <td>${valor}</td>
         <td>${badgeStatusVenda(v.status)}</td>
@@ -214,10 +215,10 @@ window.verVenda = async function (id) {
 
       <div style="background:white; border-radius:6px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06); margin-bottom:16px;">
         <div style="font-weight:700; color:var(--acento); margin-bottom:10px;">Cliente</div>
-        <div><strong>${v.cliente.nome}</strong></div>
+        <div><strong>${esc(v.cliente.nome)}</strong></div>
         <div style="color:#666; font-size:13px;">${formatarDocumento(v.cliente.cpfCnpj)}</div>
-        ${v.cliente.telefone ? `<div style="color:#666; font-size:13px;">Tel: ${v.cliente.telefone}</div>` : ''}
-        ${v.cliente.email ? `<div style="color:#666; font-size:13px;">${v.cliente.email}</div>` : ''}
+        ${v.cliente.telefone ? `<div style="color:#666; font-size:13px;">Tel: ${esc(v.cliente.telefone)}</div>` : ''}
+        ${v.cliente.email ? `<div style="color:#666; font-size:13px;">${esc(v.cliente.email)}</div>` : ''}
       </div>
 
       <div style="background:white; border-radius:6px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06); margin-bottom:16px;">
@@ -225,7 +226,7 @@ window.verVenda = async function (id) {
         <ul style="list-style:none; padding:0; margin:0;">
           ${v.balsas.map(vb => `
             <li style="padding:6px 0; border-bottom:1px solid #eee; font-size:13px; display:flex; justify-content:space-between;">
-              <span><strong>${vb.balsa.numeroSerie}</strong> — ${vb.balsa.fabricante} ${vb.balsa.modelo}, capacidade ${vb.balsa.capacidade}</span>
+              <span><strong>${esc(vb.balsa.numeroSerie)}</strong> — ${esc(vb.balsa.fabricante)} ${esc(vb.balsa.modelo)}, capacidade ${esc(vb.balsa.capacidade)}</span>
               <strong>${vb.valor ? 'R$ ' + vb.valor.toFixed(2) : '-'}</strong>
             </li>
           `).join('')}
@@ -236,22 +237,22 @@ window.verVenda = async function (id) {
         <div style="font-weight:700; color:var(--acento); margin-bottom:10px;">Condições</div>
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px; font-size:13px;">
           <div><span style="color:#999;">Data da Venda</span><br><strong>${data}</strong></div>
-          <div><span style="color:#999;">Vendedor Responsável</span><br><strong>${v.vendedor?.nome || '-'}</strong></div>
+          <div><span style="color:#999;">Vendedor Responsável</span><br><strong>${esc(v.vendedor?.nome || '-')}</strong></div>
           <div style="grid-column:span 2;"><span style="color:#999;">Comissão do vendedor</span><br><strong>${v.comissao != null ? 'R$ ' + v.comissao.toFixed(2) : '-'}</strong>
             ${podeGerenciarVendas ? `<a href="#" onclick="editarComissaoVenda(${v.id}, ${v.comissao ?? 'null'}); return false;" style="font-size:12px; margin-left:6px;">editar</a>` : ''}
           </div>
           <div><span style="color:#999;">Frete</span><br><strong>${frete}</strong></div>
           <div><span style="color:#999;">Desconto</span><br><strong>${desconto}</strong></div>
           <div><span style="color:#999;">Valor</span><br><strong>${valor}</strong></div>
-          <div><span style="color:#999;">Forma Pagto</span><br><strong>${v.formaPagamento || '-'}</strong></div>
-          <div style="grid-column:span 2;"><span style="color:#999;">Condições Pagto</span><br><strong>${v.condicoesPagto || '-'}</strong></div>
+          <div><span style="color:#999;">Forma Pagto</span><br><strong>${esc(v.formaPagamento || '-')}</strong></div>
+          <div style="grid-column:span 2;"><span style="color:#999;">Condições Pagto</span><br><strong>${esc(v.condicoesPagto || '-')}</strong></div>
         </div>
       </div>
 
       ${v.observacoes ? `
         <div style="background:white; border-radius:6px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06); margin-bottom:16px;">
           <div style="font-weight:700; color:var(--acento); margin-bottom:8px;">Observações</div>
-          <div style="font-size:13px; color:#444;">${v.observacoes}</div>
+          <div style="font-size:13px; color:#444;">${esc(v.observacoes)}</div>
         </div>
       ` : ''}
 
@@ -287,7 +288,7 @@ function renderizarListaBalsasVenda(lista) {
           <input type="checkbox" value="${b.id}" class="checkbox-balsa-venda"
             ${marcado ? 'checked' : ''}
             onchange="toggleBalsaSelecionadaVenda(${b.id}, this.checked)">
-          <span>${b.numeroSerie} — ${b.fabricante} ${b.modelo}, capacidade ${b.capacidade}</span>
+          <span>${esc(b.numeroSerie)} — ${esc(b.fabricante)} ${esc(b.modelo)}, capacidade ${esc(b.capacidade)}</span>
         </label>
         <input type="number" step="0.01" min="0" placeholder="Valor" class="form-control form-control-sm"
           style="width:130px;" value="${balsaValoresSelecionadosVenda.get(b.id) || ''}" ${marcado ? '' : 'disabled'}
@@ -409,7 +410,7 @@ window.abrirFormularioVenda = async function () {
           <label>Vendedor Responsável *</label>
           <select id="venda-vendedorId" class="form-control">
             <option value="">Selecione...</option>
-            ${usuariosCacheVenda.map(u => `<option value="${u.id}">${u.nome}</option>`).join('')}
+            ${usuariosCacheVenda.map(u => `<option value="${u.id}">${esc(u.nome)}</option>`).join('')}
           </select>
         </div>
         <div><label>Comissão do vendedor (R$) <small style="color:#999;">(opcional — entra na Folha de pagamento)</small></label><input type="number" id="venda-comissao" class="form-control" step="0.01" min="0"></div>
@@ -466,12 +467,12 @@ window.buscarClienteVenda = async function (q) {
 
   div.style.display = 'block'
   div.innerHTML = results.map(c => `
-    <div onclick='selecionarClienteVenda(${JSON.stringify(c)})'
+    <div onclick="selecionarClienteVenda(${esc(JSON.stringify(c))})"
       style="padding: 8px 12px; cursor:pointer; border-bottom: 1px solid #eee;"
       onmouseover="this.style.background='#f5f5f5'"
       onmouseout="this.style.background='white'">
-      <strong>${c.nome}</strong>
-      <span style="color:#999; font-size:12px; margin-left:8px;">${formatarDocumento(c.cpfCnpj)}</span>
+      <strong>${esc(c.nome)}</strong>
+      <span style="color:#999; font-size:12px; margin-left:8px;">${esc(formatarDocumento(c.cpfCnpj))}</span>
     </div>
   `).join('')
 }

@@ -1,4 +1,5 @@
 import { labelFuncao, TIPOS_CONTRATO } from './funcoes-colaborador.js'
+import { esc } from './html.js'
 
 const API = 'https://override-steerable-professed.ngrok-free.dev'
 
@@ -66,10 +67,6 @@ const CAMPOS_VALOR = [
   { campo: 'premio', titulo: 'Prêmio' },
   { campo: 'comissao', titulo: 'Comissão' },
 ]
-
-function esc(texto) {
-  return String(texto ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
-}
 
 function formatarMoedaFolha(v) {
   return (v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })

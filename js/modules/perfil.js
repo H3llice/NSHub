@@ -1,3 +1,4 @@
+import { esc } from './html.js'
 const API = 'https://override-steerable-professed.ngrok-free.dev'
 
 // ─── Auth helper (mesmo padrão dos outros módulos) ────────────────────────────
@@ -63,7 +64,7 @@ window.abrirModalPerfil = function () {
 
       <div style="margin-bottom:18px;">
         <label style="font-weight:600; font-size:13px;">Nome</label>
-        <input type="text" id="perfil-nome" class="form-control" value="${usuario.nome}" style="margin-top:6px;">
+        <input type="text" id="perfil-nome" class="form-control" value="${esc(usuario.nome)}" style="margin-top:6px;">
       </div>
 
       <div style="margin-bottom:8px; font-weight:600; font-size:13px;">Tema</div>

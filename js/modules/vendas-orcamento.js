@@ -1,3 +1,4 @@
+import { esc } from './html.js'
 const API = 'https://override-steerable-professed.ngrok-free.dev'
 
 // ─── Auth helper (mesmo padrão dos outros módulos) ────────────────────────────
@@ -62,7 +63,7 @@ const STATUS_VENDA_ORC_LABEL = {
 
 function badgeStatusVendaOrc(status) {
   const s = STATUS_VENDA_ORC_LABEL[status] || { texto: status, cor: 'white', fundo: '#6c757d' }
-  return `<span style="background:${s.fundo}; color:${s.cor}; padding:2px 8px; border-radius:12px; font-size:12px;">${s.texto}</span>`
+  return `<span style="background:${s.fundo}; color:${s.cor}; padding:2px 8px; border-radius:12px; font-size:12px;">${esc(s.texto)}</span>`
 }
 
 const STATUS_PARCELA_LABEL = {
@@ -73,15 +74,10 @@ const STATUS_PARCELA_LABEL = {
 
 function badgeStatusParcela(status) {
   const s = STATUS_PARCELA_LABEL[status] || { texto: status, cor: 'white', fundo: '#6c757d' }
-  return `<span style="background:${s.fundo}; color:${s.cor}; padding:2px 8px; border-radius:12px; font-size:12px;">${s.texto}</span>`
+  return `<span style="background:${s.fundo}; color:${s.cor}; padding:2px 8px; border-radius:12px; font-size:12px;">${esc(s.texto)}</span>`
 }
 
 const TIPO_ITEM_VENDA_LABEL = { servico: 'Serviço', produto: 'Produto' }
-
-// Texto vindo de cadastro (nomes de cliente/catálogo, detalhes) — escapa antes de ir pro innerHTML
-function escVO(texto) {
-  return String(texto ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
-}
 
 function labelFormaPagamento(v) {
   return v.formaPagamento === 'parcelado' ? `Parcelado (${v.numeroParcelas}x)` : 'À vista'
@@ -177,8 +173,8 @@ function renderizarTabelaVendasOrcamento(vendas) {
   tabela.innerHTML = vendas.map(v => `
     <tr>
       <td><a href="#" onclick="verVendaOrcamento(${v.id}); return false;" style="color:var(--acento); font-weight:600; text-decoration:none;">${v.numero}.${v.ano}</a></td>
-      <td>${v.cliente.nome}</td>
-      <td>${v.vendedor?.nome || '-'}</td>
+      <td>${esc(v.cliente.nome)}</td>
+      <td>${esc(v.vendedor?.nome || '-')}</td>
       <td>${formatarDataVO(v.dataVenda)}</td>
       <td>${labelFormaPagamento(v)}</td>
       <td>${formatarMoedaVO(v.valorTotal)}</td>
@@ -203,8 +199,8 @@ window.verVendaOrcamento = async function (id) {
 
       <div style="background:white; border-radius:6px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06); margin-bottom:16px;">
         <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:14px; font-size:13px;">
-          <div><span style="color:#999;">Cliente</span><br><strong>${v.cliente.nome}</strong></div>
-          <div><span style="color:#999;">Vendedor responsável</span><br><strong>${v.vendedor?.nome || '-'}</strong></div>
+          <div><span style="color:#999;">Cliente</span><br><strong>${esc(v.cliente.nome)}</strong></div>
+          <div><span style="color:#999;">Vendedor responsável</span><br><strong>${esc(v.vendedor?.nome || '-')}</strong></div>
           <div><span style="color:#999;">Data da venda</span><br><strong>${formatarDataVO(v.dataVenda)}</strong></div>
           <div><span style="color:#999;">Forma de pagamento</span><br><strong>${labelFormaPagamento(v)}</strong></div>
           <div><span style="color:#999;">Valor total</span><br><strong>${formatarMoedaVO(v.valorTotal)}</strong></div>
@@ -227,8 +223,8 @@ window.verVendaOrcamento = async function (id) {
             <tbody>
               ${v.itens.map(i => `
                 <tr>
-                  <td>${TIPO_ITEM_VENDA_LABEL[i.tipo] || i.tipo}</td>
-                  <td>${escVO(i.nome)}${i.detalhes ? `<br><small style="color:#999;">${escVO(i.detalhes)}</small>` : ''}</td>
+                  <td>${esc(TIPO_ITEM_VENDA_LABEL[i.tipo] || i.tipo)}</td>
+                  <td>${esc(i.nome)}${i.detalhes ? `<br><small style="color:#999;">${esc(i.detalhes)}</small>` : ''}</td>
                   <td>${i.quantidade}</td>
                   <td>${formatarMoedaVO(i.valorUnitario)}</td>
                   <td>${formatarMoedaVO(i.quantidade * i.valorUnitario)}</td>
@@ -246,7 +242,7 @@ window.verVendaOrcamento = async function (id) {
           <tbody>
             ${v.pagamentos.map(p => `
               <tr>
-                <td>${p.referencia || 'Pagamento único'}</td>
+                <td>${esc(p.referencia || 'Pagamento único')}</td>
                 <td>${formatarDataVO(p.dataVencimento)}</td>
                 <td>${formatarMoedaVO(p.valor)}</td>
                 <td>${badgeStatusParcela(p.status)}</td>
@@ -260,7 +256,7 @@ window.verVendaOrcamento = async function (id) {
       ${v.observacoes ? `
         <div style="background:white; border-radius:6px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06); margin-bottom:16px;">
           <div style="font-weight:700; color:var(--acento); margin-bottom:8px;">Observações</div>
-          <div style="font-size:13px; color:#444; white-space:pre-line;">${v.observacoes}</div>
+          <div style="font-size:13px; color:#444; white-space:pre-line;">${esc(v.observacoes)}</div>
         </div>
       ` : ''}
 
@@ -317,7 +313,7 @@ export async function abrirCriarVendaOrcamento(orcamentoId) {
       <h3 style="margin:20px 0;">Criar Venda — Orçamento ${o.numero}.${o.ano}</h3>
 
       <div style="background:white; border-radius:6px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06); margin-bottom:16px; font-size:13px;">
-        <div><span style="color:#999;">Cliente</span><br><strong>${o.cliente.nome}</strong></div>
+        <div><span style="color:#999;">Cliente</span><br><strong>${esc(o.cliente.nome)}</strong></div>
         <div style="margin-top:8px;"><span style="color:#999;">Valor total do orçamento</span><br><strong style="font-size:16px; color:#198754;">${formatarMoedaVO(o.totalLiquido)}</strong></div>
       </div>
 
@@ -462,7 +458,7 @@ window.abrirVendaAvulsa = async function () {
           <label>Vendedor Responsável</label>
           <select id="va-vendedorId" class="form-control">
             <option value="">Selecione...</option>
-            ${usuarios.map(u => `<option value="${u.id}" ${usuarioAtual?.id === u.id ? 'selected' : ''}>${escVO(u.nome)}</option>`).join('')}
+            ${usuarios.map(u => `<option value="${u.id}" ${usuarioAtual?.id === u.id ? 'selected' : ''}>${esc(u.nome)}</option>`).join('')}
           </select>
         </div>
         <div><label>Data da Venda</label><input type="date" id="vo-dataVenda" class="form-control" value="${new Date().toISOString().split('T')[0]}"></div>
@@ -598,7 +594,7 @@ window.buscarCatalogoItemVendaAvulsa = function (i) {
     : filtrados.map(c => `
       <div onclick="selecionarCatalogoItemVendaAvulsa(${i}, '${c.id}')" style="padding:8px 12px; cursor:pointer; border-bottom:1px solid #eee;"
         onmouseover="this.style.background='#f5f5f5'" onmouseout="this.style.background='white'">
-        ${escVO(c.nome)} <span style="color:#999; font-size:12px;">${formatarMoedaVO(c.valor)}</span>
+        ${esc(c.nome)} <span style="color:#999; font-size:12px;">${formatarMoedaVO(c.valor)}</span>
       </div>
     `).join('')) + `
     <div onclick="mostrarNovoItemCatalogoVendaAvulsa(${i})" style="padding:8px 12px; cursor:pointer; color:var(--acento); font-weight:600;"
@@ -705,7 +701,7 @@ window.buscarClienteVendaAvulsa = async function (q) {
   div.innerHTML = vaClientesBusca.map(c => `
     <div onclick="selecionarClienteVendaAvulsa(${c.id})" style="padding:8px 12px; cursor:pointer; border-bottom:1px solid #eee;"
       onmouseover="this.style.background='#f5f5f5'" onmouseout="this.style.background='white'">
-      <strong>${escVO(c.nome)}</strong>
+      <strong>${esc(c.nome)}</strong>
     </div>
   `).join('')
 }

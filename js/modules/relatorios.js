@@ -1,3 +1,4 @@
+import { esc } from './html.js'
 const API = 'https://override-steerable-professed.ngrok-free.dev'
 
 // ─── Auth helper (mesmo padrão dos outros módulos) ────────────────────────────
@@ -70,11 +71,11 @@ const STATUS_CERTIFICADO_LABEL = {
 
 function badgeStatus(status) {
   const s = STATUS_LABEL[status] || { texto: status, cor: '#6c757d' }
-  return `<span style="background:${s.cor}; color:white; padding:2px 8px; border-radius:12px; font-size:12px;">${s.texto}</span>`
+  return `<span style="background:${s.cor}; color:white; padding:2px 8px; border-radius:12px; font-size:12px;">${esc(s.texto)}</span>`
 }
 function badgeStatusCertificado(status) {
   const s = STATUS_CERTIFICADO_LABEL[status] || { texto: status, cor: '#6c757d' }
-  return `<span style="background:${s.cor}; color:white; padding:2px 8px; border-radius:12px; font-size:12px;">${s.texto}</span>`
+  return `<span style="background:${s.cor}; color:white; padding:2px 8px; border-radius:12px; font-size:12px;">${esc(s.texto)}</span>`
 }
 
 // Itens do kit de sobrevivência (Lista de Verificação e Reparos) — cada um tem
@@ -287,8 +288,8 @@ window.carregarRelatorios = async function (pagina = 1) {
     tabela.innerHTML = resp.relatorios.map(r => `
       <tr>
         <td style="cursor:pointer;" onclick="editarRelatorio(${r.id})">${r.numero}/${r.ano}</td>
-        <td style="cursor:pointer;" onclick="editarRelatorio(${r.id})">${r.navio || r.embarcacao?.nome || '-'}</td>
-        <td>${r.armador || r.embarcacao?.armador?.nome || '-'}</td>
+        <td style="cursor:pointer;" onclick="editarRelatorio(${r.id})">${esc(r.navio || r.embarcacao?.nome || '-')}</td>
+        <td>${esc(r.armador || r.embarcacao?.armador?.nome || '-')}</td>
         <td>${new Date(r.data).toLocaleDateString('pt-BR', { timeZone: 'UTC' })}</td>
         <td>${badgeStatus(r.status)}</td>
         <td class="col-acoes">
@@ -411,7 +412,7 @@ export function renderSecoesTecnicasRelatorio(r, somenteLeitura, opcoes = {}) {
                   <td style="width:80px;"><input type="number" min="0" class="form-control form-control-sm" id="rel-kit-${item.key}-qtd" value="${r?.[`${item.key}Qtd`] ?? ''}" ${dis}></td>
                   <td style="width:120px;">${item.extraKey ? `<input type="number" min="0" step="0.01" class="form-control form-control-sm" placeholder="${item.extraLabel}" id="rel-kit-${item.key}-extra" value="${r?.[`${item.key}${item.extraKey.charAt(0).toUpperCase()}${item.extraKey.slice(1)}`] ?? ''}" ${dis}>` : ''}</td>
                   <td style="width:60px; text-align:center;"><input type="checkbox" id="rel-kit-${item.key}-substituido" ${r?.[`${item.key}Substituido`] ? 'checked' : ''} ${dis}></td>
-                  <td style="width:150px;"><input type="text" class="form-control form-control-sm" placeholder="Ex: 05/2027" id="rel-kit-${item.key}-validade" value="${r?.[`${item.key}Validade`] || ''}" ${dis}></td>
+                  <td style="width:150px;"><input type="text" class="form-control form-control-sm" placeholder="Ex: 05/2027" id="rel-kit-${item.key}-validade" value="${esc(r?.[`${item.key}Validade`] || '')}" ${dis}></td>
                 </tr>
               `).join('')}
             </tbody>
@@ -450,7 +451,7 @@ export function renderSecoesTecnicasRelatorio(r, somenteLeitura, opcoes = {}) {
         </div>
         <div style="display:flex; gap:16px; margin-top:8px;">
           <div style="max-width:200px;"><label>Valor</label><input type="number" step="0.01" class="form-control" id="rel-teste-valor" value="${valorTesteFlutuador ?? ''}" ${dis}></div>
-          <div style="max-width:200px;"><label>Temperatura</label><input type="text" id="rel-temperatura" class="form-control" value="${r?.temperatura || ''}" ${dis}></div>
+          <div style="max-width:200px;"><label>Temperatura</label><input type="text" id="rel-temperatura" class="form-control" value="${esc(r?.temperatura || '')}" ${dis}></div>
         </div>
       `)}
 
@@ -466,9 +467,9 @@ export function renderSecoesTecnicasRelatorio(r, somenteLeitura, opcoes = {}) {
 
       ${secao('Cabo de Disparo', `
         <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:16px;">
-          <div><label>Cabo Interno (m)</label><input type="number" step="0.01" class="form-control" id="rel-caboInternoMetros" value="${r?.caboInternoMetros ?? ''}" ${dis}></div>
-          <div><label>Cabo Externo (m)</label><input type="number" step="0.01" class="form-control" id="rel-caboExternoMetros" value="${r?.caboExternoMetros ?? ''}" ${dis}></div>
-          <div><label>Altura Máx. de Estocagem (m)</label><input type="number" step="0.01" class="form-control" id="rel-alturaMaximaEstocagemMetros" value="${r?.alturaMaximaEstocagemMetros ?? ''}" ${dis}></div>
+          <div><label>Cabo Interno (m)</label><input type="number" step="0.01" class="form-control" id="rel-caboInternoMetros" value="${esc(r?.caboInternoMetros ?? '')}" ${dis}></div>
+          <div><label>Cabo Externo (m)</label><input type="number" step="0.01" class="form-control" id="rel-caboExternoMetros" value="${esc(r?.caboExternoMetros ?? '')}" ${dis}></div>
+          <div><label>Altura Máx. de Estocagem (m)</label><input type="number" step="0.01" class="form-control" id="rel-alturaMaximaEstocagemMetros" value="${esc(r?.alturaMaximaEstocagemMetros ?? '')}" ${dis}></div>
         </div>
       `)}
 
@@ -484,9 +485,9 @@ export function renderSecoesTecnicasRelatorio(r, somenteLeitura, opcoes = {}) {
           </label>
         </div>
         <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:16px;">
-          <div><label>Nº Válvula de Liberação</label><input type="text" class="form-control" id="rel-casulo-valvulaNumero" value="${r?.casuloValvulaNumero || ''}" ${dis}></div>
-          <div><label>Fabricante</label><input type="text" class="form-control" id="rel-casulo-valvulaFabricante" value="${r?.casuloValvulaFabricante || ''}" ${dis}></div>
-          <div><label>Validade</label><input type="text" class="form-control" placeholder="Ex: 05/2027" id="rel-casulo-valvulaValidade" value="${r?.casuloValvulaValidade || ''}" ${dis}></div>
+          <div><label>Nº Válvula de Liberação</label><input type="text" class="form-control" id="rel-casulo-valvulaNumero" value="${esc(r?.casuloValvulaNumero || '')}" ${dis}></div>
+          <div><label>Fabricante</label><input type="text" class="form-control" id="rel-casulo-valvulaFabricante" value="${esc(r?.casuloValvulaFabricante || '')}" ${dis}></div>
+          <div><label>Validade</label><input type="text" class="form-control" placeholder="Ex: 05/2027" id="rel-casulo-valvulaValidade" value="${esc(r?.casuloValvulaValidade || '')}" ${dis}></div>
         </div>
       `)}
 
@@ -498,18 +499,18 @@ export function renderSecoesTecnicasRelatorio(r, somenteLeitura, opcoes = {}) {
             <label><input type="checkbox" id="imo-wpAnual" ${imo.wpAnual ? 'checked' : ''} ${dis}> Teste anual</label>
           </div>
           <div style="display:grid; grid-template-columns:repeat(6,1fr); gap:8px; margin-top:8px; font-size:12px;">
-            <div>Sup. Início Temp<input type="text" class="form-control form-control-sm" id="imo-wpSupInicioTemp" value="${imo.wpSupInicioTemp || ''}" ${dis}></div>
-            <div>Sup. Início mmHg<input type="number" class="form-control form-control-sm" id="imo-wpSupInicioPressao" value="${imo.wpSupInicioPressao ?? ''}" ${dis}></div>
-            <div>Sup. Término Temp<input type="text" class="form-control form-control-sm" id="imo-wpSupTerminoTemp" value="${imo.wpSupTerminoTemp || ''}" ${dis}></div>
-            <div>Sup. Término mmHg<input type="number" class="form-control form-control-sm" id="imo-wpSupTerminoPressao" value="${imo.wpSupTerminoPressao ?? ''}" ${dis}></div>
-            <div>Sup. Diff<input type="number" class="form-control form-control-sm" id="imo-wpSupDiff" value="${imo.wpSupDiff ?? ''}" ${dis}></div>
-            <div>Sup. Diff %<input type="number" class="form-control form-control-sm" id="imo-wpSupDiffPct" value="${imo.wpSupDiffPct ?? ''}" ${dis}></div>
-            <div>Inf. Início Temp<input type="text" class="form-control form-control-sm" id="imo-wpInfInicioTemp" value="${imo.wpInfInicioTemp || ''}" ${dis}></div>
-            <div>Inf. Início mmHg<input type="number" class="form-control form-control-sm" id="imo-wpInfInicioPressao" value="${imo.wpInfInicioPressao ?? ''}" ${dis}></div>
-            <div>Inf. Término Temp<input type="text" class="form-control form-control-sm" id="imo-wpInfTerminoTemp" value="${imo.wpInfTerminoTemp || ''}" ${dis}></div>
-            <div>Inf. Término mmHg<input type="number" class="form-control form-control-sm" id="imo-wpInfTerminoPressao" value="${imo.wpInfTerminoPressao ?? ''}" ${dis}></div>
-            <div>Inf. Diff<input type="number" class="form-control form-control-sm" id="imo-wpInfDiff" value="${imo.wpInfDiff ?? ''}" ${dis}></div>
-            <div>Inf. Diff %<input type="number" class="form-control form-control-sm" id="imo-wpInfDiffPct" value="${imo.wpInfDiffPct ?? ''}" ${dis}></div>
+            <div>Sup. Início Temp<input type="text" class="form-control form-control-sm" id="imo-wpSupInicioTemp" value="${esc(imo.wpSupInicioTemp || '')}" ${dis}></div>
+            <div>Sup. Início mmHg<input type="number" class="form-control form-control-sm" id="imo-wpSupInicioPressao" value="${esc(imo.wpSupInicioPressao ?? '')}" ${dis}></div>
+            <div>Sup. Término Temp<input type="text" class="form-control form-control-sm" id="imo-wpSupTerminoTemp" value="${esc(imo.wpSupTerminoTemp || '')}" ${dis}></div>
+            <div>Sup. Término mmHg<input type="number" class="form-control form-control-sm" id="imo-wpSupTerminoPressao" value="${esc(imo.wpSupTerminoPressao ?? '')}" ${dis}></div>
+            <div>Sup. Diff<input type="number" class="form-control form-control-sm" id="imo-wpSupDiff" value="${esc(imo.wpSupDiff ?? '')}" ${dis}></div>
+            <div>Sup. Diff %<input type="number" class="form-control form-control-sm" id="imo-wpSupDiffPct" value="${esc(imo.wpSupDiffPct ?? '')}" ${dis}></div>
+            <div>Inf. Início Temp<input type="text" class="form-control form-control-sm" id="imo-wpInfInicioTemp" value="${esc(imo.wpInfInicioTemp || '')}" ${dis}></div>
+            <div>Inf. Início mmHg<input type="number" class="form-control form-control-sm" id="imo-wpInfInicioPressao" value="${esc(imo.wpInfInicioPressao ?? '')}" ${dis}></div>
+            <div>Inf. Término Temp<input type="text" class="form-control form-control-sm" id="imo-wpInfTerminoTemp" value="${esc(imo.wpInfTerminoTemp || '')}" ${dis}></div>
+            <div>Inf. Término mmHg<input type="number" class="form-control form-control-sm" id="imo-wpInfTerminoPressao" value="${esc(imo.wpInfTerminoPressao ?? '')}" ${dis}></div>
+            <div>Inf. Diff<input type="number" class="form-control form-control-sm" id="imo-wpInfDiff" value="${esc(imo.wpInfDiff ?? '')}" ${dis}></div>
+            <div>Inf. Diff %<input type="number" class="form-control form-control-sm" id="imo-wpInfDiffPct" value="${esc(imo.wpInfDiffPct ?? '')}" ${dis}></div>
           </div>
         </div>
 
@@ -517,8 +518,8 @@ export function renderSecoesTecnicasRelatorio(r, somenteLeitura, opcoes = {}) {
           <strong>GI — Teste de Enchimento com Gás</strong>
           <div style="margin-top:8px;"><label><input type="checkbox" id="imo-giRealizado" ${imo.giRealizado ? 'checked' : ''} ${dis}> Realizado</label></div>
           <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-top:8px; font-size:12px;">
-            <div>Pressão Máx. Sup. (mmHg)<input type="number" class="form-control form-control-sm" id="imo-giPressaoMaxSuperior" value="${imo.giPressaoMaxSuperior ?? ''}" ${dis}></div>
-            <div>Pressão Máx. Inf. (mmHg)<input type="number" class="form-control form-control-sm" id="imo-giPressaoMaxInferior" value="${imo.giPressaoMaxInferior ?? ''}" ${dis}></div>
+            <div>Pressão Máx. Sup. (mmHg)<input type="number" class="form-control form-control-sm" id="imo-giPressaoMaxSuperior" value="${esc(imo.giPressaoMaxSuperior ?? '')}" ${dis}></div>
+            <div>Pressão Máx. Inf. (mmHg)<input type="number" class="form-control form-control-sm" id="imo-giPressaoMaxInferior" value="${esc(imo.giPressaoMaxInferior ?? '')}" ${dis}></div>
             <div style="align-self:end;"><label><input type="checkbox" id="imo-giTuboSuperiorOk" ${imo.giTuboSuperiorOk ? 'checked' : ''} ${dis}> Tubo superior OK</label></div>
             <div style="align-self:end;"><label><input type="checkbox" id="imo-giTuboInferiorOk" ${imo.giTuboInferiorOk ? 'checked' : ''} ${dis}> Tubo inferior OK</label></div>
           </div>
@@ -528,14 +529,14 @@ export function renderSecoesTecnicasRelatorio(r, somenteLeitura, opcoes = {}) {
           <strong>NAP — Pressão Adicional Necessária</strong>
           <div style="margin-top:8px;"><label><input type="checkbox" id="imo-napRealizado" ${imo.napRealizado ? 'checked' : ''} ${dis}> Realizado</label></div>
           <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-top:8px; font-size:12px;">
-            <div>Sup. Início<input type="number" class="form-control form-control-sm" id="imo-napSupInicio" value="${imo.napSupInicio ?? ''}" ${dis}></div>
-            <div>Sup. Término<input type="number" class="form-control form-control-sm" id="imo-napSupTermino" value="${imo.napSupTermino ?? ''}" ${dis}></div>
-            <div>Sup. Diff<input type="number" class="form-control form-control-sm" id="imo-napSupDiff" value="${imo.napSupDiff ?? ''}" ${dis}></div>
-            <div>Sup. Diff %<input type="number" class="form-control form-control-sm" id="imo-napSupDiffPct" value="${imo.napSupDiffPct ?? ''}" ${dis}></div>
-            <div>Inf. Início<input type="number" class="form-control form-control-sm" id="imo-napInfInicio" value="${imo.napInfInicio ?? ''}" ${dis}></div>
-            <div>Inf. Término<input type="number" class="form-control form-control-sm" id="imo-napInfTermino" value="${imo.napInfTermino ?? ''}" ${dis}></div>
-            <div>Inf. Diff<input type="number" class="form-control form-control-sm" id="imo-napInfDiff" value="${imo.napInfDiff ?? ''}" ${dis}></div>
-            <div>Inf. Diff %<input type="number" class="form-control form-control-sm" id="imo-napInfDiffPct" value="${imo.napInfDiffPct ?? ''}" ${dis}></div>
+            <div>Sup. Início<input type="number" class="form-control form-control-sm" id="imo-napSupInicio" value="${esc(imo.napSupInicio ?? '')}" ${dis}></div>
+            <div>Sup. Término<input type="number" class="form-control form-control-sm" id="imo-napSupTermino" value="${esc(imo.napSupTermino ?? '')}" ${dis}></div>
+            <div>Sup. Diff<input type="number" class="form-control form-control-sm" id="imo-napSupDiff" value="${esc(imo.napSupDiff ?? '')}" ${dis}></div>
+            <div>Sup. Diff %<input type="number" class="form-control form-control-sm" id="imo-napSupDiffPct" value="${esc(imo.napSupDiffPct ?? '')}" ${dis}></div>
+            <div>Inf. Início<input type="number" class="form-control form-control-sm" id="imo-napInfInicio" value="${esc(imo.napInfInicio ?? '')}" ${dis}></div>
+            <div>Inf. Término<input type="number" class="form-control form-control-sm" id="imo-napInfTermino" value="${esc(imo.napInfTermino ?? '')}" ${dis}></div>
+            <div>Inf. Diff<input type="number" class="form-control form-control-sm" id="imo-napInfDiff" value="${esc(imo.napInfDiff ?? '')}" ${dis}></div>
+            <div>Inf. Diff %<input type="number" class="form-control form-control-sm" id="imo-napInfDiffPct" value="${esc(imo.napInfDiffPct ?? '')}" ${dis}></div>
           </div>
           <div style="display:flex; gap:16px; margin-top:8px;">
             <label><input type="checkbox" id="imo-napRachaduras" ${imo.napRachaduras ? 'checked' : ''} ${dis}> Rachaduras</label>
@@ -549,24 +550,24 @@ export function renderSecoesTecnicasRelatorio(r, somenteLeitura, opcoes = {}) {
             <label><input type="checkbox" id="imo-fsRealizado" ${imo.fsRealizado ? 'checked' : ''} ${dis}> Realizado</label>
             <label><input type="checkbox" id="imo-fsResultadoOk" ${imo.fsResultadoOk ? 'checked' : ''} ${dis}> Resultado satisfatório</label>
           </div>
-          <div style="margin-top:8px;"><label>Observações</label><input type="text" class="form-control" id="imo-fsObservacoes" value="${imo.fsObservacoes || ''}" ${dis}></div>
+          <div style="margin-top:8px;"><label>Observações</label><input type="text" class="form-control" id="imo-fsObservacoes" value="${esc(imo.fsObservacoes || '')}" ${dis}></div>
         </div>
 
         <div style="border:1px solid #ddd; border-radius:6px; padding:12px; margin-bottom:12px;">
           <strong>OL — Teste de Sobrecarga (Davit)</strong>
           <div style="margin-top:8px;"><label><input type="checkbox" id="imo-olRealizado" ${imo.olRealizado ? 'checked' : ''} ${dis}> Realizado</label></div>
           <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-top:8px; font-size:12px;">
-            <div>Nº Pessoas<input type="number" class="form-control form-control-sm" id="imo-olPessoasNr" value="${imo.olPessoasNr ?? ''}" ${dis}></div>
-            <div>Peso Pessoas (kg)<input type="number" class="form-control form-control-sm" id="imo-olPesoPessoas" value="${imo.olPesoPessoas ?? ''}" ${dis}></div>
-            <div>Peso Balsa (kg)<input type="number" class="form-control form-control-sm" id="imo-olPesoBalsa" value="${imo.olPesoBalsa ?? ''}" ${dis}></div>
-            <div>Peso Total (kg)<input type="number" class="form-control form-control-sm" id="imo-olPesoTotal" value="${imo.olPesoTotal ?? ''}" ${dis}></div>
+            <div>Nº Pessoas<input type="number" class="form-control form-control-sm" id="imo-olPessoasNr" value="${esc(imo.olPessoasNr ?? '')}" ${dis}></div>
+            <div>Peso Pessoas (kg)<input type="number" class="form-control form-control-sm" id="imo-olPesoPessoas" value="${esc(imo.olPesoPessoas ?? '')}" ${dis}></div>
+            <div>Peso Balsa (kg)<input type="number" class="form-control form-control-sm" id="imo-olPesoBalsa" value="${esc(imo.olPesoBalsa ?? '')}" ${dis}></div>
+            <div>Peso Total (kg)<input type="number" class="form-control form-control-sm" id="imo-olPesoTotal" value="${esc(imo.olPesoTotal ?? '')}" ${dis}></div>
           </div>
-          <div style="margin-top:8px;"><label>Observações</label><input type="text" class="form-control" id="imo-olObservacoes" value="${imo.olObservacoes || ''}" ${dis}></div>
+          <div style="margin-top:8px;"><label>Observações</label><input type="text" class="form-control" id="imo-olObservacoes" value="${esc(imo.olObservacoes || '')}" ${dis}></div>
         </div>
 
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
-          <div><label>Técnico Natal Safety</label><input type="text" class="form-control" id="imo-tecnicoNome" value="${imo.tecnicoNome || ''}" ${dis}></div>
-          <div><label>Controlado por</label><input type="text" class="form-control" id="imo-controladoPorNome" value="${imo.controladoPorNome || ''}" ${dis}></div>
+          <div><label>Técnico Natal Safety</label><input type="text" class="form-control" id="imo-tecnicoNome" value="${esc(imo.tecnicoNome || '')}" ${dis}></div>
+          <div><label>Controlado por</label><input type="text" class="form-control" id="imo-controladoPorNome" value="${esc(imo.controladoPorNome || '')}" ${dis}></div>
         </div>
       `)}
 
@@ -585,7 +586,7 @@ export function renderSecoesTecnicasRelatorio(r, somenteLeitura, opcoes = {}) {
         </table>
         <div style="margin-top:12px;">
           <label>Observações</label>
-          <textarea id="rel-servicosObservacoes" class="form-control" rows="3" ${dis}>${r?.servicosObservacoes || ''}</textarea>
+          <textarea id="rel-servicosObservacoes" class="form-control" rows="3" ${dis}>${esc(r?.servicosObservacoes || '')}</textarea>
         </div>
       `)}
 
@@ -601,12 +602,12 @@ export function renderSecoesTecnicasRelatorio(r, somenteLeitura, opcoes = {}) {
           </div>
           <div>
             <label>Técnico responsável <small style="color:#999;">(impresso no rodapé da 2ª página)</small></label>
-            <input type="text" id="rel-tecnicoNome" class="form-control" value="${r?.tecnicoNome || nomeTecnicoDefault}" ${dis}>
+            <input type="text" id="rel-tecnicoNome" class="form-control" value="${esc(r?.tecnicoNome || nomeTecnicoDefault)}" ${dis}>
           </div>
         </div>
         <div style="margin-top:16px;">
           <label>Observações</label>
-          <textarea id="rel-observacoes" class="form-control" rows="3" ${dis}>${r?.observacoes || ''}</textarea>
+          <textarea id="rel-observacoes" class="form-control" rows="3" ${dis}>${esc(r?.observacoes || '')}</textarea>
         </div>
       `)}
   `
@@ -619,7 +620,7 @@ function renderFormularioRelatorio(r, empresas) {
   const dis = somenteLeitura ? 'disabled' : ''
   const novo = !r?.id
   const opcoesEmpresas = empresas.map(e =>
-    `<option value="${e.id}" ${r?.empresaId === e.id ? 'selected' : ''}>${e.nome} (${e.sigla})</option>`
+    `<option value="${e.id}" ${r?.empresaId === e.id ? 'selected' : ''}>${esc(e.nome)} (${esc(e.sigla)})</option>`
   ).join('')
 
   return `
@@ -636,35 +637,35 @@ function renderFormularioRelatorio(r, empresas) {
         ${r?.id ? badgeStatus(r.status) : ''}
       </div>
 
-      <input type="hidden" id="rel-ordemServicoId" value="${r?.ordemServicoId || ''}">
+      <input type="hidden" id="rel-ordemServicoId" value="${esc(r?.ordemServicoId || '')}">
 
       ${secao('Identificação', `
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
           <div><label>Empresa executante *</label><select id="rel-empresaId" class="form-control" ${dis}>${opcoesEmpresas}</select></div>
-          <div><label>Data *</label><input type="date" id="rel-data" class="form-control" value="${r?.data ? r.data.split('T')[0] : hojeISO()}" ${dis}></div>
+          <div><label>Data *</label><input type="date" id="rel-data" class="form-control" value="${esc(r?.data ? r.data.split('T')[0] : hojeISO())}" ${dis}></div>
           <div style="position:relative; grid-column: span 2;">
             <label>Embarcação (navio) * <small style="color:#999;">(busca por nome — autopreenche armador e porto; se não achar, digite livremente)</small></label>
             <input type="text" id="rel-embarcacao-busca" class="form-control" placeholder="Digite o nome do navio..."
-              value="${r?.navio || r?.embarcacao?.nome || ''}" oninput="buscarEmbarcacaoRelatorio(this.value)" autocomplete="off" ${dis}>
+              value="${esc(r?.navio || r?.embarcacao?.nome || '')}" oninput="buscarEmbarcacaoRelatorio(this.value)" autocomplete="off" ${dis}>
             <div id="sugestoes-embarcacao" style="position:absolute; background:white; border:1px solid #ccc; border-radius:4px; width:100%; z-index:999; display:none; top:100%;"></div>
-            <input type="hidden" id="rel-embarcacaoId" value="${r?.embarcacaoId || ''}">
+            <input type="hidden" id="rel-embarcacaoId" value="${esc(r?.embarcacaoId || '')}">
           </div>
-          <div><label>Armador</label><input type="text" id="rel-embarcacao-armador" class="form-control" value="${r?.armador || r?.embarcacao?.armador?.nome || ''}" ${dis}></div>
-          <div><label>Porto de Registro</label><input type="text" id="rel-embarcacao-porto" class="form-control" value="${r?.portoRegistro || r?.embarcacao?.portoRegistro || ''}" ${dis}></div>
+          <div><label>Armador</label><input type="text" id="rel-embarcacao-armador" class="form-control" value="${esc(r?.armador || r?.embarcacao?.armador?.nome || '')}" ${dis}></div>
+          <div><label>Porto de Registro</label><input type="text" id="rel-embarcacao-porto" class="form-control" value="${esc(r?.portoRegistro || r?.embarcacao?.portoRegistro || '')}" ${dis}></div>
         </div>
       `)}
 
       ${secao('Equipamento (balsa atendida)', `
         <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:16px;">
-          <div><label>Equipamento</label><input type="text" id="rel-equipTipo" class="form-control" value="${r?.equipTipo || 'BALSA INFLÁVEL'}" ${dis}></div>
-          <div><label>Nº Série</label><input type="text" id="rel-equipNumeroSerie" class="form-control" value="${r?.equipNumeroSerie || ''}" ${dis}></div>
-          <div><label>Ano Fabricação</label><input type="text" id="rel-equipAnoFabricacao" class="form-control" placeholder="Ex: 01/2010" value="${r?.equipAnoFabricacao || ''}" ${dis}></div>
-          <div><label>Marca/Fabricante</label><input type="text" id="rel-equipFabricante" class="form-control" value="${r?.equipFabricante || ''}" ${dis}></div>
-          <div><label>Modelo</label><input type="text" id="rel-equipModelo" class="form-control" value="${r?.equipModelo || ''}" ${dis}></div>
-          <div><label>Classe</label><input type="text" id="rel-equipClasse" class="form-control" placeholder="Ex: Classe II Pack B" value="${r?.equipClasse || ''}" ${dis}></div>
-          <div><label>Capacidade (pessoas)</label><input type="number" id="rel-equipCapacidade" class="form-control" value="${r?.equipCapacidade ?? ''}" ${novo ? 'onchange="atualizarQuantidadesPadraoRelatorio()"' : ''} ${dis}></div>
-          <div><label>Nº Certificado de Revisão anterior</label><input type="text" id="rel-certRevisaoNumero" class="form-control" value="${r?.certRevisaoNumero || ''}" ${dis}></div>
-          <div><label>Data de Expedição</label><input type="text" id="rel-certRevisaoDataExpedicao" class="form-control" value="${r?.certRevisaoDataExpedicao || ''}" ${dis}></div>
+          <div><label>Equipamento</label><input type="text" id="rel-equipTipo" class="form-control" value="${esc(r?.equipTipo || 'BALSA INFLÁVEL')}" ${dis}></div>
+          <div><label>Nº Série</label><input type="text" id="rel-equipNumeroSerie" class="form-control" value="${esc(r?.equipNumeroSerie || '')}" ${dis}></div>
+          <div><label>Ano Fabricação</label><input type="text" id="rel-equipAnoFabricacao" class="form-control" placeholder="Ex: 01/2010" value="${esc(r?.equipAnoFabricacao || '')}" ${dis}></div>
+          <div><label>Marca/Fabricante</label><input type="text" id="rel-equipFabricante" class="form-control" value="${esc(r?.equipFabricante || '')}" ${dis}></div>
+          <div><label>Modelo</label><input type="text" id="rel-equipModelo" class="form-control" value="${esc(r?.equipModelo || '')}" ${dis}></div>
+          <div><label>Classe</label><input type="text" id="rel-equipClasse" class="form-control" placeholder="Ex: Classe II Pack B" value="${esc(r?.equipClasse || '')}" ${dis}></div>
+          <div><label>Capacidade (pessoas)</label><input type="number" id="rel-equipCapacidade" class="form-control" value="${esc(r?.equipCapacidade ?? '')}" ${novo ? 'onchange="atualizarQuantidadesPadraoRelatorio()"' : ''} ${dis}></div>
+          <div><label>Nº Certificado de Revisão anterior</label><input type="text" id="rel-certRevisaoNumero" class="form-control" value="${esc(r?.certRevisaoNumero || '')}" ${dis}></div>
+          <div><label>Data de Expedição</label><input type="text" id="rel-certRevisaoDataExpedicao" class="form-control" value="${esc(r?.certRevisaoDataExpedicao || '')}" ${dis}></div>
         </div>
       `)}
 
@@ -729,12 +730,12 @@ window.buscarEmbarcacaoRelatorio = async function (q) {
 
   div.style.display = 'block'
   div.innerHTML = results.map(e => `
-    <div onclick='selecionarEmbarcacaoRelatorio(${JSON.stringify(e).replace(/'/g, '&apos;')})'
+    <div onclick="selecionarEmbarcacaoRelatorio(${esc(JSON.stringify(e))})"
       style="padding: 8px 12px; cursor:pointer; border-bottom: 1px solid #eee;"
       onmouseover="this.style.background='#f5f5f5'"
       onmouseout="this.style.background='white'">
-      <strong>${e.nome}</strong>
-      <span style="color:#999; font-size:12px; margin-left:8px;">${e.armador?.nome || ''}</span>
+      <strong>${esc(e.nome)}</strong>
+      <span style="color:#999; font-size:12px; margin-left:8px;">${esc(e.armador?.nome || '')}</span>
     </div>
   `).join('')
 }
@@ -771,14 +772,14 @@ export function renderizarCilindros() {
 
   tbody.innerHTML = cilindrosEstado.map((c, i) => `
     <tr>
-      <td><input type="text" class="form-control form-control-sm" id="cil-numero-${i}" value="${c.numero || ''}" ${dis}></td>
-      <td><input type="text" class="form-control form-control-sm" id="cil-valvulaNumero-${i}" value="${c.valvulaNumero || ''}" ${dis}></td>
-      <td><input type="text" class="form-control form-control-sm" id="cil-teste-${i}" value="${c.teste || ''}" ${dis}></td>
-      <td><input type="number" step="0.01" class="form-control form-control-sm" id="cil-carga-${i}" value="${c.carga ?? ''}" ${dis}></td>
-      <td><input type="number" step="0.01" class="form-control form-control-sm" id="cil-cargaCO2-${i}" value="${c.cargaCO2 ?? ''}" ${dis}></td>
-      <td><input type="number" step="0.01" class="form-control form-control-sm" id="cil-cargaN2-${i}" value="${c.cargaN2 ?? ''}" ${dis}></td>
-      <td><input type="text" class="form-control form-control-sm" id="cil-fabricante-${i}" value="${c.fabricante || ''}" ${dis}></td>
-      <td><input type="text" class="form-control form-control-sm" id="cil-anoFabricacao-${i}" value="${c.anoFabricacao || ''}" ${dis}></td>
+      <td><input type="text" class="form-control form-control-sm" id="cil-numero-${i}" value="${esc(c.numero || '')}" ${dis}></td>
+      <td><input type="text" class="form-control form-control-sm" id="cil-valvulaNumero-${i}" value="${esc(c.valvulaNumero || '')}" ${dis}></td>
+      <td><input type="text" class="form-control form-control-sm" id="cil-teste-${i}" value="${esc(c.teste || '')}" ${dis}></td>
+      <td><input type="number" step="0.01" class="form-control form-control-sm" id="cil-carga-${i}" value="${esc(c.carga ?? '')}" ${dis}></td>
+      <td><input type="number" step="0.01" class="form-control form-control-sm" id="cil-cargaCO2-${i}" value="${esc(c.cargaCO2 ?? '')}" ${dis}></td>
+      <td><input type="number" step="0.01" class="form-control form-control-sm" id="cil-cargaN2-${i}" value="${esc(c.cargaN2 ?? '')}" ${dis}></td>
+      <td><input type="text" class="form-control form-control-sm" id="cil-fabricante-${i}" value="${esc(c.fabricante || '')}" ${dis}></td>
+      <td><input type="text" class="form-control form-control-sm" id="cil-anoFabricacao-${i}" value="${esc(c.anoFabricacao || '')}" ${dis}></td>
       ${cilindrosSomenteLeitura ? '' : `<td><button class="btn btn-sm btn-danger" onclick="removerCilindro(${i})">✕</button></td>`}
     </tr>
   `).join('')

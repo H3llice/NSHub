@@ -1,4 +1,5 @@
 import { FUNCOES, FUNCOES_TECNICO, TIPOS_CONTRATO, labelFuncao } from './funcoes-colaborador.js'
+import { esc } from './html.js'
 
 const API = 'https://override-steerable-professed.ngrok-free.dev'
 
@@ -47,10 +48,6 @@ const perfil = usuarioAtual?.perfil || 'usuario'
 // O backend já omite esses campos pros outros perfis — aqui é só a interface.
 const podeGerir = ['admin', 'gerente'].includes(perfil)
 const tokenAtual = localStorage.getItem('ns_token')
-
-function esc(texto) {
-  return String(texto ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
-}
 
 function formatarCpf(cpf) {
   if (!cpf) return '-'

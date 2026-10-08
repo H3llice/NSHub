@@ -1,3 +1,4 @@
+import { esc } from './html.js'
 const API = 'https://override-steerable-professed.ngrok-free.dev'
 
 // ─── Auth helper (mesmo padrão dos outros módulos) ────────────────────────────
@@ -23,16 +24,6 @@ async function apiFetch(url, options = {}) {
     }
   })
   return tratarSessaoExpirada(res)
-}
-
-function esc(valor) {
-  if (valor === null || valor === undefined) return ''
-  return String(valor)
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#39;')
 }
 
 // O log guarda método + rota (ver backend/middleware/auditoria.js) — aqui vira

@@ -363,8 +363,20 @@ model Embarcacao {
   armador       Cliente  @relation(fields: [armadorId], references: [id])
   armadorId     Int
   portoRegistro String?
+  imo           String?
+  // nº IMO: 7 dígitos, último é dígito verificador (validado na rota)
+  tipo          String?
+  supervisor    String?
+  classe        String?
   email         String?
   telefone      String?
+
+  // Vencimentos dos certificados do navio — datas puras (meia-noite UTC)
+  vencLsaBaleeiras DateTime?
+  vencBalsa        DateTime?
+  vencFfe          DateTime?
+  vencIloCrane     DateTime?
+
   criadoEm      DateTime @default(now())
 
   relatorios    Relatorio[]

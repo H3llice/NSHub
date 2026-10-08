@@ -1,4 +1,5 @@
 import { labelFuncao } from './funcoes-colaborador.js'
+import { esc } from './html.js'
 
 const API = 'https://override-steerable-professed.ngrok-free.dev'
 
@@ -48,10 +49,6 @@ const usuarioAtual = JSON.parse(localStorage.getItem('ns_usuario') || 'null')
 const podeEditarEmbarques = ['admin', 'gerente'].includes(usuarioAtual?.perfil)
   || (usuarioAtual?.permissoes || []).includes('embarques')
 const colunasEmbarques = podeEditarEmbarques ? 7 : 6
-
-function esc(texto) {
-  return String(texto ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
-}
 
 // Datas de embarque são datas puras gravadas à meia-noite UTC — formatar em
 // UTC, senão no horário de Brasília aparecem um dia antes.

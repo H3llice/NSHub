@@ -1,3 +1,4 @@
+import { esc } from './html.js'
 const API = 'https://override-steerable-professed.ngrok-free.dev'
 
 // ─── Auth helper (mesmo padrão dos outros módulos) ────────────────────────────
@@ -65,7 +66,7 @@ const STATUS_ORCAMENTO_LABEL = {
 
 function badgeStatusOrcamento(status) {
   const s = STATUS_ORCAMENTO_LABEL[status] || { texto: status, cor: 'white', fundo: '#6c757d' }
-  return `<span style="background:${s.fundo}; color:${s.cor}; padding:2px 8px; border-radius:12px; font-size:12px;">${s.texto}</span>`
+  return `<span style="background:${s.fundo}; color:${s.cor}; padding:2px 8px; border-radius:12px; font-size:12px;">${esc(s.texto)}</span>`
 }
 
 function badgeEnvioOrcamento(statusEnvio) {
@@ -168,8 +169,8 @@ function renderizarTabelaOrcamentos(orcamentos) {
   tabela.innerHTML = orcamentos.map(o => `
     <tr>
       <td><a href="#" onclick="verOrcamento(${o.id}); return false;" style="color:var(--acento); font-weight:600; text-decoration:none;">${o.numero}.${o.ano}</a></td>
-      <td>${o.cliente.nome}</td>
-      <td>${o.vendedor?.nome || '-'}</td>
+      <td>${esc(o.cliente.nome)}</td>
+      <td>${esc(o.vendedor?.nome || '-')}</td>
       <td>${formatarDataOrc(o.dataOrcamento)}</td>
       <td>${formatarDataOrc(o.validade)}</td>
       <td>${badgeStatusOrcamento(o.status)}</td>
@@ -204,10 +205,10 @@ window.verOrcamento = async function (id) {
       <div style="background:white; border-radius:6px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06); margin-bottom:16px;">
         <div style="font-weight:700; color:var(--acento); margin-bottom:10px;">Informações do orçamento</div>
         <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:14px; font-size:13px;">
-          <div><span style="color:#999;">Cliente</span><br><strong>${o.cliente.nome}</strong></div>
-          <div><span style="color:#999;">E-mail</span><br><strong>${o.email || '-'}</strong></div>
-          <div><span style="color:#999;">Telefone</span><br><strong>${o.telefone || '-'}</strong></div>
-          <div><span style="color:#999;">Vendedor responsável</span><br><strong>${o.vendedor?.nome || '-'}</strong></div>
+          <div><span style="color:#999;">Cliente</span><br><strong>${esc(o.cliente.nome)}</strong></div>
+          <div><span style="color:#999;">E-mail</span><br><strong>${esc(o.email || '-')}</strong></div>
+          <div><span style="color:#999;">Telefone</span><br><strong>${esc(o.telefone || '-')}</strong></div>
+          <div><span style="color:#999;">Vendedor responsável</span><br><strong>${esc(o.vendedor?.nome || '-')}</strong></div>
           <div><span style="color:#999;">Status de envio</span><br>${badgeEnvioOrcamento(o.statusEnvio)}</div>
           <div><span style="color:#999;">Situação do orçamento</span><br>${badgeStatusOrcamento(o.status)}</div>
           <div><span style="color:#999;">Data do orçamento</span><br><strong>${formatarDataOrc(o.dataOrcamento)}</strong></div>
@@ -217,7 +218,7 @@ window.verOrcamento = async function (id) {
         ${o.descricao ? `
           <div style="margin-top:14px;">
             <span style="color:#999; font-size:13px;">Descrição</span>
-            <div style="font-size:13px; white-space:pre-line;">${o.descricao}</div>
+            <div style="font-size:13px; white-space:pre-line;">${esc(o.descricao)}</div>
           </div>
         ` : ''}
       </div>
@@ -231,9 +232,9 @@ window.verOrcamento = async function (id) {
             <tbody>
               ${o.itens.map(i => `
                 <tr>
-                  <td>${i.nome}</td>
-                  <td>${tipoLabel[i.tipo] || i.tipo}</td>
-                  <td>${i.detalhes || '-'}</td>
+                  <td>${esc(i.nome)}</td>
+                  <td>${esc(tipoLabel[i.tipo] || i.tipo)}</td>
+                  <td>${esc(i.detalhes || '-')}</td>
                   <td>${i.quantidade}</td>
                   <td>${formatarMoedaOrc(i.valorUnitario)}</td>
                   <td>${formatarMoedaOrc(i.quantidade * i.valorUnitario)}</td>
@@ -259,7 +260,7 @@ window.verOrcamento = async function (id) {
       ${o.observacoes ? `
         <div style="background:white; border-radius:6px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06); margin-bottom:16px;">
           <div style="font-weight:700; color:var(--acento); margin-bottom:8px;">Observações</div>
-          <div style="font-size:13px; color:#444; white-space:pre-line;">${o.observacoes}</div>
+          <div style="font-size:13px; color:#444; white-space:pre-line;">${esc(o.observacoes)}</div>
         </div>
       ` : ''}
 
@@ -327,12 +328,12 @@ function linhaItemOrcamento(i, item = {}) {
       </td>
       <td style="min-width:180px;">
         <input type="text" class="form-control form-control-sm" id="orc-item-catalogo-busca-${i}"
-          placeholder="Digite pra buscar..." value="${nomeCatalogoItem(tipo, selecionadoId)}" autocomplete="off"
+          placeholder="Digite pra buscar..." value="${esc(nomeCatalogoItem(tipo, selecionadoId))}" autocomplete="off"
           oninput="buscarCatalogoItemOrcamento(${i})" onfocus="buscarCatalogoItemOrcamento(${i})">
         <input type="hidden" id="orc-item-catalogo-${i}" value="${selecionadoId || ''}">
         <div id="orc-item-novo-${i}" style="display:none;"></div>
       </td>
-      <td><input type="text" class="form-control form-control-sm" id="orc-item-detalhes-${i}" value="${item.detalhes || ''}" placeholder="Opcional"></td>
+      <td><input type="text" class="form-control form-control-sm" id="orc-item-detalhes-${i}" value="${esc(item.detalhes || '')}" placeholder="Opcional"></td>
       <td><input type="number" class="form-control form-control-sm" id="orc-item-qtd-${i}" min="0" step="0.01" value="${item.quantidade || 1}" style="width:80px;" oninput="recalcularTotaisOrcamento()"></td>
       <td><input type="number" class="form-control form-control-sm" id="orc-item-valor-${i}" min="0" step="0.01" value="${item.valorUnitario ?? ''}" style="width:100px;" oninput="recalcularTotaisOrcamento()"></td>
       <td class="orc-col-desconto-item" style="display:none;">
@@ -424,7 +425,7 @@ window.buscarCatalogoItemOrcamento = function (i) {
     : filtrados.map(c => `
       <div onclick="selecionarCatalogoItemOrcamento(${i}, '${c.id}')" style="padding:8px 12px; cursor:pointer; border-bottom:1px solid #eee;"
         onmouseover="this.style.background='#f5f5f5'" onmouseout="this.style.background='white'">
-        ${c.nome} <span style="color:#999; font-size:12px;">${formatarMoedaOrc(c.valor)}</span>
+        ${esc(c.nome)} <span style="color:#999; font-size:12px;">${formatarMoedaOrc(c.valor)}</span>
       </div>
     `).join('')
 
@@ -593,7 +594,7 @@ async function abrirFormularioOrcamentoBase(o = null) {
       <div style="position:relative; margin-bottom:16px;">
         <label>Cliente * <small style="color:#999;">(busca por nome ou CPF/CNPJ — se não achar, preencha os dados abaixo para cadastrar um novo)</small></label>
         <input type="text" id="orc-cliente-busca" class="form-control"
-          placeholder="Digite nome ou CPF/CNPJ..." value="${o?.cliente?.nome || ''}"
+          placeholder="Digite nome ou CPF/CNPJ..." value="${esc(o?.cliente?.nome || '')}"
           oninput="buscarClienteOrcamento(this.value)" autocomplete="off">
         <div id="sugestoes-cliente-orc" style="position:absolute; background:white; border:1px solid #ccc; border-radius:4px; width:100%; z-index:999; display:none; top:100%;"></div>
       </div>
@@ -606,10 +607,10 @@ async function abrirFormularioOrcamentoBase(o = null) {
             <option value="juridica" ${o?.cliente?.tipoPessoa === 'juridica' ? 'selected' : ''}>Pessoa Jurídica</option>
           </select>
         </div>
-        <div><label>CPF/CNPJ</label><input type="text" id="orc-cliente-cpfCnpj" class="form-control" placeholder="Somente números" value="${o?.cliente?.cpfCnpj || ''}"></div>
-        <div style="grid-column:span 2;"><label>Nome / Razão Social</label><input type="text" id="orc-cliente-nome" class="form-control" value="${o?.cliente?.nome || ''}"></div>
-        <div><label>Telefone</label><input type="text" id="orc-telefone" class="form-control" value="${o?.telefone || ''}"></div>
-        <div><label>Email</label><input type="text" id="orc-email" class="form-control" value="${o?.email || ''}"></div>
+        <div><label>CPF/CNPJ</label><input type="text" id="orc-cliente-cpfCnpj" class="form-control" placeholder="Somente números" value="${esc(o?.cliente?.cpfCnpj || '')}"></div>
+        <div style="grid-column:span 2;"><label>Nome / Razão Social</label><input type="text" id="orc-cliente-nome" class="form-control" value="${esc(o?.cliente?.nome || '')}"></div>
+        <div><label>Telefone</label><input type="text" id="orc-telefone" class="form-control" value="${esc(o?.telefone || '')}"></div>
+        <div><label>Email</label><input type="text" id="orc-email" class="form-control" value="${esc(o?.email || '')}"></div>
       </div>
 
       <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:16px;">
@@ -617,7 +618,7 @@ async function abrirFormularioOrcamentoBase(o = null) {
           <label>Vendedor Responsável</label>
           <select id="orc-vendedorId" class="form-control">
             <option value="">Selecione...</option>
-            ${usuariosCacheOrc.map(u => `<option value="${u.id}" ${o?.vendedorId === u.id ? 'selected' : ''}>${u.nome}</option>`).join('')}
+            ${usuariosCacheOrc.map(u => `<option value="${u.id}" ${o?.vendedorId === u.id ? 'selected' : ''}>${esc(u.nome)}</option>`).join('')}
           </select>
         </div>
         <div><label>Data do Orçamento</label><input type="date" id="orc-dataOrcamento" class="form-control" value="${o?.dataOrcamento ? o.dataOrcamento.split('T')[0] : new Date().toISOString().split('T')[0]}"></div>
@@ -634,7 +635,7 @@ async function abrirFormularioOrcamentoBase(o = null) {
 
       <div style="margin-top:16px;">
         <label>Descrição</label>
-        <textarea id="orc-descricao" class="form-control" rows="2">${o?.descricao || ''}</textarea>
+        <textarea id="orc-descricao" class="form-control" rows="2">${esc(o?.descricao || '')}</textarea>
       </div>
 
       <h5 style="margin: 24px 0 10px;">Itens</h5>
@@ -683,7 +684,7 @@ async function abrirFormularioOrcamentoBase(o = null) {
 
       <div style="margin-top:16px;">
         <label>Observações complementares</label>
-        <textarea id="orc-observacoes" class="form-control" rows="3">${o?.observacoes || ''}</textarea>
+        <textarea id="orc-observacoes" class="form-control" rows="3">${esc(o?.observacoes || '')}</textarea>
       </div>
 
       <button type="button" class="btn btn-success" style="margin-top:20px;" onclick="salvarOrcamento()">${o ? 'Salvar Alterações' : 'Salvar Orçamento'}</button>
@@ -733,11 +734,11 @@ window.buscarClienteOrcamento = async function (q) {
 
   div.style.display = 'block'
   div.innerHTML = results.map(c => `
-    <div onclick='selecionarClienteOrcamento(${JSON.stringify(c)})'
+    <div onclick="selecionarClienteOrcamento(${esc(JSON.stringify(c))})"
       style="padding: 8px 12px; cursor:pointer; border-bottom: 1px solid #eee;"
       onmouseover="this.style.background='#f5f5f5'"
       onmouseout="this.style.background='white'">
-      <strong>${c.nome}</strong>
+      <strong>${esc(c.nome)}</strong>
     </div>
   `).join('')
 }

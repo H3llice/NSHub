@@ -1,3 +1,4 @@
+import { esc } from './html.js'
 const API = 'https://override-steerable-professed.ngrok-free.dev'
 
 // ─── Auth helper (mesmo padrão dos outros módulos) ────────────────────────────
@@ -147,10 +148,10 @@ function renderizarTabelaFornecedores(fornecedores) {
 
   tabela.innerHTML = fornecedores.map(f => `
     <tr>
-      <td style="cursor:pointer;" onclick="editarFornecedor(${f.id})">${f.nome}</td>
+      <td style="cursor:pointer;" onclick="editarFornecedor(${f.id})">${esc(f.nome)}</td>
       <td>${formatarDocumento(f.documento)}</td>
-      <td>${f.cidade || '-'}</td>
-      <td>${f.telefone || '-'}</td>
+      <td>${esc(f.cidade || '-')}</td>
+      <td>${esc(f.telefone || '-')}</td>
       <td><button class="btn btn-sm btn-info" onclick="editarFornecedor(${f.id})">Editar</button></td>
     </tr>
   `).join('')
@@ -161,14 +162,14 @@ const TIPOS_CONTA_FORNECEDOR = { corrente: 'Conta Corrente', poupanca: 'Poupanç
 function formularioFornecedorHtml(f = {}) {
   return `
     <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
-      <div style="grid-column:span 2;"><label>Nome *</label><input type="text" id="fornecedor-nome" class="form-control" value="${f.nome || ''}"></div>
-      <div><label>CNPJ/CPF</label><input type="text" id="fornecedor-documento" class="form-control" value="${f.documento || ''}" placeholder="Somente números"></div>
-      <div><label>Inscrição Estadual</label><input type="text" id="fornecedor-inscEstadual" class="form-control" value="${f.inscEstadual || ''}"></div>
-      <div style="grid-column:span 2;"><label>Endereço</label><input type="text" id="fornecedor-endereco" class="form-control" value="${f.endereco || ''}"></div>
-      <div><label>Cidade</label><input type="text" id="fornecedor-cidade" class="form-control" value="${f.cidade || ''}"></div>
-      <div><label>CEP</label><input type="text" id="fornecedor-cep" class="form-control" value="${f.cep || ''}"></div>
-      <div><label>Telefone</label><input type="text" id="fornecedor-telefone" class="form-control" value="${f.telefone || ''}"></div>
-      <div><label>Chave PIX</label><input type="text" id="fornecedor-chavePix" class="form-control" value="${f.chavePix || ''}"></div>
+      <div style="grid-column:span 2;"><label>Nome *</label><input type="text" id="fornecedor-nome" class="form-control" value="${esc(f.nome || '')}"></div>
+      <div><label>CNPJ/CPF</label><input type="text" id="fornecedor-documento" class="form-control" value="${esc(f.documento || '')}" placeholder="Somente números"></div>
+      <div><label>Inscrição Estadual</label><input type="text" id="fornecedor-inscEstadual" class="form-control" value="${esc(f.inscEstadual || '')}"></div>
+      <div style="grid-column:span 2;"><label>Endereço</label><input type="text" id="fornecedor-endereco" class="form-control" value="${esc(f.endereco || '')}"></div>
+      <div><label>Cidade</label><input type="text" id="fornecedor-cidade" class="form-control" value="${esc(f.cidade || '')}"></div>
+      <div><label>CEP</label><input type="text" id="fornecedor-cep" class="form-control" value="${esc(f.cep || '')}"></div>
+      <div><label>Telefone</label><input type="text" id="fornecedor-telefone" class="form-control" value="${esc(f.telefone || '')}"></div>
+      <div><label>Chave PIX</label><input type="text" id="fornecedor-chavePix" class="form-control" value="${esc(f.chavePix || '')}"></div>
       <div>
         <label>Tipo de Conta</label>
         <select id="fornecedor-tipoConta" class="form-control">
@@ -176,8 +177,8 @@ function formularioFornecedorHtml(f = {}) {
           ${Object.entries(TIPOS_CONTA_FORNECEDOR).map(([valor, label]) => `<option value="${valor}" ${f.tipoConta === valor ? 'selected' : ''}>${label}</option>`).join('')}
         </select>
       </div>
-      <div><label>Agência</label><input type="text" id="fornecedor-agencia" class="form-control" value="${f.agencia || ''}"></div>
-      <div><label>Número da Conta</label><input type="text" id="fornecedor-contaNumero" class="form-control" value="${f.contaNumero || ''}"></div>
+      <div><label>Agência</label><input type="text" id="fornecedor-agencia" class="form-control" value="${esc(f.agencia || '')}"></div>
+      <div><label>Número da Conta</label><input type="text" id="fornecedor-contaNumero" class="form-control" value="${esc(f.contaNumero || '')}"></div>
     </div>
   `
 }

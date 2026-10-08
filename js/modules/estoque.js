@@ -1,3 +1,4 @@
+import { esc } from './html.js'
 const API = 'https://override-steerable-professed.ngrok-free.dev'
 
 // ─── Auth helper (mesmo padrão do ocs.js) ─────────────────────────────────────
@@ -43,17 +44,6 @@ const usuarioAtual = JSON.parse(localStorage.getItem('ns_usuario') || 'null')
 const perfil = usuarioAtual?.perfil || 'usuario'
 const podeGerenciar = perfil === 'admin' || perfil === 'gerente'
 
-// Escapa texto livre antes de interpolar em HTML/atributos (observações, títulos de documento)
-function esc(valor) {
-  if (valor === null || valor === undefined) return ''
-  return String(valor)
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#39;')
-}
-
 // ─── Labels de status ─────────────────────────────────────────────────────────
 const STATUS_LABEL = {
   disponivel: { texto: 'Disponível', cor: '#198754' },
@@ -63,7 +53,7 @@ const STATUS_LABEL = {
 
 function badgeStatus(status) {
   const s = STATUS_LABEL[status] || { texto: status, cor: '#6c757d' }
-  return `<span style="background:${s.cor}; color:white; padding:2px 8px; border-radius:12px; font-size:12px;">${s.texto}</span>`
+  return `<span style="background:${s.cor}; color:white; padding:2px 8px; border-radius:12px; font-size:12px;">${esc(s.texto)}</span>`
 }
 
 // Guarda a lista completa (sem filtro) recebida do backend, por finalidade
@@ -270,14 +260,14 @@ function renderizarTabela(finalidade, balsas) {
 
   tabela.innerHTML = balsas.map(b => `
     <tr>
-      <td${podeGerenciar ? ` style="cursor:pointer;" onclick="editarBalsa(${b.id}, '${finalidade}')"` : ''}><strong>${b.capacidade}</strong></td>
+      <td${podeGerenciar ? ` style="cursor:pointer;" onclick="editarBalsa(${b.id}, '${finalidade}')"` : ''}><strong>${esc(b.capacidade)}</strong></td>
       <td>${esc(b.patrimonio) || '-'}</td>
-      <td${podeGerenciar ? ` style="cursor:pointer;" onclick="editarBalsa(${b.id}, '${finalidade}')"` : ''}>${b.fabricante}</td>
-      <td>${b.numeroSerie}</td>
-      <td>${b.modelo}</td>
-      <td>${b.anoFabricacao}</td>
-      <td>${b.tipo}</td>
-      <td>${b.armazem || '-'}</td>
+      <td${podeGerenciar ? ` style="cursor:pointer;" onclick="editarBalsa(${b.id}, '${finalidade}')"` : ''}>${esc(b.fabricante)}</td>
+      <td>${esc(b.numeroSerie)}</td>
+      <td>${esc(b.modelo)}</td>
+      <td>${esc(b.anoFabricacao)}</td>
+      <td>${esc(b.tipo)}</td>
+      <td>${esc(b.armazem || '-')}</td>
       <td>${badgeStatus(b.status)}</td>
       ${podeGerenciar ? `
         <td class="col-acoes">
@@ -525,14 +515,14 @@ window.editarBalsa = async function (id, finalidade) {
       <h3 style="margin:20px 0;">Editar Balsa ${badgeStatus(b.status)}</h3>
 
       <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
-        <div><label>Fabricante *</label><input type="text" id="balsa-fabricante" class="form-control" value="${b.fabricante}"></div>
-        <div><label>Nº de Série *</label><input type="text" id="balsa-numeroSerie" class="form-control" value="${b.numeroSerie}"></div>
-        <div><label>Modelo *</label><input type="text" id="balsa-modelo" class="form-control" value="${b.modelo}"></div>
-        <div><label>Ano de Fabricação *</label><input type="number" id="balsa-anoFabricacao" class="form-control" value="${b.anoFabricacao}"></div>
-        <div><label>Capacidade *</label><input type="number" id="balsa-capacidade" class="form-control" value="${b.capacidade}"></div>
-        <div><label>Tipo *</label><input type="text" id="balsa-tipo" class="form-control" value="${b.tipo}"></div>
+        <div><label>Fabricante *</label><input type="text" id="balsa-fabricante" class="form-control" value="${esc(b.fabricante)}"></div>
+        <div><label>Nº de Série *</label><input type="text" id="balsa-numeroSerie" class="form-control" value="${esc(b.numeroSerie)}"></div>
+        <div><label>Modelo *</label><input type="text" id="balsa-modelo" class="form-control" value="${esc(b.modelo)}"></div>
+        <div><label>Ano de Fabricação *</label><input type="number" id="balsa-anoFabricacao" class="form-control" value="${esc(b.anoFabricacao)}"></div>
+        <div><label>Capacidade *</label><input type="number" id="balsa-capacidade" class="form-control" value="${esc(b.capacidade)}"></div>
+        <div><label>Tipo *</label><input type="text" id="balsa-tipo" class="form-control" value="${esc(b.tipo)}"></div>
         <div><label>Patrimônio *</label><input type="text" id="balsa-patrimonio" class="form-control" value="${esc(b.patrimonio)}"></div>
-        <div><label>Armazém</label><input type="text" id="balsa-armazem" class="form-control" value="${b.armazem || ''}"></div>
+        <div><label>Armazém</label><input type="text" id="balsa-armazem" class="form-control" value="${esc(b.armazem || '')}"></div>
         <div>
           <label>Finalidade</label>
           <select id="balsa-finalidade" class="form-control">

@@ -18,6 +18,7 @@ import { inicializarOrdensServico } from './modules/ordens-servico.js'
 import { listarCertificados, urlPdfCertificado, badgeStatusCertificado, nomeTipoCertificado } from './modules/certificados.js'
 import { inicializarPerfil } from './modules/perfil.js'
 import { inicializarAuditoria } from './modules/auditoria.js'
+import { esc } from './modules/html.js'
 
 
 let favoritos = JSON.parse(localStorage.getItem('favoritos')) || [];
@@ -244,7 +245,7 @@ function atualizarFavoritos() {
         lista.innerHTML = favoritos.map(fav => `
             <li>
                 <a href="#" onclick="abrirPagina(event, '${fav.id}')" style="color: var(--acento); text-decoration: none; flex: 1;">
-                    ${fav.nome}
+                    ${esc(fav.nome)}
                 </a>
                 <button class="remove-favorito" onclick="removerFavorito(event, '${fav.id}')">✕</button>
             </li>
@@ -544,10 +545,10 @@ async function renderizarTabelaCertificadosBackend(tipo, pagina) {
             || (cert.relatorio?.criadoPor?.nome || cert.criadoPor?.nome) || '-'
         return `
             <tr>
-                <td style="cursor:pointer;" onclick="abrirCertificado(${cert.id})">${cert.numero}</td>
-                <td style="cursor:pointer;" onclick="abrirCertificado(${cert.id})">${cert.navio || cert.embarcacao?.nome || '-'}</td>
-                <td>${armador}</td>
-                <td>${tecnico}</td>
+                <td style="cursor:pointer;" onclick="abrirCertificado(${cert.id})">${esc(cert.numero)}</td>
+                <td style="cursor:pointer;" onclick="abrirCertificado(${cert.id})">${esc(cert.navio || cert.embarcacao?.nome || '-')}</td>
+                <td>${esc(armador)}</td>
+                <td>${esc(tecnico)}</td>
                 <td>${badgeStatusCertificado(cert.status)}</td>
                 <td>${dataEmissao}</td>
                 <td class="col-acoes">
@@ -590,8 +591,8 @@ function renderizarTabelaCertificadosLegado(tipo) {
         const dataEmissao = new Date(cert.dataEmissao).toLocaleDateString('pt-BR');
         return `
             <tr>
-                <td style="cursor:pointer;" onclick="editarCertificado(${cert.id})">${cert.numero}</td>
-                <td style="cursor:pointer;" onclick="editarCertificado(${cert.id})">${cert.navio}</td>
+                <td style="cursor:pointer;" onclick="editarCertificado(${cert.id})">${esc(cert.numero)}</td>
+                <td style="cursor:pointer;" onclick="editarCertificado(${cert.id})">${esc(cert.navio)}</td>
                 <td>-</td>
                 <td>-</td>
                 <td>-</td>
