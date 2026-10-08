@@ -82,6 +82,14 @@ function proximoVencimentoHtml(e) {
   return texto
 }
 
+// Abre a página do navio no MarineTraffic (site público, na aba do usuário) —
+// a API deles é paga, então a consulta de porto/ETA fica por conta de quem clica
+function botaoMarineTrafficHtml(e, classeTamanho = '') {
+  if (!e.imo) return ''
+  const url = `https://www.marinetraffic.com/en/ais/details/ships/imo:${encodeURIComponent(e.imo)}`
+  return `<a class="btn ${classeTamanho} btn-primary" href="${esc(url)}" target="_blank" rel="noopener noreferrer">MarineTraffic</a>`
+}
+
 export function inicializarEmbarcacoes() {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'))
   document.getElementById('embarcacoes').classList.add('active')
@@ -177,6 +185,7 @@ function renderizarTabelaEmbarcacoes(embarcacoes) {
       <td class="col-acoes">
         <div style="display:flex; flex-wrap:wrap; gap:6px;">
           <button class="btn btn-sm btn-info" onclick="editarEmbarcacao(${e.id})">Editar</button>
+          ${botaoMarineTrafficHtml(e, 'btn-sm')}
           ${podeExcluirEmbarcacao ? `<button class="btn btn-sm btn-danger" onclick="excluirEmbarcacao(${e.id})">Excluir</button>` : ''}
         </div>
       </td>
@@ -313,6 +322,7 @@ window.editarEmbarcacao = async function (id) {
       ${formularioEmbarcacaoHtml(e)}
       <div style="display:flex; flex-wrap:wrap; gap:8px; margin-top:20px;">
         <button type="button" class="btn btn-success" onclick="atualizarEmbarcacao(${e.id})">Salvar Alterações</button>
+        ${botaoMarineTrafficHtml(e)}
         ${podeExcluirEmbarcacao ? `<button type="button" class="btn btn-danger" onclick="excluirEmbarcacao(${e.id})">Excluir</button>` : ''}
       </div>
     </div>
