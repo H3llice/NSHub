@@ -125,6 +125,34 @@ router.post('/', autenticar, async (req, res) => {
   res.json(embarcacao)
 })
 
+// ─── Cadastrar várias embarcações do mesmo armador de uma vez ──────────────────
+// Tudo ou nada: se uma estiver inválida, nenhuma é gravada — senão o usuário
+// teria que descobrir quais entraram pra não cadastrar em dobro ao corrigir.
+router.post('/lote', autenticar, async (req, res) => {
+  const { armadorId, embarcacoes } = req.body
+
+  if (!armadorId) return res.status(400).json({ erro: 'Armador é obrigatório' })
+  if (!Array.isArray(embarcacoes) || embarcacoes.length === 0) {
+    return res.status(400).json({ erro: 'Informe ao menos uma embarcação' })
+  }
+  if (embarcacoes.length > 50) return res.status(400).json({ erro: 'Máximo de 50 embarcações por vez' })
+
+  const armador = await prisma.cliente.findUnique({ where: { id: parseInt(armadorId) } })
+  if (!armador) return res.status(400).json({ erro: 'Armador não encontrado' })
+
+  const registros = []
+  for (const [i, e] of embarcacoes.entries()) {
+    const nome = String(e?.nome ?? '').trim()
+    if (!nome) return res.status(400).json({ erro: `Embarcação ${i + 1}: nome do navio é obrigatório` })
+    const { dados, erro } = lerCamposOpcionais(e)
+    if (erro) return res.status(400).json({ erro: `Embarcação ${i + 1} (${nome}): ${erro}` })
+    registros.push({ ...dados, nome, armadorId: armador.id })
+  }
+
+  const criadas = await prisma.$transaction(registros.map(data => prisma.embarcacao.create({ data })))
+  res.json(criadas)
+})
+
 // ─── Editar embarcação (qualquer usuário logado) ───────────────────────────────
 router.put('/:id', autenticar, async (req, res) => {
   const id = Number(req.params.id)

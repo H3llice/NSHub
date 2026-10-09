@@ -198,13 +198,50 @@ window.abrirFormularioEmbarcacao = function () {
     <div style="margin-top:20px; max-width:600px;">
       <button class="btn btn-secondary" onclick="inicializarEmbarcacoes()">← Voltar</button>
       <h3 style="margin:20px 0;">Nova Embarcação</h3>
-      ${formularioEmbarcacaoHtml()}
-      <button type="button" class="btn btn-success" style="margin-top:20px;" onclick="salvarEmbarcacao()">Salvar</button>
+      ${campoArmadorHtml()}
+      <div id="blocos-embarcacao"></div>
+      <button type="button" class="btn btn-secondary" style="margin-top:16px;" onclick="adicionarBlocoEmbarcacao()">+ Adicionar outra embarcação</button>
+      <div><button type="button" class="btn btn-success" style="margin-top:20px;" onclick="salvarEmbarcacao()">Salvar</button></div>
     </div>
   `
+  adicionarBlocoEmbarcacao()
 }
 
-function formularioEmbarcacaoHtml(e = {}) {
+// Cadastro em lote: o armador é um só (campo no topo) e cada embarcação é um
+// bloco com os próprios campos. Com um bloco só, a tela fica igual ao cadastro simples.
+window.adicionarBlocoEmbarcacao = function () {
+  const container = document.getElementById('blocos-embarcacao')
+  const bloco = document.createElement('div')
+  bloco.className = 'bloco-embarcacao'
+  bloco.style = 'background:white; border-radius:6px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06); margin-top:16px;'
+  bloco.innerHTML = `
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+      <div class="titulo-bloco-embarcacao" style="font-weight:700; color:var(--acento);"></div>
+      <button type="button" class="btn btn-sm btn-danger botao-remover-bloco" onclick="removerBlocoEmbarcacao(this)">✕ Remover</button>
+    </div>
+    ${camposEmbarcacaoHtml()}
+  `
+  container.appendChild(bloco)
+  numerarBlocosEmbarcacao()
+  bloco.querySelector('[data-campo="nome"]').focus()
+}
+
+window.removerBlocoEmbarcacao = function (btn) {
+  btn.closest('.bloco-embarcacao').remove()
+  numerarBlocosEmbarcacao()
+}
+
+// Numeração bate com a do erro que o backend devolve ("Embarcação 2: ...");
+// com um bloco só, nem título nem botão de remover aparecem
+function numerarBlocosEmbarcacao() {
+  const blocos = document.querySelectorAll('#blocos-embarcacao .bloco-embarcacao')
+  blocos.forEach((b, i) => {
+    b.querySelector('.titulo-bloco-embarcacao').textContent = blocos.length > 1 ? `Embarcação ${i + 1}` : ''
+    b.querySelector('.botao-remover-bloco').style.display = blocos.length > 1 ? '' : 'none'
+  })
+}
+
+function campoArmadorHtml(e = {}) {
   return `
     <div style="position:relative; margin-bottom:16px;">
       <label>Armador * <small style="color:#999;">(busca por nome ou CPF/CNPJ do cliente já cadastrado)</small></label>
@@ -215,22 +252,28 @@ function formularioEmbarcacaoHtml(e = {}) {
       <div id="sugestoes-armador" style="position:absolute; background:white; border:1px solid #ccc; border-radius:4px; width:100%; z-index:999; display:none; top:100%;"></div>
       <input type="hidden" id="embarcacao-armadorId" value="${e.armadorId || ''}">
     </div>
+  `
+}
 
+// Campos de uma embarcação, identificados por data-campo (e não id) porque o
+// cadastro em lote repete o bloco na mesma tela
+function camposEmbarcacaoHtml(e = {}) {
+  return `
     <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
-      <div style="grid-column: span 2;"><label>Navio *</label><input type="text" id="embarcacao-nome" class="form-control" value="${esc(e.nome || '')}"></div>
-      <div><label>IMO</label><input type="text" id="embarcacao-imo" class="form-control" inputmode="numeric" maxlength="11" placeholder="7 dígitos" value="${esc(e.imo || '')}"></div>
-      <div><label>Tipo</label><input type="text" id="embarcacao-tipo" class="form-control" placeholder="Ex: Rebocador, PSV, Graneleiro" value="${esc(e.tipo || '')}"></div>
-      <div><label>Porto de Registro</label><input type="text" id="embarcacao-portoRegistro" class="form-control" value="${esc(e.portoRegistro || '')}"></div>
-      <div><label>Classe</label><input type="text" id="embarcacao-classe" class="form-control" placeholder="Ex: BV, DNV, ABS" value="${esc(e.classe || '')}"></div>
-      <div style="grid-column: span 2;"><label>Supervisor</label><input type="text" id="embarcacao-supervisor" class="form-control" value="${esc(e.supervisor || '')}"></div>
-      <div><label>Telefone</label><input type="text" id="embarcacao-telefone" class="form-control" value="${esc(e.telefone || '')}"></div>
-      <div><label>Email</label><input type="email" id="embarcacao-email" class="form-control" value="${esc(e.email || '')}"></div>
+      <div style="grid-column: span 2;"><label>Navio *</label><input type="text" data-campo="nome" class="form-control" value="${esc(e.nome || '')}"></div>
+      <div><label>IMO</label><input type="text" data-campo="imo" class="form-control" inputmode="numeric" maxlength="11" placeholder="7 dígitos" value="${esc(e.imo || '')}"></div>
+      <div><label>Tipo</label><input type="text" data-campo="tipo" class="form-control" placeholder="Ex: Rebocador, PSV, Graneleiro" value="${esc(e.tipo || '')}"></div>
+      <div><label>Porto de Registro</label><input type="text" data-campo="portoRegistro" class="form-control" value="${esc(e.portoRegistro || '')}"></div>
+      <div><label>Classe</label><input type="text" data-campo="classe" class="form-control" placeholder="Ex: BV, DNV, ABS" value="${esc(e.classe || '')}"></div>
+      <div style="grid-column: span 2;"><label>Supervisor</label><input type="text" data-campo="supervisor" class="form-control" value="${esc(e.supervisor || '')}"></div>
+      <div><label>Telefone</label><input type="text" data-campo="telefone" class="form-control" value="${esc(e.telefone || '')}"></div>
+      <div><label>Email</label><input type="email" data-campo="email" class="form-control" value="${esc(e.email || '')}"></div>
     </div>
 
     <h5 style="margin:24px 0 12px;">Vencimento dos certificados</h5>
     <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
       ${CERTIFICADOS_EMBARCACAO.map(c => `
-        <div><label>${c.rotulo}</label><input type="date" id="embarcacao-${c.campo}" class="form-control" value="${e[c.campo] ? e[c.campo].slice(0, 10) : ''}"></div>
+        <div><label>${c.rotulo}</label><input type="date" data-campo="${c.campo}" class="form-control" value="${e[c.campo] ? e[c.campo].slice(0, 10) : ''}"></div>
       `).join('')}
     </div>
   `
@@ -278,37 +321,33 @@ document.addEventListener('click', (e) => {
   }
 })
 
-function lerFormularioEmbarcacao() {
-  const valor = id => document.getElementById(id).value.trim()
-  const body = {
-    armadorId: valor('embarcacao-armadorId'),
-    nome: valor('embarcacao-nome'),
-    imo: valor('embarcacao-imo'),
-    tipo: valor('embarcacao-tipo'),
-    portoRegistro: valor('embarcacao-portoRegistro'),
-    classe: valor('embarcacao-classe'),
-    supervisor: valor('embarcacao-supervisor'),
-    telefone: valor('embarcacao-telefone'),
-    email: valor('embarcacao-email'),
-  }
-  CERTIFICADOS_EMBARCACAO.forEach(c => { body[c.campo] = valor(`embarcacao-${c.campo}`) })
+function lerCamposEmbarcacao(bloco) {
+  const body = {}
+  bloco.querySelectorAll('[data-campo]').forEach(el => { body[el.dataset.campo] = el.value.trim() })
   return body
 }
 
+function armadorSelecionado() {
+  return document.getElementById('embarcacao-armadorId').value.trim()
+}
+
 window.salvarEmbarcacao = async function () {
-  const body = lerFormularioEmbarcacao()
-  if (!body.armadorId || !body.nome) {
-    alert('Armador e nome do navio são obrigatórios! Selecione o armador na lista de sugestões.')
+  const armadorId = armadorSelecionado()
+  const embarcacoes = [...document.querySelectorAll('#blocos-embarcacao .bloco-embarcacao')].map(lerCamposEmbarcacao)
+  if (!armadorId) { alert('Selecione o armador na lista de sugestões!'); return }
+  const semNome = embarcacoes.findIndex(e => !e.nome)
+  if (semNome !== -1) {
+    alert(embarcacoes.length > 1 ? `Embarcação ${semNome + 1}: informe o nome do navio!` : 'Informe o nome do navio!')
     return
   }
 
-  const res = await apiJson(`${API}/embarcacoes`, { method: 'POST', body: JSON.stringify(body) })
+  const res = await apiJson(`${API}/embarcacoes/lote`, { method: 'POST', body: JSON.stringify({ armadorId, embarcacoes }) })
   if (res.ok) {
-    alert('Embarcação cadastrada com sucesso!')
+    alert(embarcacoes.length > 1 ? `${embarcacoes.length} embarcações cadastradas com sucesso!` : 'Embarcação cadastrada com sucesso!')
     inicializarEmbarcacoes()
   } else {
-    const err = await res.json()
-    alert('Erro: ' + (err.erro || 'Falha ao cadastrar'))
+    const err = await res.json().catch(() => ({}))
+    alert('Erro: ' + (err.erro || 'Falha ao cadastrar') + (embarcacoes.length > 1 ? '\n\nNenhuma embarcação foi gravada.' : ''))
   }
 }
 
@@ -319,7 +358,8 @@ window.editarEmbarcacao = async function (id) {
     <div style="margin-top:20px; max-width:600px;">
       <button class="btn btn-secondary" onclick="inicializarEmbarcacoes()">← Voltar</button>
       <h3 style="margin:20px 0;">Editar Embarcação</h3>
-      ${formularioEmbarcacaoHtml(e)}
+      ${campoArmadorHtml(e)}
+      <div id="form-embarcacao-edicao">${camposEmbarcacaoHtml(e)}</div>
       <div style="display:flex; flex-wrap:wrap; gap:8px; margin-top:20px;">
         <button type="button" class="btn btn-success" onclick="atualizarEmbarcacao(${e.id})">Salvar Alterações</button>
         ${botaoMarineTrafficHtml(e)}
@@ -330,7 +370,7 @@ window.editarEmbarcacao = async function (id) {
 }
 
 window.atualizarEmbarcacao = async function (id) {
-  const body = lerFormularioEmbarcacao()
+  const body = { armadorId: armadorSelecionado(), ...lerCamposEmbarcacao(document.getElementById('form-embarcacao-edicao')) }
   if (!body.armadorId || !body.nome) {
     alert('Armador e nome do navio são obrigatórios! Selecione o armador na lista de sugestões.')
     return
