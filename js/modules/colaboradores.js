@@ -209,7 +209,7 @@ function renderizarTabelaColaboradores(colaboradores) {
 
   tabela.innerHTML = colaboradores.map(c => `
     <tr${c.ativo ? '' : ' style="opacity:0.55;"'}>
-      <td>${esc(c.nome)}${c.ativo ? '' : ' <small>(inativo)</small>'}</td>
+      <td><a href="#" onclick="verColaborador(${c.id}); return false;" style="color:var(--acento); font-weight:600; text-decoration:none;">${esc(c.nome)}</a>${c.ativo ? '' : ' <small>(inativo)</small>'}</td>
       <td>${esc(labelFuncao(c.funcao))}</td>
       <td>${esc(c.emailCorporativo) || '-'}</td>
       ${podeGerir ? `<td>${esc(c.usuario?.nome) || '-'}</td>` : ''}
@@ -222,22 +222,73 @@ function renderizarTabelaColaboradores(colaboradores) {
   `).join('')
 }
 
-// ─── Visualização (perfis sem permissão de edição) ────────────────────────────
-window.verColaborador = function (id) {
-  const c = colaboradoresCache.find(x => x.id === id)
-  if (!c) return
+// ─── Visualização (clique no nome) — só leitura, no mesmo formato da tela da OC ─
+// Os campos pessoais/financeiros só vêm do backend pra admin e gerente; pros
+// outros perfis os cartões que dependem deles nem aparecem.
+const formatarReais = v => v == null ? '-' : 'R$ ' + Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+const estiloCartao = 'background:white; border-radius:6px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06);'
+const campo = (rotulo, valor) => `<div><span style="color:#999;">${rotulo}</span><br><strong>${valor}</strong></div>`
+
+window.verColaborador = async function (id) {
+  const res = await apiFetch(`${API}/colaboradores/${id}`)
+  if (!res.ok) { alert('Erro ao carregar colaborador'); return }
+  const c = await res.json()
+
+  const data = d => d ? formatarDataUTC(d) : '-'
+  const ferias = c.feriasInicio ? `${data(c.feriasInicio)} a ${data(c.feriasFim)}` : '-'
+  const badge = `<span style="background:${c.ativo ? '#198754' : '#6c757d'}; color:white; padding:2px 8px; border-radius:12px; font-size:12px;">${c.ativo ? 'Ativo' : 'Inativo'}</span>`
 
   document.getElementById('colaboradores').innerHTML = `
-    <div style="margin-top:20px; max-width:700px;">
-      <button class="btn btn-secondary" onclick="inicializarColaboradores()">← Voltar</button>
-      <h3 style="margin:20px 0;">${esc(c.nome)}</h3>
-      <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
-        <div><span style="color:#999;">Função</span><br><strong>${esc(labelFuncao(c.funcao))}</strong></div>
-        <div><span style="color:#999;">Email corporativo</span><br><strong>${esc(c.emailCorporativo) || '-'}</strong></div>
-        <div><span style="color:#999;">Data de admissão</span><br><strong>${c.dataAdmissao ? formatarDataUTC(c.dataAdmissao) : '-'}</strong></div>
-        ${FUNCOES_TECNICO.includes(c.funcao) ? `<div><span style="color:#999;">SISPAT</span><br><strong>${esc(c.sispat) || '-'}</strong></div>` : ''}
-        <div><span style="color:#999;">Situação</span><br><strong>${c.ativo ? 'Ativo' : 'Inativo'}</strong></div>
+    <div style="margin-top:20px; max-width:900px;">
+      <div style="display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:8px; margin-bottom:20px;">
+        <button class="btn btn-secondary" onclick="inicializarColaboradores()">← Voltar</button>
+        ${podeGerir ? `<button class="btn btn-info" onclick="editarColaborador(${c.id})">✏️ Editar</button>` : ''}
       </div>
+
+      <div style="display:flex; align-items:center; gap:12px; margin-bottom:20px;">
+        <h3 style="margin:0;">${esc(c.nome)}</h3>
+        ${badge}
+      </div>
+
+      <div class="info-grid-2" style="margin-bottom:20px;">
+        <div style="${estiloCartao}">
+          <div style="font-weight:700; color:var(--acento); margin-bottom:10px;">Trabalho</div>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px; font-size:13px;">
+            ${campo('Função', esc(labelFuncao(c.funcao)))}
+            ${campo('Data de admissão', data(c.dataAdmissao))}
+            ${campo('Tipo de contrato', esc(TIPOS_CONTRATO[c.tipoContrato] || c.tipoContrato || '-'))}
+            ${FUNCOES_TECNICO.includes(c.funcao) ? campo('SISPAT', esc(c.sispat || '-')) : ''}
+            ${campo('Email corporativo', esc(c.emailCorporativo || '-'))}
+            ${campo('Usuário do sistema', esc(c.usuario?.nome || '-'))}
+            ${campo('Férias', ferias)}
+          </div>
+        </div>
+
+        ${podeGerir ? `
+        <div style="${estiloCartao}">
+          <div style="font-weight:700; color:var(--acento); margin-bottom:10px;">Dados pessoais</div>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px; font-size:13px;">
+            ${campo('CPF', formatarCpf(c.cpf))}
+            ${campo('Data de nascimento', data(c.dataNascimento))}
+            ${campo('Email pessoal', esc(c.emailPessoal || '-'))}
+            ${campo('Contato de emergência', esc(c.contatoEmergenciaNome || '-'))}
+            ${campo('Telefone de emergência', esc(c.contatoEmergenciaTelefone || '-'))}
+          </div>
+        </div>
+        ` : ''}
+      </div>
+
+      ${podeGerir ? `
+      <div style="${estiloCartao} margin-bottom:16px;">
+        <div style="font-weight:700; color:var(--acento); margin-bottom:10px;">Remuneração</div>
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:6px; font-size:13px;">
+          ${campo(c.tipoContrato === 'intermitente' ? 'Salário por dia' : 'Salário mensal', formatarReais(c.salario))}
+          ${campo('Desconto plano de saúde', c.descontoPlanoSaude ? formatarReais(c.descontoPlanoSaude) + '/mês' : 'Sem plano')}
+          ${campo('Vale-transporte', c.descontoValeTransporte ? 'Desconta 6%' : 'Não desconta')}
+          ${campo('Auxílio moradia', c.auxilioMoradia ? formatarReais(c.valorAuxilioMoradia) + '/mês' : 'Não recebe')}
+        </div>
+      </div>
+      ` : ''}
     </div>
   `
 }
