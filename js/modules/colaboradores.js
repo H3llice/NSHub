@@ -47,6 +47,8 @@ const perfil = usuarioAtual?.perfil || 'usuario'
 // Só admin e gerente editam e veem dados pessoais (CPF, email pessoal, documentos).
 // O backend já omite esses campos pros outros perfis — aqui é só a interface.
 const podeGerir = ['admin', 'gerente'].includes(perfil)
+// Financeiro também vê a remuneração (já vê na Folha de pagamento), mas não edita
+const podeVerRemuneracao = podeGerir || perfil === 'financeiro'
 const tokenAtual = localStorage.getItem('ns_token')
 
 function formatarCpf(cpf) {
@@ -278,7 +280,7 @@ window.verColaborador = async function (id) {
         ` : ''}
       </div>
 
-      ${podeGerir ? `
+      ${podeVerRemuneracao ? `
       <div style="${estiloCartao} margin-bottom:16px;">
         <div style="font-weight:700; color:var(--acento); margin-bottom:10px;">Remuneração</div>
         <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:6px; font-size:13px;">

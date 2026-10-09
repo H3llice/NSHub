@@ -57,12 +57,20 @@ const upload = multer({
 })
 
 const podeGerir = req => PERFIS_GESTAO.includes(req.usuario?.perfil)
+// Financeiro vê quanto cada um recebe (já vê na Folha de pagamento), mas não
+// os dados pessoais nem os documentos, e não edita
+const podeVerRemuneracao = req => [...PERFIS_GESTAO, 'financeiro'].includes(req.usuario?.perfil)
 
-// Remove os campos pessoais para quem não é admin/gerente
-function filtrarCampos(colaborador, completo) {
-  if (completo) return colaborador
-  const { cpf, emailPessoal, dataNascimento, contatoEmergenciaNome, contatoEmergenciaTelefone, descontoPlanoSaude, salario, valeTransporte, descontoValeTransporte, auxilioMoradia, valorAuxilioMoradia, documentos, usuario, ...publico } = colaborador
-  return { ...publico, usuario: usuario && { id: usuario.id, nome: usuario.nome } }
+// Remove os campos pessoais para quem não é admin/gerente, e os de
+// remuneração também para quem não é financeiro
+function filtrarCampos(colaborador, req) {
+  if (podeGerir(req)) return colaborador
+  const { cpf, emailPessoal, dataNascimento, contatoEmergenciaNome, contatoEmergenciaTelefone, documentos, usuario,
+    descontoPlanoSaude, salario, valeTransporte, descontoValeTransporte, auxilioMoradia, valorAuxilioMoradia, ...publico } = colaborador
+  const remuneracao = podeVerRemuneracao(req)
+    ? { descontoPlanoSaude, salario, valeTransporte, descontoValeTransporte, auxilioMoradia, valorAuxilioMoradia }
+    : {}
+  return { ...publico, ...remuneracao, usuario: usuario && { id: usuario.id, nome: usuario.nome } }
 }
 
 function cpfValido(cpf) {
@@ -203,7 +211,7 @@ router.get('/', autenticar, async (req, res) => {
   // que é o que o formulário de edição usa
   res.json({
     colaboradores: colaboradores.map(c => {
-      const { cpf, ...semCpf } = filtrarCampos(c, podeGerir(req))
+      const { cpf, ...semCpf } = filtrarCampos(c, req)
       return semCpf
     }),
     total,
@@ -270,7 +278,7 @@ router.get('/:id', autenticar, async (req, res) => {
     }
   })
   if (!colaborador) return res.status(404).json({ erro: 'Colaborador não encontrado' })
-  res.json(filtrarCampos(colaborador, completo))
+  res.json(filtrarCampos(colaborador, req))
 })
 
 // ─── Cadastrar colaborador (só admin e gerente) ────────────────────────────────
