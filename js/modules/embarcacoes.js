@@ -102,6 +102,8 @@ export function inicializarEmbarcacoes() {
     <div class="filtros-grid">
       <input type="text" id="filtro-embarcacao-nome" class="form-control" placeholder="Buscar por nome do navio..." oninput="carregarEmbarcacoes(1)">
       <input type="text" id="filtro-embarcacao-armador" class="form-control" placeholder="Buscar por armador..." oninput="carregarEmbarcacoes(1)">
+      <input type="text" id="filtro-embarcacao-porto" class="form-control" list="sugestoes-portos" placeholder="Buscar por porto..." oninput="carregarEmbarcacoes(1)">
+      <datalist id="sugestoes-portos"></datalist>
     </div>
 
     <div class="table-scroll">
@@ -113,12 +115,13 @@ export function inicializarEmbarcacoes() {
             <th>Tipo</th>
             <th>Armador</th>
             <th>Porto de Registro</th>
+            <th>Atraca em</th>
             <th>Próximo vencimento</th>
             <th class="col-acoes">Ações</th>
           </tr>
         </thead>
         <tbody id="tabela-embarcacoes">
-          <tr><td colspan="7" style="text-align:center; color:#999; padding:30px;">Carregando...</td></tr>
+          <tr><td colspan="8" style="text-align:center; color:#999; padding:30px;">Carregando...</td></tr>
         </tbody>
       </table>
     </div>
@@ -126,23 +129,34 @@ export function inicializarEmbarcacoes() {
   `
 
   carregarEmbarcacoes()
+  carregarSugestoesPortos()
 }
 
 let embarcacoesCache = []
 let paginaAtualEmbarcacoes = 1
 
+// Filtro e autocomplete disparam uma requisição por tecla: só a resposta da
+// última requisição pode desenhar a tela, senão uma resposta antiga que chega
+// atrasada sobrescreve o resultado da busca atual
+let seqCarregarEmbarcacoes = 0
+let seqBuscarArmador = 0
+
 window.carregarEmbarcacoes = async function (pagina = 1) {
+  const seq = ++seqCarregarEmbarcacoes
   paginaAtualEmbarcacoes = pagina
   const nome = document.getElementById('filtro-embarcacao-nome')?.value || ''
   const armador = document.getElementById('filtro-embarcacao-armador')?.value || ''
+  const porto = document.getElementById('filtro-embarcacao-porto')?.value.trim() || ''
 
   const params = new URLSearchParams()
   if (nome) params.append('nome', nome)
   if (armador) params.append('armador', armador)
+  if (porto) params.append('porto', porto)
   params.append('pagina', pagina)
 
   try {
     const dados = await apiFetch(`${API}/embarcacoes?${params}`).then(r => r.json())
+    if (seq !== seqCarregarEmbarcacoes) return
     embarcacoesCache = dados.embarcacoes || []
     renderizarTabelaEmbarcacoes(embarcacoesCache)
 
@@ -160,8 +174,10 @@ window.carregarEmbarcacoes = async function (pagina = 1) {
       `
     }
   } catch {
-    document.getElementById('tabela-embarcacoes').innerHTML = `
-      <tr><td colspan="7" style="text-align:center; color:red; padding:30px;">Erro ao conectar com o servidor</td></tr>
+    if (seq !== seqCarregarEmbarcacoes) return
+    const tabela = document.getElementById('tabela-embarcacoes')
+    if (tabela) tabela.innerHTML = `
+      <tr><td colspan="8" style="text-align:center; color:red; padding:30px;">Erro ao conectar com o servidor</td></tr>
     `
   }
 }
@@ -170,7 +186,7 @@ function renderizarTabelaEmbarcacoes(embarcacoes) {
   const tabela = document.getElementById('tabela-embarcacoes')
 
   if (embarcacoes.length === 0) {
-    tabela.innerHTML = `<tr><td colspan="7" style="text-align:center; color:#999; padding:30px;">Nenhuma embarcação cadastrada ainda</td></tr>`
+    tabela.innerHTML = `<tr><td colspan="8" style="text-align:center; color:#999; padding:30px;">Nenhuma embarcação encontrada</td></tr>`
     return
   }
 
@@ -181,6 +197,7 @@ function renderizarTabelaEmbarcacoes(embarcacoes) {
       <td>${esc(e.tipo || '-')}</td>
       <td>${esc(e.armador?.nome || '-')}</td>
       <td>${esc(e.portoRegistro || '-')}</td>
+      <td>${esc((e.portos || []).map(p => p.porto).join(', ') || '-')}</td>
       <td style="white-space:nowrap;">${proximoVencimentoHtml(e)}</td>
       <td class="col-acoes">
         <div style="display:flex; flex-wrap:wrap; gap:6px;">
@@ -280,6 +297,7 @@ function camposEmbarcacaoHtml(e = {}) {
 }
 
 window.buscarArmadorEmbarcacao = async function (q) {
+  const seq = ++seqBuscarArmador
   const div = document.getElementById('sugestoes-armador')
   document.getElementById('embarcacao-armadorId').value = ''
 
@@ -289,6 +307,7 @@ window.buscarArmadorEmbarcacao = async function (q) {
   }
 
   const results = await apiFetch(`${API}/clientes/buscar?q=${encodeURIComponent(q)}`).then(r => r.json())
+  if (seq !== seqBuscarArmador) return
 
   if (results.length === 0) {
     div.innerHTML = `<div style="padding:8px 12px; color:#999;">Nenhum cliente encontrado — cadastre em Cadastros → Clientes primeiro</div>`
@@ -352,21 +371,146 @@ window.salvarEmbarcacao = async function () {
 }
 
 window.editarEmbarcacao = async function (id) {
-  const e = await apiFetch(`${API}/embarcacoes/${id}`).then(r => r.json())
+  const res = await apiFetch(`${API}/embarcacoes/${id}`)
+  if (!res.ok) {
+    // Ex.: excluída por outro usuário depois que a lista foi carregada
+    const err = await res.json().catch(() => ({}))
+    alert('Erro: ' + (err.erro || 'Falha ao carregar a embarcação'))
+    carregarEmbarcacoes(paginaAtualEmbarcacoes)
+    return
+  }
+  const e = await res.json()
 
   document.getElementById('embarcacoes').innerHTML = `
     <div style="margin-top:20px; max-width:600px;">
       <button class="btn btn-secondary" onclick="inicializarEmbarcacoes()">← Voltar</button>
-      <h3 style="margin:20px 0;">Editar Embarcação</h3>
-      ${campoArmadorHtml(e)}
-      <div id="form-embarcacao-edicao">${camposEmbarcacaoHtml(e)}</div>
-      <div style="display:flex; flex-wrap:wrap; gap:8px; margin-top:20px;">
-        <button type="button" class="btn btn-success" onclick="atualizarEmbarcacao(${e.id})">Salvar Alterações</button>
-        ${botaoMarineTrafficHtml(e)}
-        ${podeExcluirEmbarcacao ? `<button type="button" class="btn btn-danger" onclick="excluirEmbarcacao(${e.id})">Excluir</button>` : ''}
+      <h3 style="margin:20px 0 12px;">${esc(e.nome)}</h3>
+      <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:20px;">
+        <button type="button" class="btn btn-primary aba-embarcacao" data-aba="dados" onclick="mostrarAbaEmbarcacao('dados')">Dados</button>
+        <button type="button" class="btn btn-secondary aba-embarcacao" data-aba="portos" onclick="mostrarAbaEmbarcacao('portos')">Portos</button>
+      </div>
+
+      <div id="aba-embarcacao-dados">
+        ${campoArmadorHtml(e)}
+        <div id="form-embarcacao-edicao">${camposEmbarcacaoHtml(e)}</div>
+        <div style="display:flex; flex-wrap:wrap; gap:8px; margin-top:20px;">
+          <button type="button" class="btn btn-success" onclick="atualizarEmbarcacao(${e.id})">Salvar Alterações</button>
+          ${botaoMarineTrafficHtml(e)}
+          ${podeExcluirEmbarcacao ? `<button type="button" class="btn btn-danger" onclick="excluirEmbarcacao(${e.id})">Excluir</button>` : ''}
+        </div>
+      </div>
+
+      <div id="aba-embarcacao-portos" style="display:none;">
+        <p style="color:#666; margin-top:0;">Portos onde a embarcação atraca. Incluir e remover grava na hora; o porto removido fica no histórico.</p>
+        <div style="display:flex; gap:8px;">
+          <input type="text" id="novo-porto-embarcacao" class="form-control" list="sugestoes-portos" placeholder="Ex: Santos"
+            onkeydown="if (event.key === 'Enter') incluirPortoEmbarcacao(${e.id})">
+          <datalist id="sugestoes-portos"></datalist>
+          <button type="button" class="btn btn-success" onclick="incluirPortoEmbarcacao(${e.id})">Incluir</button>
+        </div>
+        <div id="lista-portos-embarcacao"></div>
       </div>
     </div>
   `
+  renderizarPortosEmbarcacao(e)
+  carregarSugestoesPortos()
+}
+
+// As duas abas ficam no DOM e só alternam a visibilidade: trocar de aba não
+// perde o que foi digitado em Dados e ainda não foi salvo
+window.mostrarAbaEmbarcacao = function (aba) {
+  document.querySelectorAll('.aba-embarcacao').forEach(b => {
+    b.classList.toggle('btn-primary', b.dataset.aba === aba)
+    b.classList.toggle('btn-secondary', b.dataset.aba !== aba)
+  })
+  document.getElementById('aba-embarcacao-dados').style.display = aba === 'dados' ? '' : 'none'
+  document.getElementById('aba-embarcacao-portos').style.display = aba === 'portos' ? '' : 'none'
+}
+
+// incluidoEm/removidoEm são momentos (não datas puras) → horário local
+function formatarMomentoPorto(data) {
+  return new Date(data).toLocaleDateString('pt-BR')
+}
+
+function renderizarPortosEmbarcacao(e) {
+  const atuais = (e.portos || []).filter(p => !p.removidoEm)
+  const historico = (e.portos || []).filter(p => p.removidoEm)
+    .sort((a, b) => new Date(b.removidoEm) - new Date(a.removidoEm))
+
+  document.getElementById('lista-portos-embarcacao').innerHTML = `
+    <h5 style="margin:24px 0 12px;">Atraca atualmente em</h5>
+    ${atuais.length === 0 ? '<p style="color:#999;">Nenhum porto cadastrado.</p>' : `
+      <table class="table-certificados">
+        <thead><tr><th>Porto</th><th>Incluído em</th><th class="col-acoes">Ações</th></tr></thead>
+        <tbody>
+          ${atuais.map(p => `
+            <tr>
+              <td>${esc(p.porto)}</td>
+              <td>${formatarMomentoPorto(p.incluidoEm)}</td>
+              <td class="col-acoes"><button type="button" class="btn btn-sm btn-danger" onclick="removerPortoEmbarcacao(${e.id}, ${p.id}, ${esc(JSON.stringify(p.porto))})">Remover</button></td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    `}
+
+    ${historico.length === 0 ? '' : `
+      <h5 style="margin:24px 0 12px;">Histórico</h5>
+      <table class="table-certificados">
+        <thead><tr><th>Porto</th><th>De</th><th>Até</th></tr></thead>
+        <tbody>
+          ${historico.map(p => `
+            <tr style="color:#888;">
+              <td>${esc(p.porto)}</td>
+              <td>${formatarMomentoPorto(p.incluidoEm)}</td>
+              <td>${formatarMomentoPorto(p.removidoEm)}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    `}
+  `
+}
+
+async function carregarSugestoesPortos() {
+  const portos = await apiFetch(`${API}/embarcacoes/portos/sugestoes`).then(r => r.json()).catch(() => [])
+  const lista = document.getElementById('sugestoes-portos')
+  if (lista) lista.innerHTML = portos.map(p => `<option value="${esc(p)}">`).join('')
+}
+
+// Depois de incluir/remover, recarrega só a aba Portos — a aba Dados pode ter
+// alterações ainda não salvas
+async function recarregarPortosEmbarcacao(id) {
+  const res = await apiFetch(`${API}/embarcacoes/${id}`)
+  if (res.ok) renderizarPortosEmbarcacao(await res.json())
+}
+
+window.incluirPortoEmbarcacao = async function (id) {
+  const input = document.getElementById('novo-porto-embarcacao')
+  const porto = input.value.trim()
+  if (!porto) { alert('Informe o nome do porto!'); return }
+
+  const res = await apiJson(`${API}/embarcacoes/${id}/portos`, { method: 'POST', body: JSON.stringify({ porto }) })
+  if (res.ok) {
+    input.value = ''
+    await recarregarPortosEmbarcacao(id)
+    carregarSugestoesPortos()
+  } else {
+    const err = await res.json().catch(() => ({}))
+    alert('Erro: ' + (err.erro || 'Falha ao incluir o porto'))
+  }
+}
+
+window.removerPortoEmbarcacao = async function (id, portoId, nomePorto) {
+  if (!confirm(`Remover ${nomePorto} da lista de portos? Ele continua no histórico.`)) return
+
+  const res = await apiJson(`${API}/embarcacoes/${id}/portos/${portoId}`, { method: 'DELETE' })
+  if (res.ok) {
+    await recarregarPortosEmbarcacao(id)
+  } else {
+    const err = await res.json().catch(() => ({}))
+    alert('Erro: ' + (err.erro || 'Falha ao remover o porto'))
+  }
 }
 
 window.atualizarEmbarcacao = async function (id) {
@@ -381,7 +525,7 @@ window.atualizarEmbarcacao = async function (id) {
     alert('Embarcação atualizada com sucesso!')
     inicializarEmbarcacoes()
   } else {
-    const err = await res.json()
+    const err = await res.json().catch(() => ({}))
     alert('Erro: ' + (err.erro || 'Falha ao atualizar'))
   }
 }
@@ -394,7 +538,7 @@ window.excluirEmbarcacao = async function (id) {
     alert('Embarcação excluída.')
     inicializarEmbarcacoes()
   } else {
-    const err = await res.json()
+    const err = await res.json().catch(() => ({}))
     alert('Erro ao excluir: ' + (err.erro || 'falha'))
   }
 }

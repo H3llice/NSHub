@@ -383,8 +383,23 @@ model Embarcacao {
   ordensServico OrdemServico[]
   certificados  Certificado[]
   embarques     Embarque[]
+  portos        EmbarcacaoPorto[]
 
   @@index([armadorId])
+}
+
+// Portos onde a embarcação atraca. Mesmo padrão do ContratoBalsa: remover não
+// apaga a linha, só preenche removidoEm — "porto atual" = removidoEm: null, e o
+// resto é o histórico. Voltar a atracar num porto removido cria uma linha nova.
+model EmbarcacaoPorto {
+  id           Int        @id @default(autoincrement())
+  embarcacao   Embarcacao @relation(fields: [embarcacaoId], references: [id], onDelete: Cascade)
+  embarcacaoId Int
+  porto        String
+  incluidoEm   DateTime   @default(now())
+  removidoEm   DateTime?
+
+  @@index([embarcacaoId])
 }
 
 model Contrato {
