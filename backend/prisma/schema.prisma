@@ -1014,6 +1014,14 @@ model Relatorio {
   tecnicoNome    String?
   status         String   @default("preenchendo")
 
+  // Relatório técnico no papel timbrado (gatos, fibra, P78...) — null é o
+  // relatório de balsa de sempre (todas as colunas acima). Preenchido, guarda
+  // de qual modelo nasceu (backend/templates/relatorio-tecnico.js) e todo o
+  // conteúdo fica em `conteudo` (capa, seções e assinaturas) — as colunas de
+  // balsa ficam vazias. navio = unidade marítima (P-77), usado na lista.
+  modelo   String?
+  conteudo Json?
+
   criadoEm     DateTime @default(now())
   atualizadoEm DateTime @updatedAt
 

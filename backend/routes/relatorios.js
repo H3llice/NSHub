@@ -5,6 +5,7 @@ import fs from 'fs'
 import path from 'path'
 import { prisma } from '../server.js'
 import { autenticar, exigirPerfil } from '../middleware/auth.js'
+import { MODELOS_RELATORIO_TECNICO, conteudoInicial, normalizarConteudo, htmlRelatorioTecnico, aplicarTimbrado } from '../templates/relatorio-tecnico.js'
 
 const router = Router()
 
@@ -126,6 +127,10 @@ router.get('/', autenticar, async (req, res) => {
   if (empresa) where.empresaId = parseInt(empresa)
   if (busca && !isNaN(busca)) where.numero = parseInt(busca)
 
+  // Relatório técnico (timbrado) tem lista própria — os baldes por equipTipo
+  // abaixo são só do relatório de balsa (modelo null).
+  where.modelo = tipo === 'tecnico' ? { not: null } : null
+
   // equipTipo é texto livre (não tem cadastro de tipos de equipamento) — a
   // tela de Relatórios separa por tipo (Balsa/Baleeira/Turco/Colete) batendo
   // nesse texto; "balsa" é o padrão/catch-all pra tudo que não bater nos outros 3.
@@ -159,6 +164,17 @@ router.get('/', autenticar, async (req, res) => {
   res.json({ relatorios, total, pagina: parseInt(pagina), totalPaginas: Math.ceil(total / porPagina) })
 })
 
+// ─── Modelos de relatório técnico (timbrado) ───────────────────────────────────
+// A tela monta o "+ Novo" a partir daqui — conteúdo inicial já pronto pra
+// editar. Precisa vir antes de /:id.
+router.get('/modelos', autenticar, (req, res) => {
+  const modelos = {}
+  for (const chave of Object.keys(MODELOS_RELATORIO_TECNICO)) {
+    modelos[chave] = { nome: MODELOS_RELATORIO_TECNICO[chave].nome, conteudo: conteudoInicial(chave) }
+  }
+  res.json(modelos)
+})
+
 // ─── Buscar um relatório pelo ID ────────────────────────────────────────────────
 router.get('/:id', autenticar, async (req, res) => {
   const relatorio = await prisma.relatorio.findUnique({
@@ -190,6 +206,11 @@ router.post('/', autenticar, exigirPerfil('usuario', 'gerente', 'admin', 'tecnic
     return res.status(400).json({ erro: 'Empresa e embarcação (navio) são obrigatórias' })
   }
 
+  const { modelo } = req.body
+  if (modelo && !MODELOS_RELATORIO_TECNICO[modelo]) {
+    return res.status(400).json({ erro: 'Modelo de relatório inválido' })
+  }
+
   let os = null
   if (ordemServicoId) {
     os = await prisma.ordemServico.findUnique({
@@ -213,6 +234,7 @@ router.post('/', autenticar, exigirPerfil('usuario', 'gerente', 'admin', 'tecnic
       empresaId: parseInt(dados.empresaId),
       embarcacaoId: dados.embarcacaoId ? parseInt(dados.embarcacaoId) : null,
       ordemServicoId: os ? os.id : null,
+      ...(modelo && { modelo, conteudo: normalizarConteudo(req.body.conteudo ?? conteudoInicial(modelo)) }),
       numero: proximoNumero,
       ano,
       criadoPorId: req.usuario.id,
@@ -235,6 +257,8 @@ export async function atualizarRelatorioCompleto(id, body) {
   const dados = extrair(body, CAMPOS_RELATORIO)
   if (dados.empresaId) dados.empresaId = parseInt(dados.empresaId)
   if (dados.embarcacaoId) dados.embarcacaoId = parseInt(dados.embarcacaoId)
+  // Só relatório técnico manda `conteudo`; o modelo em si não muda depois de criado.
+  if (body.conteudo !== undefined) dados.conteudo = normalizarConteudo(body.conteudo)
 
   await prisma.$transaction(async (tx) => {
     if (cilindros) {
@@ -1069,6 +1093,15 @@ router.get('/:id/pdf', autenticar, async (req, res) => {
     include: { ...INCLUDE_PDF_RELATORIO, assinaturas: { include: { usuario: true } } }
   })
   if (!relatorio) return res.status(404).json({ erro: 'Relatório não encontrado' })
+
+  if (relatorio.modelo) {
+    const conteudoBytes = await gerarPdf(htmlRelatorioTecnico(relatorio), { preferCSSPageSize: true })
+    const pdfBytes = await aplicarTimbrado(conteudoBytes, relatorio.empresa?.cnpj)
+    const nomeArquivo = `Relatorio ${relatorio.numero}.${relatorio.ano}${relatorio.navio ? ` ${relatorio.navio}` : ''}.pdf`
+    res.setHeader('Content-Type', 'application/pdf')
+    res.setHeader('Content-Disposition', `inline; filename*=UTF-8''${encodeURIComponent(nomeArquivo)}`)
+    return res.send(Buffer.from(pdfBytes))
+  }
 
   const pdfDoc = await PDFDocument.create()
 

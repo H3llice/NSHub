@@ -203,6 +203,7 @@ export function inicializarRelatorios() {
         <option value="baleeira">Baleeira</option>
         <option value="turco">Turco</option>
         <option value="colete">Colete</option>
+        <option value="tecnico">Relatório técnico (timbrado)</option>
       </select>
       <button class="btn btn-secondary" onclick="novoRelatorioTipoAtivo()">+ Novo Relatório</button>
     </div>
@@ -232,7 +233,7 @@ export function inicializarRelatorios() {
 
 let paginaAtualRelatorios = 1
 
-const LABEL_TIPO_RELATORIO = { balsa: 'balsa', baleeira: 'baleeira', turco: 'turco', colete: 'colete' }
+const LABEL_TIPO_RELATORIO = { balsa: 'balsa', baleeira: 'baleeira', turco: 'turco', colete: 'colete', tecnico: 'relatório técnico' }
 
 // Cada tipo de equipamento (Balsa/Baleeira/Turco/Colete) tem sua própria
 // tabela — o select #rel-tipo-ativo escolhe qual, igual à tela de Certificados.
@@ -242,6 +243,7 @@ window.trocarTipoRelatorio = function () {
 
 window.novoRelatorioTipoAtivo = async function () {
   const tipo = document.getElementById('rel-tipo-ativo')?.value || 'balsa'
+  if (tipo === 'tecnico') return novoRelatorioTecnico()
   if (tipo !== 'balsa') {
     alert(`Formulário de Relatório de ${LABEL_TIPO_RELATORIO[tipo]} ainda não implementado.`)
     return
@@ -366,6 +368,8 @@ window.editarRelatorio = async function (id) {
     apiFetch(`${API}/relatorios/${id}`).then(res => res.json()),
     apiFetch(`${API}/empresas`).then(res => res.json())
   ])
+  if (r.modelo) return abrirFormularioRelatorioTecnico(r, empresas)
+
   cilindrosEstado = r.cilindros.length ? r.cilindros : [{}]
   cilindrosSomenteLeitura = r.status === 'concluido'
   document.getElementById('relatorios').innerHTML = renderFormularioRelatorio(r, empresas)
@@ -1009,6 +1013,344 @@ window.excluirRelatorio = async function (id) {
   } else {
     const err = await res.json()
     alert('Erro ao excluir relatório: ' + (err.erro || 'falha'))
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// RELATÓRIO TÉCNICO (papel timbrado — gatos, fibra, P78...)
+// ══════════════════════════════════════════════════════════════════════════
+// Capa + seções livres + assinaturas, tudo em Relatorio.conteudo (ver
+// backend/templates/relatorio-tecnico.js). O modelo só dá o ponto de partida;
+// o técnico edita títulos, textos, campos e a ordem das seções.
+
+let modelosTecnico = null
+let tecnicoEstado = null
+let tecnicoSomenteLeitura = false
+
+async function carregarModelosTecnico() {
+  if (!modelosTecnico) {
+    const res = await apiFetch(`${API}/relatorios/modelos`)
+    if (!res.ok) throw new Error(`o servidor respondeu ${res.status} ao buscar os modelos`)
+    modelosTecnico = await res.json()
+  }
+  return modelosTecnico
+}
+
+async function novoRelatorioTecnico() {
+  let modelos, empresas
+  try {
+    [modelos, empresas] = await Promise.all([
+      carregarModelosTecnico(),
+      apiFetch(`${API}/empresas`).then(r => r.json())
+    ])
+  } catch (e) {
+    // Chamado de onclick — sem isso a falha some no console e o botão
+    // simplesmente "não faz nada".
+    alert(`Não foi possível abrir o Relatório técnico: ${e.message}. Se o servidor ainda não recebeu a atualização (deploy), é isso.`)
+    return
+  }
+
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'))
+  document.getElementById('relatorios').classList.add('active')
+  const chave = Object.keys(modelos)[0]
+  abrirFormularioRelatorioTecnico({ modelo: chave, conteudo: structuredClone(modelos[chave].conteudo) }, empresas, modelos)
+}
+
+async function abrirFormularioRelatorioTecnico(r, empresas, modelos) {
+  modelos = modelos || await carregarModelosTecnico()
+  tecnicoSomenteLeitura = r.status === 'concluido' || r.status === 'cancelado'
+  tecnicoEstado = structuredClone(r.conteudo || {})
+  tecnicoEstado.secoes = tecnicoEstado.secoes || []
+  tecnicoEstado.assinaturas = tecnicoEstado.assinaturas || []
+
+  document.getElementById('relatorios').innerHTML = renderFormularioRelatorioTecnico(r, empresas, modelos)
+  renderizarSecoesTecnico()
+  renderizarAssinaturasTecnico()
+}
+
+function renderFormularioRelatorioTecnico(r, empresas, modelos) {
+  const cancelado = r.status === 'cancelado'
+  const concluido = r.status === 'concluido'
+  const dis = tecnicoSomenteLeitura ? 'disabled' : ''
+  const c = tecnicoEstado
+  const opcoesEmpresas = empresas.map(e =>
+    `<option value="${e.id}" ${r.empresaId === e.id ? 'selected' : ''}>${esc(e.nome)} (${esc(e.sigla)})</option>`
+  ).join('')
+
+  return `
+    <div style="margin-top:20px; max-width:1000px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+        <button class="btn btn-secondary" onclick="inicializarRelatorios()">← Voltar</button>
+        ${r.id ? `<a class="btn btn-secondary" href="${API}/relatorios/${r.id}/pdf?token=${encodeURIComponent(tokenAtual)}" target="_blank">PDF</a>` : ''}
+      </div>
+
+      <div style="display:flex; align-items:center; gap:12px; margin-bottom:20px;">
+        <h3 style="margin:0;">${r.id ? `Relatório ${r.numero}/${r.ano}` : 'Novo Relatório Técnico'}</h3>
+        ${r.id ? badgeStatus(r.status) : ''}
+        <span style="color:#999; font-size:13px;">${esc(modelos[r.modelo]?.nome || '')}</span>
+      </div>
+
+      ${secao('Capa', `
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+          ${r.id ? '' : `
+            <div style="grid-column: span 2;">
+              <label>Modelo <small style="color:#999;">(trocar recomeça as seções com o texto padrão do modelo)</small></label>
+              <select id="rel-tec-modelo" class="form-control" onchange="trocarModeloRelatorioTecnico()">
+                ${Object.entries(modelos).map(([chave, m]) => `<option value="${esc(chave)}" ${chave === r.modelo ? 'selected' : ''}>${esc(m.nome)}</option>`).join('')}
+              </select>
+            </div>
+          `}
+          <div style="grid-column: span 2;">
+            <label>Título *</label>
+            <textarea id="rel-tec-titulo" class="form-control" rows="2" ${dis}>${esc(c.titulo || '')}</textarea>
+          </div>
+          <div><label>Empresa executante *</label><select id="rel-empresaId" class="form-control" ${dis}>${opcoesEmpresas}</select></div>
+          <div><label>Data * <small style="color:#999;">(mês/ano impresso na capa)</small></label><input type="date" id="rel-data" class="form-control" value="${esc(r.data ? r.data.split('T')[0] : hojeISO())}" ${dis}></div>
+          <div><label>Unidade marítima / Embarcação *</label><input type="text" id="rel-tec-navio" class="form-control" placeholder="Ex: P-77" value="${esc(r.navio || '')}" ${dis}></div>
+          <div><label>IMO</label><input type="text" id="rel-tec-imo" class="form-control" value="${esc(c.imo || '')}" ${dis}></div>
+          <div><label>Certificado Nº</label><input type="text" id="rel-tec-certificadoNumero" class="form-control" placeholder="Ex: 1320" value="${esc(c.certificadoNumero || '')}" ${dis}></div>
+          <div><label>Local</label><input type="text" id="rel-tec-local" class="form-control" placeholder="Ex: RIO DE JANEIRO-RJ" value="${esc(c.local || '')}" ${dis}></div>
+        </div>
+      `)}
+
+      <div id="rel-tec-secoes"></div>
+
+      ${tecnicoSomenteLeitura ? '' : `
+        <div style="display:flex; gap:8px; margin-bottom:16px;">
+          <button type="button" class="btn btn-secondary btn-sm" onclick="tecAdicionarSecao('texto')">+ Seção de texto</button>
+          <button type="button" class="btn btn-secondary btn-sm" onclick="tecAdicionarSecao('campos')">+ Seção de campos</button>
+        </div>
+      `}
+
+      ${secao('Assinaturas', `
+        <div id="rel-tec-assinaturas"></div>
+        ${tecnicoSomenteLeitura ? '' : '<button type="button" class="btn btn-secondary btn-sm" style="margin-top:8px;" onclick="tecAdicionarAssinatura()">+ Assinatura</button>'}
+      `)}
+
+      ${tecnicoSomenteLeitura ? '' : `
+        <div style="margin-bottom:16px; display:flex; justify-content:space-between; align-items:center; gap:12px;">
+          <div style="display:flex; gap:12px;">
+            <button type="button" class="btn btn-success" onclick="salvarRelatorioTecnico(${r.id || 'null'})">Salvar</button>
+            ${r.id ? `<button type="button" class="btn btn-warning" onclick="concluirRelatorio(${r.id})">Concluir e Assinar</button>` : ''}
+          </div>
+          ${r.id && podeCancelarOuExcluirRelatorio ? `
+            <div style="display:flex; gap:12px;">
+              <button type="button" class="btn btn-warning" onclick="cancelarRelatorio(${r.id})">Cancelar Relatório</button>
+              <button type="button" class="btn btn-danger" onclick="excluirRelatorio(${r.id})">Excluir Relatório</button>
+            </div>
+          ` : ''}
+        </div>
+      `}
+
+      ${cancelado ? `<p style="margin-bottom:16px; color:#dc3545; font-size:13px; font-weight:600;">Relatório cancelado.</p>` : ''}
+      ${(cancelado || concluido) && podeCancelarOuExcluirRelatorio ? `
+        <div style="display:flex; gap:12px; justify-content:flex-end;">
+          ${concluido ? `<button type="button" class="btn btn-warning" onclick="cancelarRelatorio(${r.id})">Cancelar Relatório</button>` : ''}
+          <button type="button" class="btn btn-danger" onclick="excluirRelatorio(${r.id})">Excluir Relatório</button>
+        </div>
+      ` : ''}
+    </div>
+  `
+}
+
+// Mesma numeração do PDF: seção sem título não conta.
+function numerosSecoesTecnico() {
+  let n = 0
+  return tecnicoEstado.secoes.map(s => (s.titulo || '').trim() ? ++n : null)
+}
+
+function renderizarSecoesTecnico() {
+  const div = document.getElementById('rel-tec-secoes')
+  if (!div) return
+  const dis = tecnicoSomenteLeitura ? 'disabled' : ''
+  const ro = tecnicoSomenteLeitura
+  const numeros = numerosSecoesTecnico()
+  const total = tecnicoEstado.secoes.length
+
+  div.innerHTML = tecnicoEstado.secoes.map((s, i) => {
+    const corpo = s.tipo === 'campos'
+      ? (s.grupos || []).map((g, gi) => `
+          <div style="border:1px solid #ddd; border-radius:6px; padding:10px; margin-bottom:10px;">
+            ${g.map((f, fi) => `
+              <div style="display:grid; grid-template-columns:${ro ? '1fr 2fr' : '1fr 2fr 36px'}; gap:8px; margin-bottom:6px;">
+                <input type="text" class="form-control form-control-sm" id="tec-s${i}-g${gi}-f${fi}-rot" placeholder="Rótulo" value="${esc(f.rotulo || '')}" ${dis}>
+                <input type="text" class="form-control form-control-sm" id="tec-s${i}-g${gi}-f${fi}-val" placeholder="Valor" value="${esc(f.valor || '')}" ${dis}>
+                ${ro ? '' : `<button type="button" class="btn btn-sm btn-danger" title="Remover campo" onclick="tecRemoverCampo(${i}, ${gi}, ${fi})">✕</button>`}
+              </div>
+            `).join('')}
+            ${ro ? '' : `
+              <div style="display:flex; gap:8px; margin-top:6px;">
+                <button type="button" class="btn btn-sm btn-secondary" onclick="tecAdicionarCampo(${i}, ${gi})">+ Campo</button>
+                <button type="button" class="btn btn-sm btn-secondary" onclick="tecDuplicarGrupo(${i}, ${gi})">Duplicar bloco</button>
+                <button type="button" class="btn btn-sm btn-danger" onclick="tecRemoverGrupo(${i}, ${gi})">Remover bloco</button>
+              </div>
+            `}
+          </div>
+        `).join('') + (ro ? '' : `<button type="button" class="btn btn-sm btn-secondary" onclick="tecAdicionarGrupo(${i})">+ Bloco em branco</button>`)
+      : `<textarea class="form-control" id="tec-s${i}-texto" rows="${Math.max(3, (s.texto || '').split('\n').length + 1)}" ${dis}>${esc(s.texto || '')}</textarea>`
+
+    return `
+      <div style="background:white; border-radius:6px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06); margin-bottom:16px;">
+        <div style="display:flex; gap:8px; align-items:center; margin-bottom:10px;">
+          <span style="font-weight:700; color:var(--acento); min-width:24px;">${numeros[i] ? `${numeros[i]}.` : ''}</span>
+          <input type="text" class="form-control" style="font-weight:600;" id="tec-s${i}-titulo" placeholder="Título da seção" value="${esc(s.titulo || '')}" ${dis}>
+          ${ro ? '' : `
+            <button type="button" class="btn btn-sm btn-secondary" title="Subir" onclick="tecMoverSecao(${i}, -1)" ${i === 0 ? 'disabled' : ''}>↑</button>
+            <button type="button" class="btn btn-sm btn-secondary" title="Descer" onclick="tecMoverSecao(${i}, 1)" ${i === total - 1 ? 'disabled' : ''}>↓</button>
+            <button type="button" class="btn btn-sm btn-danger" title="Remover seção" onclick="tecRemoverSecao(${i})">✕</button>
+          `}
+        </div>
+        ${corpo}
+      </div>
+    `
+  }).join('')
+}
+
+function renderizarAssinaturasTecnico() {
+  const div = document.getElementById('rel-tec-assinaturas')
+  if (!div) return
+  const dis = tecnicoSomenteLeitura ? 'disabled' : ''
+  div.innerHTML = tecnicoEstado.assinaturas.map((a, i) => `
+    <div style="display:grid; grid-template-columns:${tecnicoSomenteLeitura ? '1fr 1fr 1fr' : '1fr 1fr 1fr 36px'}; gap:8px; margin-bottom:8px; align-items:start;">
+      <input type="text" class="form-control form-control-sm" id="tec-a${i}-nome" placeholder="Nome" value="${esc(a.nome || '')}" ${dis}>
+      <input type="text" class="form-control form-control-sm" id="tec-a${i}-cargo" placeholder="Cargo (ex: ENG MECÂNICO)" value="${esc(a.cargo || '')}" ${dis}>
+      <textarea class="form-control form-control-sm" id="tec-a${i}-registro" rows="2" placeholder="Registro (CREA, CRT, SISPAT...)" ${dis}>${esc(a.registro || '')}</textarea>
+      ${tecnicoSomenteLeitura ? '' : `<button type="button" class="btn btn-sm btn-danger" title="Remover assinatura" onclick="tecRemoverAssinatura(${i})">✕</button>`}
+    </div>
+  `).join('') || '<p style="color:#999; font-size:13px; margin:0;">Nenhuma assinatura.</p>'
+}
+
+// Copia o que está digitado na tela de volta pro estado — chamada antes de
+// qualquer mudança de estrutura (mover/adicionar/remover), senão o
+// re-render apagaria o que foi digitado.
+function sincronizarTecnicoDoForm() {
+  const valor = id => document.getElementById(id)?.value ?? ''
+  tecnicoEstado.titulo = valor('rel-tec-titulo')
+  tecnicoEstado.imo = valor('rel-tec-imo')
+  tecnicoEstado.certificadoNumero = valor('rel-tec-certificadoNumero')
+  tecnicoEstado.local = valor('rel-tec-local')
+  tecnicoEstado.secoes = tecnicoEstado.secoes.map((s, i) => s.tipo === 'campos'
+    ? {
+        tipo: 'campos',
+        titulo: valor(`tec-s${i}-titulo`),
+        grupos: (s.grupos || []).map((g, gi) => g.map((_, fi) => ({
+          rotulo: valor(`tec-s${i}-g${gi}-f${fi}-rot`),
+          valor: valor(`tec-s${i}-g${gi}-f${fi}-val`)
+        })))
+      }
+    : { tipo: 'texto', titulo: valor(`tec-s${i}-titulo`), texto: valor(`tec-s${i}-texto`) })
+  tecnicoEstado.assinaturas = tecnicoEstado.assinaturas.map((_, i) => ({
+    nome: valor(`tec-a${i}-nome`),
+    cargo: valor(`tec-a${i}-cargo`),
+    registro: valor(`tec-a${i}-registro`)
+  }))
+}
+
+function alterarSecoesTecnico(mudanca) {
+  sincronizarTecnicoDoForm()
+  mudanca(tecnicoEstado.secoes)
+  renderizarSecoesTecnico()
+}
+
+window.tecMoverSecao = function (i, direcao) {
+  alterarSecoesTecnico(secoes => {
+    const [s] = secoes.splice(i, 1)
+    secoes.splice(i + direcao, 0, s)
+  })
+}
+
+window.tecRemoverSecao = function (i) {
+  const titulo = document.getElementById(`tec-s${i}-titulo`)?.value || 'sem título'
+  if (!confirm(`Remover a seção "${titulo}"?`)) return
+  alterarSecoesTecnico(secoes => secoes.splice(i, 1))
+}
+
+window.tecAdicionarSecao = function (tipo) {
+  alterarSecoesTecnico(secoes => secoes.push(tipo === 'campos'
+    ? { tipo: 'campos', titulo: '', grupos: [[{ rotulo: '', valor: '' }]] }
+    : { tipo: 'texto', titulo: '', texto: '' }))
+}
+
+window.tecAdicionarCampo = function (i, gi) {
+  alterarSecoesTecnico(secoes => secoes[i].grupos[gi].push({ rotulo: '', valor: '' }))
+}
+
+window.tecRemoverCampo = function (i, gi, fi) {
+  alterarSecoesTecnico(secoes => secoes[i].grupos[gi].splice(fi, 1))
+}
+
+// Duplica com os valores — no relatório de gatos os blocos dos turcos só
+// diferem em local, identificação e nº de série; o resto se repete.
+window.tecDuplicarGrupo = function (i, gi) {
+  alterarSecoesTecnico(secoes => secoes[i].grupos.splice(gi + 1, 0, structuredClone(secoes[i].grupos[gi])))
+}
+
+// Bloco em branco com os mesmos rótulos do primeiro (ou um campo vazio).
+window.tecAdicionarGrupo = function (i) {
+  alterarSecoesTecnico(secoes => {
+    const base = secoes[i].grupos[0]
+    secoes[i].grupos.push(base ? base.map(f => ({ rotulo: f.rotulo, valor: '' })) : [{ rotulo: '', valor: '' }])
+  })
+}
+
+window.tecRemoverGrupo = function (i, gi) {
+  if (!confirm('Remover este bloco?')) return
+  alterarSecoesTecnico(secoes => secoes[i].grupos.splice(gi, 1))
+}
+
+window.tecAdicionarAssinatura = function () {
+  sincronizarTecnicoDoForm()
+  tecnicoEstado.assinaturas.push({ nome: '', cargo: '', registro: '' })
+  renderizarAssinaturasTecnico()
+}
+
+window.tecRemoverAssinatura = function (i) {
+  sincronizarTecnicoDoForm()
+  tecnicoEstado.assinaturas.splice(i, 1)
+  renderizarAssinaturasTecnico()
+}
+
+window.trocarModeloRelatorioTecnico = async function () {
+  const select = document.getElementById('rel-tec-modelo')
+  const anterior = select.dataset.atual || Object.keys(modelosTecnico)[0]
+  if (!confirm('Trocar o modelo apaga as seções e assinaturas digitadas e recomeça com as do novo modelo. Continuar?')) {
+    select.value = anterior
+    return
+  }
+  select.dataset.atual = select.value
+  // Mantém o que é da identificação (empresa, data, unidade, IMO, certificado);
+  // o resto vem do modelo novo.
+  sincronizarTecnicoDoForm()
+  const novo = structuredClone(modelosTecnico[select.value].conteudo)
+  tecnicoEstado = { ...novo, imo: tecnicoEstado.imo, certificadoNumero: tecnicoEstado.certificadoNumero }
+  document.getElementById('rel-tec-titulo').value = novo.titulo
+  document.getElementById('rel-tec-local').value = novo.local
+  renderizarSecoesTecnico()
+  renderizarAssinaturasTecnico()
+}
+
+window.salvarRelatorioTecnico = async function (id) {
+  sincronizarTecnicoDoForm()
+  const body = {
+    empresaId: document.getElementById('rel-empresaId').value,
+    data: document.getElementById('rel-data').value,
+    navio: document.getElementById('rel-tec-navio').value.trim(),
+    conteudo: tecnicoEstado
+  }
+  if (!body.empresaId || !body.navio || !tecnicoEstado.titulo.trim()) {
+    alert('Título, Empresa e Unidade/Embarcação são obrigatórios!')
+    return
+  }
+  if (!id) body.modelo = document.getElementById('rel-tec-modelo').value
+
+  const res = await apiJson(`${API}/relatorios${id ? `/${id}` : ''}`, { method: id ? 'PUT' : 'POST', body: JSON.stringify(body) })
+  if (res.ok) {
+    const r = await res.json()
+    alert(id ? 'Relatório atualizado com sucesso!' : 'Relatório criado com sucesso!')
+    editarRelatorio(r.id)
+  } else {
+    const err = await res.json()
+    alert('Erro: ' + (err.erro || 'Falha ao salvar'))
   }
 }
 

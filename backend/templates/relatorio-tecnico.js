@@ -1,0 +1,255 @@
+// Relatório técnico no papel timbrado da Natal Safety (faixa azul + marca
+// d'água da boia + rodapé com os endereços) — o mesmo visual dos relatórios
+// de gatos (P-77), fibra de vidro (P-76), mangueiras (P-78) e cilindros
+// (P-74) em backend/migracao/Certificados & Relatórios/Relatórios. O que muda
+// entre eles é só o título e as seções, então o relatório é uma capa + uma
+// lista de seções livre, e cada "modelo" abaixo é só o ponto de partida
+// (seções já com o texto padrão), que o técnico pode editar à vontade.
+//
+// O timbrado (assets/relatorio-tecnico-fundo.jpeg) foi extraído do PDF de
+// gatos — não existe o arquivo original da arte. Ele não entra no HTML: o
+// Chromium gera só o conteúdo e aplicarTimbrado() desenha o fundo por baixo de
+// cada página com pdf-lib (fundo em position:fixed no print do Chromium não
+// cobre as margens da página de forma confiável).
+
+import fs from 'fs'
+import path from 'path'
+import { PDFDocument, StandardFonts, rgb } from 'pdf-lib'
+
+// Seção 'texto': título + texto livre (quebras de linha mantidas no PDF).
+// Seção 'campos': título + um ou mais grupos de "Rótulo: valor" — no
+// relatório de gatos cada turco inspecionado é um grupo da mesma seção.
+const texto = (titulo, conteudo = '') => ({ tipo: 'texto', titulo, texto: conteudo })
+const campos = (titulo, rotulos, valores = {}) => ({
+  tipo: 'campos',
+  titulo,
+  grupos: [rotulos.map(rotulo => ({ rotulo, valor: valores[rotulo] || '' }))]
+})
+
+const EMPRESA_SOLICITANTE = ['EMPRESA', 'PLATAFORMA DE ORIGEM', 'GERÊNCIA SOLICITANTE']
+
+export const MODELOS_RELATORIO_TECNICO = {
+  gatos: {
+    nome: 'Inspeção de Hooks (Gatos)',
+    titulo: 'RELATÓRIO DE INSPEÇÃO E CERTIFICAÇÃO\nHOOKS (GATOS) DE LIBERAÇÃO DOS TURCOS DE BALSAS SALVA-VIDAS',
+    local: 'RIO DE JANEIRO-RJ',
+    secoes: [
+      campos('DADOS DA EMPRESA SOLICITANTE', EMPRESA_SOLICITANTE, { EMPRESA: 'PETROLEO BRASILEIRO S.A.' }),
+      campos('DADOS DOS EQUIPAMENTOS', [
+        'Unidade / Embarcação', 'Nome / IMO (se aplicável)', 'Local da Inspeção', 'Data da Inspeção',
+        'Ordem de Serviço / Certificado Nº', 'Identificação', 'Fabricante do Turco', 'Modelo',
+        'Nº Série do Turco', 'Fabricante dos Hooks (Gatos)', 'Modelo / Tipo', 'Nº Série',
+        'Capacidade de carga (SWL)'
+      ]),
+      texto('BASE NORMATIVA / REFERÊNCIAS', 'Inspeção executada em conformidade com:\nInternational Maritime Organization SOLAS Chapter III\nInternational Maritime Organization LSA Code\nMSC.402(96) (Maintenance, examination, operational testing, overhaul and repair of lifeboats and release gear)\nMarinha do Brasil NORMAM aplicável\nManual e procedimentos do fabricante\nRequisitos de classe: '),
+      texto('ESCOPO EXECUTADO', 'Foram realizados:\nInspeção visual detalhada dos hooks/gatos;\nVerificação de desgaste, corrosão e trincas;\nLubrificação;\nTeste de reset e travamento;\nEnsaio de carga;\nOverhaul periódico 5 anos.'),
+      texto('RESULTADO DA INSPEÇÃO', 'Verificado Condição e Estrutura dos hooks OK.\nPinos/eixos OK\nTravas e gatilhos OK\nReset / Rearme OK\nLiberação operacional OK.'),
+      texto('TESTES EXECUTADOS', 'Teste Operacional Satisfatório.\nTeste de Carga Aprovado'),
+      texto('SERVIÇOS EXECUTADOS', 'Inspeção e Overhaul 5 anos'),
+      texto('CONCLUSÃO', 'Com base na inspeção e testes executados, os hooks (gatos) dos turcos foram considerados:\nCERTIFICADOS E APTOS PARA OPERAÇÃO.')
+    ],
+    assinaturas: [
+      { nome: 'NOEL CAVALHEIRO JR', cargo: 'ENG MECÂNICO', registro: 'CREA 160.369.515-0' },
+      { nome: 'AUGUSTO GUSTAVO FILHO', cargo: 'ENG DE PROF, MAN, INSP', registro: 'CREA: 2002105847\nCRT: 39009629791' },
+      { nome: 'JOCIMAR SERAFIM DOS SANTOS', cargo: 'TEC MECÂNICA', registro: 'SISPAT: 45047786' }
+    ]
+  },
+
+  branco: {
+    nome: 'Em branco',
+    titulo: 'RELATÓRIO TÉCNICO DE SERVIÇOS',
+    local: 'RIO DE JANEIRO-RJ',
+    secoes: [
+      campos('DADOS DA EMPRESA SOLICITANTE', EMPRESA_SOLICITANTE),
+      campos('DADOS DO EQUIPAMENTO', ['EQUIPAMENTO', 'MODELO', 'NÚMERO DE SÉRIE', 'DATA FABRICAÇÃO', 'FABRICANTE', 'TAG']),
+      texto('OBJETIVO'),
+      texto('CONCLUSÃO')
+    ],
+    assinaturas: [{ nome: '', cargo: '', registro: '' }]
+  }
+}
+
+// Conteúdo pronto pra um relatório novo do modelo (cópia — o objeto acima
+// não pode ser alterado por quem recebe).
+export function conteudoInicial(chave) {
+  const m = MODELOS_RELATORIO_TECNICO[chave]
+  return structuredClone({
+    titulo: m.titulo,
+    imo: '',
+    certificadoNumero: '',
+    local: m.local,
+    secoes: m.secoes,
+    assinaturas: m.assinaturas
+  })
+}
+
+// O conteúdo chega do navegador como JSON livre — aqui ele é reduzido ao
+// formato que o template sabe imprimir (só strings, só os tipos de seção
+// conhecidos), pra não gravar lixo no banco nem quebrar o PDF depois.
+export function normalizarConteudo(bruto) {
+  const c = bruto && typeof bruto === 'object' ? bruto : {}
+  const txt = v => (v === null || v === undefined) ? '' : String(v).slice(0, 20000)
+  const lista = v => Array.isArray(v) ? v : []
+
+  return {
+    titulo: txt(c.titulo),
+    imo: txt(c.imo),
+    certificadoNumero: txt(c.certificadoNumero),
+    local: txt(c.local),
+    secoes: lista(c.secoes).map(s => s?.tipo === 'campos'
+      ? {
+          tipo: 'campos',
+          titulo: txt(s.titulo),
+          grupos: lista(s.grupos).map(g => lista(g).map(f => ({ rotulo: txt(f?.rotulo), valor: txt(f?.valor) })))
+        }
+      : { tipo: 'texto', titulo: txt(s?.titulo), texto: txt(s?.texto) }),
+    assinaturas: lista(c.assinaturas).map(a => ({ nome: txt(a?.nome), cargo: txt(a?.cargo), registro: txt(a?.registro) }))
+  }
+}
+
+const MESES = ['JANEIRO', 'FEVEREIRO', 'MARÇO', 'ABRIL', 'MAIO', 'JUNHO', 'JULHO', 'AGOSTO', 'SETEMBRO', 'OUTUBRO', 'NOVEMBRO', 'DEZEMBRO']
+
+function escapeHtml(valor) {
+  if (valor === null || valor === undefined) return ''
+  return String(valor)
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+}
+
+// O cadastro da Empresa aceita CNPJ só com dígitos — no papel sai sempre com máscara.
+function formatarCnpj(cnpj) {
+  const digitos = String(cnpj || '').replace(/\D/g, '')
+  if (digitos.length !== 14) return cnpj || ''
+  return digitos.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5')
+}
+
+function comQuebras(valor) {
+  return escapeHtml(valor).replaceAll('\n', '<br>')
+}
+
+export function htmlRelatorioTecnico(relatorio) {
+  const c = normalizarConteudo(relatorio.conteudo)
+  // data é gravada como meia-noite UTC — ler em UTC pra não voltar um dia
+  // (e, no dia 1º, um mês inteiro na capa).
+  const d = relatorio.data ? new Date(relatorio.data) : null
+  const mesAno = d ? `${MESES[d.getUTCMonth()]} ${d.getUTCFullYear()}` : ''
+  const empresaNome = (relatorio.empresa?.nome || '').toUpperCase()
+  const cnpj = formatarCnpj(relatorio.empresa?.cnpj)
+
+  // Seção sem título não entra na numeração nem no sumário.
+  let n = 0
+  const secoes = c.secoes.map(s => ({ ...s, numero: s.titulo.trim() ? ++n : null }))
+
+  const corpoSecao = s => {
+    if (s.tipo === 'texto') return s.texto.trim() ? `<div class="texto">${comQuebras(s.texto)}</div>` : ''
+    return s.grupos.map(g => {
+      const linhas = g.filter(f => f.rotulo.trim() || f.valor.trim())
+      if (!linhas.length) return ''
+      return `<div class="grupo">${linhas.map(f => `
+        <div>${f.rotulo.trim() ? `${escapeHtml(f.rotulo)}: ` : ''}${escapeHtml(f.valor)}</div>
+      `).join('')}</div>`
+    }).join('')
+  }
+
+  const assinaturas = c.assinaturas.filter(a => a.nome.trim() || a.cargo.trim() || a.registro.trim())
+
+  return `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<style>
+  /* Margens fora da faixa azul (topo, até o fim do círculo do logo) e do
+     rodapé laranja do timbrado, que é desenhado depois por baixo. */
+  @page { size: A4; margin: 52mm 20mm 34mm 20mm; }
+  * { box-sizing: border-box; }
+  body { font-family: Arial, Helvetica, sans-serif; font-size: 10.5pt; color: #111; margin: 0; line-height: 1.45; }
+
+  .capa { height: 205mm; position: relative; text-align: center; page-break-after: always; }
+  .capa .titulo { position: absolute; top: 72mm; left: 0; right: 0; font-size: 12pt; }
+  .capa .ident { position: absolute; top: 120mm; left: 0; right: 0; font-size: 11pt; }
+  .capa .data { position: absolute; bottom: 4mm; left: 0; right: 0; font-size: 11pt; }
+
+  .sumario { page-break-after: always; }
+  .sumario h2 { text-align: center; font-size: 12pt; margin: 0 0 8mm; }
+  .sumario div { margin-bottom: 3mm; font-weight: bold; }
+
+  .secao { margin-bottom: 7mm; }
+  .secao h3 { font-size: 10.5pt; margin: 0 0 2mm; text-transform: uppercase; page-break-after: avoid; }
+  .grupo { margin-bottom: 4mm; page-break-inside: avoid; }
+
+  .assinaturas { display: flex; justify-content: space-around; gap: 6mm; margin-top: 22mm; page-break-inside: avoid; text-align: center; font-size: 9pt; line-height: 1.3; }
+  .assinatura { flex: 1; max-width: 60mm; }
+  .assinatura .linha { border-top: 1px solid #333; margin-bottom: 2mm; }
+  .assinatura .empresa { font-weight: bold; font-size: 10pt; }
+</style>
+</head>
+<body>
+  <div class="capa">
+    <div class="titulo">${comQuebras(c.titulo)}</div>
+    <div class="ident">
+      ${relatorio.navio ? `<div>Unidade Marítima: ${escapeHtml(relatorio.navio)}</div>` : ''}
+      ${c.imo ? `<div>IMO: ${escapeHtml(c.imo)}</div>` : ''}
+      ${c.certificadoNumero ? `<div>Certificado Nº: ${escapeHtml(c.certificadoNumero)}</div>` : ''}
+    </div>
+    <div class="data">
+      <div>${escapeHtml(mesAno)}</div>
+      <div>${escapeHtml(c.local)}</div>
+    </div>
+  </div>
+
+  <div class="sumario">
+    <h2>SUMÁRIO</h2>
+    ${secoes.filter(s => s.numero).map(s => `<div>${s.numero}. ${escapeHtml(s.titulo)}</div>`).join('')}
+  </div>
+
+  ${secoes.map(s => `
+    <div class="secao">
+      ${s.numero ? `<h3>${s.numero} – ${escapeHtml(s.titulo)}</h3>` : ''}
+      ${corpoSecao(s)}
+    </div>
+  `).join('')}
+
+  ${assinaturas.length ? `
+    <div class="assinaturas">
+      ${assinaturas.map(a => `
+        <div class="assinatura">
+          <div class="linha"></div>
+          ${empresaNome ? `<div class="empresa">${escapeHtml(empresaNome)}</div>` : ''}
+          ${cnpj ? `<div>CNPJ ${escapeHtml(cnpj)}</div>` : ''}
+          <div>${escapeHtml(a.nome)}</div>
+          <div>${escapeHtml(a.cargo)}</div>
+          ${a.registro.trim() ? `<div>${comQuebras(a.registro)}</div>` : ''}
+        </div>
+      `).join('')}
+    </div>
+  ` : ''}
+</body>
+</html>`
+}
+
+const mm = valor => valor * 72 / 25.4
+
+// Desenha o timbrado por baixo de cada página do PDF gerado pelo Chromium
+// (que sai com fundo transparente) + o CNPJ no canto de baixo, logo acima da
+// faixa laranja, como nos relatórios em papel.
+export async function aplicarTimbrado(conteudoBytes, cnpj) {
+  const saida = await PDFDocument.create()
+  const fundo = await saida.embedJpg(fs.readFileSync(path.resolve('assets/relatorio-tecnico-fundo.jpeg')))
+  const fonte = await saida.embedFont(StandardFonts.Helvetica)
+  const origem = await PDFDocument.load(conteudoBytes)
+  const paginas = await saida.embedPages(origem.getPages())
+  const textoCnpj = cnpj ? `CNPJ: ${formatarCnpj(cnpj)}` : ''
+
+  for (const pagina of paginas) {
+    const page = saida.addPage([pagina.width, pagina.height])
+    page.drawImage(fundo, { x: 0, y: 0, width: pagina.width, height: pagina.height })
+    page.drawPage(pagina)
+    if (textoCnpj) {
+      const largura = fonte.widthOfTextAtSize(textoCnpj, 8)
+      page.drawText(textoCnpj, { x: pagina.width - mm(14) - largura, y: mm(29), size: 8, font: fonte, color: rgb(0.1, 0.1, 0.1) })
+    }
+  }
+  return saida.save()
+}

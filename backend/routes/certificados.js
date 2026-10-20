@@ -164,6 +164,11 @@ router.post('/', autenticar, exigirPerfil('usuario', 'gerente', 'admin'), async 
       include: { certificado: true, embarcacao: { include: { armador: true } } }
     })
     if (!relatorio) return res.status(400).json({ erro: 'Relatório não encontrado' })
+    // Relatório técnico (timbrado) não tem os campos de balsa que o
+    // certificado copia daqui — só relatório de balsa gera certificado.
+    if (relatorio.modelo) {
+      return res.status(400).json({ erro: 'Este tipo de relatório não gera certificado de balsa' })
+    }
     if (relatorio.status !== 'concluido') {
       return res.status(400).json({ erro: 'O Relatório precisa estar concluído para gerar o certificado' })
     }
