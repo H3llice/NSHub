@@ -1030,6 +1030,15 @@ let tecnicoSomenteLeitura = false
 // no nome das assinaturas. Recarregado a cada abertura do formulário, pra
 // pegar técnico cadastrado ou SISPAT corrigido no meio do caminho.
 let tecnicosCadastrados = []
+// Id do relatório aberto (null enquanto não foi salvo — foto só sobe depois
+// do primeiro Salvar, porque a pasta das fotos é por relatório).
+let tecnicoRelatorioId = null
+// Envios de foto em andamento — Salvar espera, senão a limpeza de fotos não
+// usadas do backend apagaria a foto que ainda está chegando.
+let fotosEnviando = 0
+// Miniaturas já baixadas (arquivo → blob URL). A foto vem por apiFetch (com
+// token e o header do ngrok) em vez de <img src> direto.
+const miniaturasFotos = new Map()
 
 async function carregarTecnicosCadastrados() {
   try {
@@ -1074,6 +1083,8 @@ async function abrirFormularioRelatorioTecnico(r, empresas, modelos) {
   modelos = modelos || await carregarModelosTecnico()
   tecnicoSomenteLeitura = r.status === 'concluido' || r.status === 'cancelado'
   if (!tecnicoSomenteLeitura) await carregarTecnicosCadastrados()
+  tecnicoRelatorioId = r.id || null
+  fotosEnviando = 0
   tecnicoEstado = structuredClone(r.conteudo || {})
   tecnicoEstado.secoes = tecnicoEstado.secoes || []
   tecnicoEstado.assinaturas = tecnicoEstado.assinaturas || []
@@ -1133,6 +1144,7 @@ function renderFormularioRelatorioTecnico(r, empresas, modelos) {
         <div style="display:flex; gap:8px; margin-bottom:16px;">
           <button type="button" class="btn btn-secondary btn-sm" onclick="tecAdicionarSecao('texto')">+ Seção de texto</button>
           <button type="button" class="btn btn-secondary btn-sm" onclick="tecAdicionarSecao('campos')">+ Seção de campos</button>
+          <button type="button" class="btn btn-secondary btn-sm" onclick="tecAdicionarSecao('fotos')">+ Seção de fotos</button>
         </div>
       `}
 
@@ -1195,7 +1207,8 @@ function renderizarSecoesTecnico() {
   const total = tecnicoEstado.secoes.length
 
   div.innerHTML = tecnicoEstado.secoes.map((s, i) => {
-    const corpo = s.tipo === 'campos'
+    const corpo = s.tipo === 'fotos' ? renderCorpoFotos(s, i)
+      : s.tipo === 'campos'
       ? (s.grupos || []).map((g, gi) => `
           <div style="border:1px solid #ddd; border-radius:6px; padding:10px; margin-bottom:10px;">
             ${g.map((f, fi) => `
@@ -1220,7 +1233,7 @@ function renderizarSecoesTecnico() {
       <div style="background:white; border-radius:6px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06); margin-bottom:16px;">
         <div style="display:flex; gap:8px; align-items:center; margin-bottom:10px;">
           <span style="font-weight:700; color:var(--acento); min-width:32px; ${s.sub ? 'padding-left:12px;' : ''}">${numeros[i] || ''}</span>
-          <input type="text" class="form-control" style="font-weight:600;" id="tec-s${i}-titulo" placeholder="Título da seção" value="${esc(s.titulo || '')}" ${dis}>
+          <input type="text" class="form-control" style="font-weight:600;" id="tec-s${i}-titulo" placeholder="${s.tipo === 'fotos' ? 'Título da seção (opcional — sem título não ganha número)' : 'Título da seção'}" value="${esc(s.titulo || '')}" ${dis}>
           <label style="display:flex; align-items:center; gap:4px; font-size:12px; white-space:nowrap;" title="Numera como 4.1, 4.2... da seção de cima">
             <input type="checkbox" id="tec-s${i}-sub" ${s.sub ? 'checked' : ''} onchange="tecAtualizarNumeracao()" ${dis}> Subseção
           </label>
@@ -1234,6 +1247,120 @@ function renderizarSecoesTecnico() {
       </div>
     `
   }).join('')
+  carregarMiniaturasFotos()
+}
+
+function renderCorpoFotos(s, i) {
+  const ro = tecnicoSomenteLeitura
+  const dis = ro ? 'disabled' : ''
+  const lista = s.fotos || []
+  return `
+    <input type="text" class="form-control form-control-sm" style="margin-bottom:10px;" id="tec-s${i}-descricao" placeholder="Texto acima das fotos (ex: FOTOS DE ANTES DO REPARO)" value="${esc(s.descricao || '')}" ${dis}>
+    <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(200px, 1fr)); gap:12px;">
+      ${lista.map((f, k) => `
+        <div style="border:1px solid #ddd; border-radius:6px; padding:8px; display:flex; flex-direction:column; gap:6px;">
+          <div style="height:140px; display:flex; align-items:center; justify-content:center; background:#f5f5f5; border-radius:4px; overflow:hidden;">
+            <img data-foto="${esc(f.arquivo)}" alt="" style="max-width:100%; max-height:140px;">
+          </div>
+          <input type="text" class="form-control form-control-sm" id="tec-s${i}-f${k}-legenda" placeholder="Legenda (opcional)" value="${esc(f.legenda || '')}" ${dis}>
+          ${ro ? '' : `
+            <div style="display:flex; gap:6px; justify-content:space-between;">
+              <div style="display:flex; gap:6px;">
+                <button type="button" class="btn btn-sm btn-secondary" title="Mover pra trás" onclick="tecMoverFoto(${i}, ${k}, -1)" ${k === 0 ? 'disabled' : ''}>←</button>
+                <button type="button" class="btn btn-sm btn-secondary" title="Mover pra frente" onclick="tecMoverFoto(${i}, ${k}, 1)" ${k === lista.length - 1 ? 'disabled' : ''}>→</button>
+              </div>
+              <button type="button" class="btn btn-sm btn-danger" title="Remover foto" onclick="tecRemoverFoto(${i}, ${k})">✕</button>
+            </div>
+          `}
+        </div>
+      `).join('')}
+    </div>
+    ${!lista.length && ro ? '<p style="color:#999; font-size:13px; margin:0;">Nenhuma foto.</p>' : ''}
+    ${ro ? '' : tecnicoRelatorioId ? `
+      <label class="btn btn-sm btn-secondary" style="margin-top:10px; margin-bottom:0;">
+        + Adicionar fotos
+        <input type="file" accept="image/jpeg,image/png" multiple style="display:none;" onchange="tecEnviarFotos(${i}, this)">
+      </label>
+      <span id="tec-s${i}-envio" style="margin-left:8px; font-size:12px; color:#999;"></span>
+    ` : '<p style="color:#999; font-size:12px; margin:10px 0 0;">Salve o relatório uma vez para poder adicionar fotos.</p>'}
+  `
+}
+
+async function carregarMiniaturasFotos() {
+  for (const img of document.querySelectorAll('#rel-tec-secoes img[data-foto]')) {
+    const arquivo = img.dataset.foto
+    if (!miniaturasFotos.has(arquivo)) {
+      try {
+        const res = await apiFetch(`${API}/uploads/relatorios/${tecnicoRelatorioId}/${encodeURIComponent(arquivo)}`)
+        if (!res.ok) continue
+        miniaturasFotos.set(arquivo, URL.createObjectURL(await res.blob()))
+      } catch {
+        continue
+      }
+    }
+    img.src = miniaturasFotos.get(arquivo)
+  }
+}
+
+// Reduz a foto no navegador antes de mandar (lado maior até 1600px, JPEG) —
+// foto de celular tem 3–8 MB e o PDF com 20 delas ficaria enorme.
+const LADO_MAXIMO_FOTO = 1600
+async function reduzirFoto(arquivo) {
+  const bitmap = await createImageBitmap(arquivo, { imageOrientation: 'from-image' })
+  const escala = Math.min(1, LADO_MAXIMO_FOTO / Math.max(bitmap.width, bitmap.height))
+  const canvas = document.createElement('canvas')
+  canvas.width = Math.round(bitmap.width * escala)
+  canvas.height = Math.round(bitmap.height * escala)
+  canvas.getContext('2d').drawImage(bitmap, 0, 0, canvas.width, canvas.height)
+  bitmap.close()
+  return new Promise((resolve, reject) => canvas.toBlob(b => b ? resolve(b) : reject(new Error('falha ao converter a foto')), 'image/jpeg', 0.85))
+}
+
+window.tecEnviarFotos = async function (i, input) {
+  const arquivos = [...input.files]
+  input.value = ''
+  if (!arquivos.length) return
+  const status = document.getElementById(`tec-s${i}-envio`)
+  const falhas = []
+  fotosEnviando++
+  try {
+    for (const [n, arquivo] of arquivos.entries()) {
+      if (status) status.textContent = `Enviando ${n + 1} de ${arquivos.length}...`
+      try {
+        const corpo = new FormData()
+        corpo.append('foto', await reduzirFoto(arquivo), 'foto.jpg')
+        const res = await apiFetch(`${API}/relatorios/${tecnicoRelatorioId}/fotos`, { method: 'POST', body: corpo })
+        const dados = await res.json()
+        if (!res.ok) throw new Error(dados.erro || 'falha no envio')
+        // Entra na seção onde o botão foi clicado (índice i). Se no meio do
+        // envio o técnico moveu/removeu seções e ali não é mais seção de
+        // fotos, avisa em vez de perder a foto calada.
+        sincronizarTecnicoDoForm()
+        if (tecnicoEstado.secoes[i]?.tipo !== 'fotos') throw new Error('a seção mudou de lugar durante o envio — envie de novo')
+        tecnicoEstado.secoes[i].fotos = [...(tecnicoEstado.secoes[i].fotos || []), { arquivo: dados.arquivo, legenda: '' }]
+        renderizarSecoesTecnico()
+      } catch (e) {
+        falhas.push(`${arquivo.name}: ${e.message}`)
+      }
+    }
+  } finally {
+    fotosEnviando--
+  }
+  const statusAtual = document.getElementById(`tec-s${i}-envio`)
+  if (statusAtual) statusAtual.textContent = 'Fotos adicionadas — clique em Salvar para guardar.'
+  if (falhas.length) alert('Algumas fotos não foram enviadas:\n' + falhas.join('\n'))
+}
+
+window.tecMoverFoto = function (i, k, direcao) {
+  alterarSecoesTecnico(secoes => {
+    const [f] = secoes[i].fotos.splice(k, 1)
+    secoes[i].fotos.splice(k + direcao, 0, f)
+  })
+}
+
+window.tecRemoverFoto = function (i, k) {
+  if (!confirm('Remover esta foto do relatório?')) return
+  alterarSecoesTecnico(secoes => secoes[i].fotos.splice(k, 1))
 }
 
 function renderizarAssinaturasTecnico() {
@@ -1261,7 +1388,15 @@ function sincronizarTecnicoDoForm() {
   tecnicoEstado.imo = valor('rel-tec-imo')
   tecnicoEstado.certificadoNumero = valor('rel-tec-certificadoNumero')
   tecnicoEstado.local = valor('rel-tec-local')
-  tecnicoEstado.secoes = tecnicoEstado.secoes.map((s, i) => s.tipo === 'campos'
+  tecnicoEstado.secoes = tecnicoEstado.secoes.map((s, i) => s.tipo === 'fotos'
+    ? {
+        tipo: 'fotos',
+        titulo: valor(`tec-s${i}-titulo`),
+        sub: marcado(`tec-s${i}-sub`),
+        descricao: valor(`tec-s${i}-descricao`),
+        fotos: (s.fotos || []).map((f, k) => ({ arquivo: f.arquivo, legenda: valor(`tec-s${i}-f${k}-legenda`) }))
+      }
+    : s.tipo === 'campos'
     ? {
         tipo: 'campos',
         titulo: valor(`tec-s${i}-titulo`),
@@ -1304,9 +1439,10 @@ window.tecRemoverSecao = function (i) {
 }
 
 window.tecAdicionarSecao = function (tipo) {
-  alterarSecoesTecnico(secoes => secoes.push(tipo === 'campos'
-    ? { tipo: 'campos', titulo: '', grupos: [[{ rotulo: '', valor: '' }]] }
-    : { tipo: 'texto', titulo: '', texto: '' }))
+  alterarSecoesTecnico(secoes => secoes.push(
+    tipo === 'campos' ? { tipo: 'campos', titulo: '', grupos: [[{ rotulo: '', valor: '' }]] }
+      : tipo === 'fotos' ? { tipo: 'fotos', titulo: '', descricao: '', fotos: [] }
+      : { tipo: 'texto', titulo: '', texto: '' }))
 }
 
 window.tecAdicionarCampo = function (i, gi) {
@@ -1382,6 +1518,10 @@ window.trocarModeloRelatorioTecnico = async function () {
 }
 
 window.salvarRelatorioTecnico = async function (id) {
+  if (fotosEnviando) {
+    alert('Ainda tem foto sendo enviada — espere terminar e clique em Salvar de novo.')
+    return
+  }
   sincronizarTecnicoDoForm()
   const body = {
     empresaId: document.getElementById('rel-empresaId').value,

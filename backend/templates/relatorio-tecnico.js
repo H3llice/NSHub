@@ -30,6 +30,11 @@ const campos = (titulo, rotulos, valores = {}, sub = false) => ({
   grupos: [rotulos.map(rotulo => ({ rotulo, valor: valores[rotulo] || '' }))]
 })
 
+// Seção 'fotos': título opcional + texto acima das fotos ("FOTOS DE ANTES
+// DO REPARO") + fotos com legenda, em grade de 2 colunas. Sem título ela não
+// ganha número — é como os originais agrupam as fotos dentro de uma seção.
+const fotos = (descricao, titulo = '', sub = false) => ({ tipo: 'fotos', titulo, sub, descricao, fotos: [] })
+
 const EMPRESA_SOLICITANTE = ['EMPRESA', 'PLATAFORMA DE ORIGEM', 'GERÊNCIA SOLICITANTE']
 const PETROBRAS = { EMPRESA: 'PETROLEO BRASILEIRO S.A.' }
 
@@ -68,8 +73,7 @@ export const MODELOS_RELATORIO_TECNICO = {
     ]
   },
 
-  // P-76_RELATORIO TECNICO DE REPARO DE FIBRA.pdf — as fotos (antes,
-  // durante e depois) entram quando o relatório tiver seção de fotos.
+  // P-76_RELATORIO TECNICO DE REPARO DE FIBRA.pdf
   fibra: {
     nome: 'Reparação em Fibra de Vidro e Pintura',
     titulo: 'RELATÓRIO TÉCNICO DE SERVIÇOS DE REPARAÇÃO EM FIBRA DE VIDRO E PINTURA',
@@ -80,6 +84,9 @@ export const MODELOS_RELATORIO_TECNICO = {
       texto('OBJETIVO', 'O PRESENTE TRABALHO TEVE COMO OBJETIVO A REPARAÇÃO DE FIBRA DE VIDRO E PINTURA EXTERNA NA '),
       texto('REPARAÇÕES EM FIBRA'),
       texto('REPARAÇÃO DE FIBRA DE VIDRO', 'NORMAM REV 1-2023 CAP 3 ANEXO 3G. SOLAS CAP III REG.20 E MSC.402(96) REG 20.11 ABNT NBR 15299.2005 ITEM 8 12:1 MANUAL DO FABRICANTE.\n\n* RELATÓRIO TÉCNICO E RELATÓRIO FOTOGRÁFICO EMITIDO\nRELATÓRIO FINAL RESULTADO "APTO" PARA O FIM A QUE SE DESTINA NA PRESENTE DATA.', true),
+      fotos('FOTOS DE ANTES DO REPARO'),
+      fotos('FOTOS DURANTE O REPARO'),
+      fotos('FOTOS DO TÉRMINO DO REPARO'),
       texto('CONCLUSÃO', 'OS SERVIÇOS DE REPARAÇÕES DAS FIBRAS DE VIDRO  FORAM CONCLUÍDOS COM ÊXITO, EXCELÊNCIA E APROVAÇÃO PELO RESPONSÁVEL PELA EMBARCAÇÃO.\nEMITIDO CERTIFICADO  COM 90 DIAS DE GARANTIA DOS SERVIÇOS EXECUTADOS.')
     ],
     assinaturas: [COORDENADOR_PETROBRAS, CELSO]
@@ -95,6 +102,7 @@ export const MODELOS_RELATORIO_TECNICO = {
       campos('DADOS DOS EQUIPAMENTOS', ['EQUIPAMENTOS', 'MODELO', 'NÚMEROS DE SÉRIE', 'DATAS DE FABRICAÇÃO', 'FABRICANTE', 'TAGs']),
       texto('OBJETIVO', 'O PRESENTE TRABALHO TEVE COMO OBJETIVO O DELINEAMENTO DAS MANGUEIRAS DO SISTEMA DE AR RESPIRÁVEL DAS BALEEIRAS.'),
       texto('DELINEAMENTO DAS MANGUEIRAS DO SISTEMA DE AR RESPIRÁVEL', '* RELATÓRIO TÉCNICO E RELATÓRIO FOTOGRÁFICO EMITIDO\nEquipamento: Baleeira \nModelo: \nSistema: Compressed Air / Emergency Breathing Air System com a configuração geral do sistema:\nCilindros de ar respirável ( unidades).\nVálvulas de cilindros individuais.\nMangueiras de alta pressão.\nColetor (manifold/Tee de distribuição).\nMangueira principal para regulador.\nRegulador redutor de pressão.\nLinha de distribuição de ar para o interior da cabine.\n\nMangueiras dos cilindros\nAplicação: Alta pressão (HP)\nCaracterísticas esperadas:\nMangueira flexível para ar comprimido respirável;\nPressão de trabalho compatível com a pressão de carga dos cilindros (200–300 bar conforme configuração);\nConexões prensadas pelo fabricante;\nIdentificação permanente (fabricante, pressão, lote/data de fabricação).\n\nO Sistema de ar Respirável das Baleeiras encontra-se "Apto" para o fim que se destina na presente data.'),
+      fotos('FOTOS DO SISTEMA DE AR RESPIRÁVEL'),
       texto('CONCLUSÃO', 'OS SERVIÇOS DE DELINEAMENTO DAS MANGUEIRAS DO SISTEMA DE AR RESPIRÁVEL FORAM CONCLUÍDOS COM ÊXITO E EXCELÊNCIA COM AS SEGUINTES MEDIDAS:\n')
     ],
     assinaturas: [COORDENADOR_PETROBRAS, CELSO]
@@ -119,7 +127,9 @@ export const MODELOS_RELATORIO_TECNICO = {
       texto('DADOS DAS MANGUEIRAS E CONEXÕES', 'Mangueiras dos Cilindros de ar Respirável instalados na Baleeira do Posto :\nCertificado Nº \nMangueira Hidráulica 1/4" (6500 PSI) X 33 CM TERMINAL FÊMEA GIRATÓRIA AÇO CARBONO/MACHO GIRATÓRIO 5/8" LATÃO.\nCertificado Nº \nMangueira Hidráulica 1/4" (6500 PSI) X 4.5 M TERMINAL FÊMEA GIRATÓRIA AÇO CARBONO/FÊMEA COM ADAPTADOR 20MM LATÃO.\nCertificado Nº \nTEE EM AÇO CARBONO MACHO CÔNICO.', true),
       texto('TESTES E VERIFICAÇÕES FUNCIONAIS', 'Verificado após substituição:\nSuportes de fixações.\nSistema de ar Respirável sem vazamentos e Pressão de trabalho com 200 BAR OK.\nPainel/Indicadores verificados e conforme.\nBaleeira operacional.', true),
       texto('CONCLUSÃO', 'Após inspeção, substituição dos Cilindros e Mangueiras de ar Respirável, o sistema foi considerado:\nOPERACIONAL E EM CONFORMIDADE.\n\nRecomendações:\nO sistema de ar respirável deve ser inspecionado e mantido operacional ALL TIME.'),
-      texto('CONFORMIDADE/REFERÊNCIAS', 'SOLAS Capítulo III, LSA Code, IMO Resolution MSC.402(96)\nManual do fabricante.\nPlano de manutenção / Procedimento.', true)
+      texto('CONFORMIDADE/REFERÊNCIAS', 'SOLAS Capítulo III, LSA Code, IMO Resolution MSC.402(96)\nManual do fabricante.\nPlano de manutenção / Procedimento.', true),
+      fotos('Cilindros velhos', 'REGISTRO FOTOGRÁFICO', true),
+      fotos('Cilindros novos')
     ],
     assinaturas: [NOEL, AUGUSTO]
   },
@@ -136,6 +146,22 @@ export const MODELOS_RELATORIO_TECNICO = {
     ],
     assinaturas: [{ nome: '', cargo: '', registro: '' }]
   }
+}
+
+export const NOME_FOTO = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(jpg|png)$/
+
+// Fotos ficam em uploads/relatorios/<id>/ (servido só com login, ver server.js).
+export function pastaFotosRelatorio(id) {
+  return path.resolve('uploads', 'relatorios', String(id))
+}
+
+// Nomes de foto citados no conteúdo — o que não estiver aqui é lixo na pasta.
+export function fotosUsadas(conteudo) {
+  const usadas = new Set()
+  for (const s of normalizarConteudo(conteudo).secoes) {
+    if (s.tipo === 'fotos') s.fotos.forEach(f => usadas.add(f.arquivo))
+  }
+  return usadas
 }
 
 // Conteúdo pronto pra um relatório novo do modelo (cópia — o objeto acima
@@ -165,7 +191,19 @@ export function normalizarConteudo(bruto) {
     imo: txt(c.imo),
     certificadoNumero: txt(c.certificadoNumero),
     local: txt(c.local),
-    secoes: lista(c.secoes).map(s => s?.tipo === 'campos'
+    secoes: lista(c.secoes).map(s => s?.tipo === 'fotos'
+      ? {
+          tipo: 'fotos',
+          titulo: txt(s.titulo),
+          sub: !!s.sub,
+          descricao: txt(s.descricao),
+          // Só nome gerado pelo upload (uuid.jpg/png) — o nome vira caminho
+          // de arquivo no PDF, então nada de "../" vindo do navegador.
+          fotos: lista(s.fotos)
+            .filter(f => NOME_FOTO.test(f?.arquivo || ''))
+            .map(f => ({ arquivo: f.arquivo, legenda: txt(f.legenda) }))
+        }
+      : s?.tipo === 'campos'
       ? {
           tipo: 'campos',
           titulo: txt(s.titulo),
@@ -226,7 +264,30 @@ export function htmlRelatorioTecnico(relatorio, paginas = {}) {
 
   const secoes = numerarSecoes(c.secoes)
 
+  const pastaFotos = relatorio.id ? pastaFotosRelatorio(relatorio.id) : null
+  // A foto entra no HTML como data URI — o Chromium do PDF não tem login pra
+  // buscar em /uploads. Foto que sumiu do disco simplesmente não sai.
+  const imagemFoto = arquivo => {
+    if (!pastaFotos) return ''
+    const caminho = path.join(pastaFotos, arquivo)
+    if (!fs.existsSync(caminho)) return ''
+    const tipo = arquivo.endsWith('.png') ? 'image/png' : 'image/jpeg'
+    return `data:${tipo};base64,${fs.readFileSync(caminho).toString('base64')}`
+  }
+
   const corpoSecao = s => {
+    if (s.tipo === 'fotos') {
+      const figuras = s.fotos.map(f => ({ ...f, src: imagemFoto(f.arquivo) })).filter(f => f.src)
+      return `
+        ${s.descricao.trim() ? `<div class="fotos-descricao">${comQuebras(s.descricao)}</div>` : ''}
+        ${figuras.length ? `<div class="fotos">${figuras.map(f => `
+          <figure>
+            <div class="moldura"><img src="${f.src}"></div>
+            ${f.legenda.trim() ? `<figcaption>${comQuebras(f.legenda)}</figcaption>` : ''}
+          </figure>
+        `).join('')}</div>` : ''}
+      `
+    }
     if (s.tipo === 'texto') return s.texto.trim() ? `<div class="texto">${comQuebras(s.texto)}</div>` : ''
     return s.grupos.map(g => {
       const linhas = g.filter(f => f.rotulo.trim() || f.valor.trim())
@@ -269,6 +330,15 @@ export function htmlRelatorioTecnico(relatorio, paginas = {}) {
   .secao h3 { font-size: 10.5pt; margin: 0 0 2mm; text-transform: uppercase; page-break-after: avoid; }
   .secao.sub h3 { font-size: 10pt; }
   .grupo { margin-bottom: 4mm; page-break-inside: avoid; }
+
+  .fotos-descricao { font-weight: bold; text-transform: uppercase; margin: 2mm 0 3mm; page-break-after: avoid; }
+  .fotos { display: grid; grid-template-columns: 1fr 1fr; gap: 5mm 6mm; }
+  .fotos figure { margin: 0; page-break-inside: avoid; text-align: center; }
+  /* Moldura de tamanho fixo: foto em pé ou deitada ocupa o mesmo espaço e a
+     grade não fica desalinhada. */
+  .fotos .moldura { height: 62mm; display: flex; align-items: center; justify-content: center; }
+  .fotos img { max-width: 100%; max-height: 62mm; }
+  .fotos figcaption { font-size: 9pt; margin-top: 1.5mm; }
 
   /* Última seção (a conclusão) + assinaturas não se separam: sem isso as
      assinaturas podiam ir sozinhas pra uma página nova. */

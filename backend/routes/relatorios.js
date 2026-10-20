@@ -3,9 +3,11 @@ import { PDFDocument, StandardFonts, rgb } from 'pdf-lib'
 import { gerarPdf } from '../pdf-browser.js'
 import fs from 'fs'
 import path from 'path'
+import crypto from 'crypto'
+import multer from 'multer'
 import { prisma } from '../server.js'
 import { autenticar, exigirPerfil } from '../middleware/auth.js'
-import { MODELOS_RELATORIO_TECNICO, conteudoInicial, normalizarConteudo, gerarPdfRelatorioTecnico } from '../templates/relatorio-tecnico.js'
+import { MODELOS_RELATORIO_TECNICO, conteudoInicial, normalizarConteudo, gerarPdfRelatorioTecnico, pastaFotosRelatorio, fotosUsadas } from '../templates/relatorio-tecnico.js'
 
 const router = Router()
 
@@ -295,6 +297,7 @@ router.put('/:id', autenticar, exigirPerfil('usuario', 'gerente', 'admin', 'tecn
   }
 
   await atualizarRelatorioCompleto(id, req.body)
+  if (atual.modelo && req.body.conteudo !== undefined) limparFotosNaoUsadas(id, req.body.conteudo)
 
   const completo = await prisma.relatorio.findUnique({
     where: { id },
@@ -374,8 +377,57 @@ router.delete('/:id', autenticar, exigirPerfil('gerente', 'admin'), async (req, 
     prisma.testeImo.deleteMany({ where: { relatorioId: id } }),
     prisma.relatorio.delete({ where: { id } })
   ])
+  fs.rm(pastaFotosRelatorio(id), { recursive: true, force: true }, () => { })
 
   res.json({ ok: true })
+})
+
+// ─── Fotos do Relatório técnico ─────────────────────────────────────────────────
+// A tela já reduz a foto (JPEG, até 1600px) antes de mandar; o limite aqui é
+// só pra barrar envio fora da tela. O tipo é conferido pelos primeiros bytes,
+// não pela extensão/mimetype que o navegador diz.
+const TAMANHO_MAXIMO_FOTO_MB = 15
+const uploadFoto = multer({ storage: multer.memoryStorage(), limits: { fileSize: TAMANHO_MAXIMO_FOTO_MB * 1024 * 1024 } })
+
+function tipoDaImagem(buffer) {
+  if (buffer.length > 3 && buffer[0] === 0xFF && buffer[1] === 0xD8 && buffer[2] === 0xFF) return '.jpg'
+  if (buffer.length > 8 && buffer.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]))) return '.png'
+  return null
+}
+
+// Foto enviada e depois tirada do relatório (ou enviada e nunca salva) fica
+// órfã na pasta — some no próximo salvar.
+function limparFotosNaoUsadas(id, conteudo) {
+  const usadas = fotosUsadas(conteudo)
+  fs.readdir(pastaFotosRelatorio(id), (err, arquivos) => {
+    if (err) return
+    for (const arquivo of arquivos) {
+      if (!usadas.has(arquivo)) fs.unlink(path.join(pastaFotosRelatorio(id), arquivo), () => { })
+    }
+  })
+}
+
+router.post('/:id/fotos', autenticar, exigirPerfil('usuario', 'gerente', 'admin', 'tecnico'), (req, res, next) => {
+  uploadFoto.single('foto')(req, res, err => {
+    if (err?.code === 'LIMIT_FILE_SIZE') return res.status(400).json({ erro: `Foto maior que ${TAMANHO_MAXIMO_FOTO_MB} MB` })
+    if (err) return next(err)
+    next()
+  })
+}, async (req, res) => {
+  const id = Number(req.params.id)
+  const relatorio = await prisma.relatorio.findUnique({ where: { id } })
+  if (!relatorio) return res.status(404).json({ erro: 'Relatório não encontrado' })
+  if (!relatorio.modelo) return res.status(400).json({ erro: 'Este tipo de relatório não tem fotos' })
+  if (relatorio.status !== 'preenchendo') return res.status(400).json({ erro: 'Relatório não pode ser editado neste status' })
+  if (!req.file) return res.status(400).json({ erro: 'Nenhuma foto enviada' })
+
+  const extensao = tipoDaImagem(req.file.buffer)
+  if (!extensao) return res.status(400).json({ erro: 'Arquivo não é uma imagem JPG ou PNG' })
+
+  const arquivo = crypto.randomUUID() + extensao
+  await fs.promises.mkdir(pastaFotosRelatorio(id), { recursive: true })
+  await fs.promises.writeFile(path.join(pastaFotosRelatorio(id), arquivo), req.file.buffer)
+  res.json({ arquivo })
 })
 
 // ─── Geração do PDF do Relatório (Lista de Verificação e Reparos de Balsa) ─────
