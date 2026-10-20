@@ -541,7 +541,7 @@ async function renderizarTabelaCertificadosBackend(tipo, pagina) {
     tabela.innerHTML = reais.map(cert => {
         const dataEmissao = cert.dataEmissao ? new Date(cert.dataEmissao).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : '-'
         const armador = cert.armador || cert.embarcacao?.armador?.nome || '-'
-        const tecnico = (cert.relatorio ? cert.relatorio.tecnicoNome : cert.dadosTecnicos?.tecnicoNome)
+        const tecnico = (cert.relatorio && cert.tipo === 'balsa' ? cert.relatorio.tecnicoNome : cert.dadosTecnicos?.tecnicoNome)
             || (cert.relatorio?.criadoPor?.nome || cert.criadoPor?.nome) || '-'
         return `
             <tr>

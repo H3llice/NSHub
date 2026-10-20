@@ -1175,10 +1175,23 @@ function renderFormularioRelatorioTecnico(r, empresas, modelos) {
       `}
 
       ${cancelado ? `<p style="margin-bottom:16px; color:#dc3545; font-size:13px; font-weight:600;">Relatório cancelado.</p>` : ''}
-      ${(cancelado || concluido) && podeCancelarOuExcluirRelatorio ? `
-        <div style="display:flex; gap:12px; justify-content:flex-end;">
-          ${concluido ? `<button type="button" class="btn btn-warning" onclick="cancelarRelatorio(${r.id})">Cancelar Relatório</button>` : ''}
-          <button type="button" class="btn btn-danger" onclick="excluirRelatorio(${r.id})">Excluir Relatório</button>
+      ${concluido || ((cancelado || concluido) && podeCancelarOuExcluirRelatorio) ? `
+        <div style="display:flex; gap:12px; justify-content:space-between; align-items:center; flex-wrap:wrap;">
+          <div style="display:flex; align-items:center; gap:12px;">
+            ${!concluido ? '' : r.certificado
+              ? `<button type="button" class="btn btn-secondary" onclick="abrirCertificado(${r.certificado.id})">Ver Certificado</button> ${badgeStatusCertificado(r.certificado.status)}`
+              // Todo relatório gera certificado, mas só alguns modelos já têm
+              // o modelo de certificado pronto (MODELOS_RELATORIO_TECNICO[...].certificado).
+              : modelos[r.modelo]?.certificado
+                ? `<button type="button" class="btn btn-warning" onclick="gerarCertificadoDeRelatorio(${r.id})">Gerar Certificado</button>`
+                : `<span style="background:#fd7e14; color:white; padding:4px 10px; border-radius:12px; font-size:12px;">Certificado: modelo pendente</span>`}
+          </div>
+          ${podeCancelarOuExcluirRelatorio && !r.certificado ? `
+            <div style="display:flex; gap:12px;">
+              ${concluido ? `<button type="button" class="btn btn-warning" onclick="cancelarRelatorio(${r.id})">Cancelar Relatório</button>` : ''}
+              <button type="button" class="btn btn-danger" onclick="excluirRelatorio(${r.id})">Excluir Relatório</button>
+            </div>
+          ` : ''}
         </div>
       ` : ''}
     </div>

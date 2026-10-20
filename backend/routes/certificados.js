@@ -6,7 +6,14 @@ import { prisma } from '../server.js'
 import { autenticar, exigirPerfil } from '../middleware/auth.js'
 import { desenharPaginaRelatorio, INCLUDE_PDF_RELATORIO, atualizarRelatorioCompleto } from './relatorios.js'
 import { gerarPdf } from '../pdf-browser.js'
-import { MODELOS_LISTA, TIPOS_LISTA, htmlCertificadoLista } from '../templates/certificado-lista.js'
+import { MODELOS_LISTA, TIPOS_LISTA, htmlCertificadoLista, certificadoGatosDeRelatorio } from '../templates/certificado-lista.js'
+import { MODELOS_RELATORIO_TECNICO } from '../templates/relatorio-tecnico.js'
+
+// Como montar o certificado a partir de cada tipo de Relatório técnico —
+// mesmas chaves de MODELOS_RELATORIO_TECNICO[...].certificado.
+const CERTIFICADO_DE_RELATORIO_TECNICO = {
+  gatos: certificadoGatosDeRelatorio
+}
 
 const router = Router()
 
@@ -99,7 +106,7 @@ router.get('/', autenticar, async (req, res) => {
       if (navio && !contemNormalizado(c.navio || c.embarcacao?.nome, navio)) return false
       if (armador && !contemNormalizado(c.armador || c.embarcacao?.armador?.nome, armador)) return false
       if (tecnico) {
-        const nomeTecnico = (c.relatorio ? c.relatorio.tecnicoNome : c.dadosTecnicos?.tecnicoNome)
+        const nomeTecnico = (c.relatorio && c.tipo === 'balsa' ? c.relatorio.tecnicoNome : c.dadosTecnicos?.tecnicoNome)
           || (c.relatorio ? c.relatorio.criadoPor?.nome : c.criadoPor?.nome)
         if (!contemNormalizado(nomeTecnico, tecnico)) return false
       }
@@ -164,16 +171,34 @@ router.post('/', autenticar, exigirPerfil('usuario', 'gerente', 'admin'), async 
       include: { certificado: true, embarcacao: { include: { armador: true } } }
     })
     if (!relatorio) return res.status(400).json({ erro: 'Relatório não encontrado' })
-    // Relatório técnico (timbrado) não tem os campos de balsa que o
-    // certificado copia daqui — só relatório de balsa gera certificado.
-    if (relatorio.modelo) {
-      return res.status(400).json({ erro: 'Este tipo de relatório não gera certificado de balsa' })
-    }
     if (relatorio.status !== 'concluido') {
       return res.status(400).json({ erro: 'O Relatório precisa estar concluído para gerar o certificado' })
     }
     if (relatorio.certificado) {
       return res.status(400).json({ erro: 'Esse Relatório já tem um certificado gerado' })
+    }
+
+    // Relatório técnico (timbrado): o certificado é de lista (gatos...), não
+    // de balsa — os dados vêm do conteúdo do relatório, não das colunas de balsa.
+    if (relatorio.modelo) {
+      const tipoCertificado = MODELOS_RELATORIO_TECNICO[relatorio.modelo]?.certificado
+      const montar = CERTIFICADO_DE_RELATORIO_TECNICO[tipoCertificado]
+      if (!montar) {
+        return res.status(400).json({ erro: 'O modelo de certificado deste tipo de relatório ainda está pendente' })
+      }
+      const certificado = await prisma.certificado.create({
+        data: {
+          ...montar(relatorio),
+          numero: await proximoNumeroCertificado(ano),
+          ano,
+          empresaId: relatorio.empresaId,
+          embarcacaoId: relatorio.embarcacaoId,
+          relatorioId: relatorio.id,
+          criadoPorId: req.usuario.id
+        },
+        include: INCLUDE_PADRAO
+      })
+      return res.json(certificado)
     }
 
     // navio/armador/portoRegistro/telefone/email/equip* nascem copiados da
@@ -244,6 +269,14 @@ router.post('/', autenticar, exigirPerfil('usuario', 'gerente', 'admin'), async 
   res.json(certificado)
 })
 
+// Onde vai o objeto `relatorio` que a tela manda: certificado de balsa com
+// Relatório vinculado edita o Relatório de origem (atualizarRelatorioCompleto);
+// o resto (avulso de balsa e todos os de lista, inclusive os gerados de um
+// Relatório técnico) guarda em dadosTecnicos — técnico, norma, assinaturas...
+function guardaDadosTecnicos(certificado) {
+  return certificado.tipo !== 'balsa' || !certificado.relatorioId
+}
+
 // ─── Editar certificado (sempre editável, mesmo já emitido — diferente de OC/
 // Relatório/Solicitação, que travam após concluídos) ────────────────────────────
 router.put('/:id', autenticar, exigirPerfil('usuario', 'gerente', 'admin'), async (req, res) => {
@@ -260,7 +293,7 @@ router.put('/:id', autenticar, exigirPerfil('usuario', 'gerente', 'admin'), asyn
   // origem por baixo dos panos (única exceção às travas de doc. concluído).
   // Certificado avulso não tem Relatório — os dados do equipamento moram só
   // nos campos equip* do próprio Certificado (abaixo).
-  if (relatorio && certificado.relatorioId) {
+  if (relatorio && certificado.relatorioId && certificado.tipo === 'balsa') {
     await atualizarRelatorioCompleto(certificado.relatorioId, relatorio)
   }
 
@@ -277,7 +310,7 @@ router.put('/:id', autenticar, exigirPerfil('usuario', 'gerente', 'admin'), asyn
       email: email || null,
       ...extrairEquipamentoCertificado(req.body),
       ...extrairCamposLista(req.body),
-      ...(relatorio && !certificado.relatorioId && { dadosTecnicos: relatorio }),
+      ...(relatorio && guardaDadosTecnicos(certificado) && { dadosTecnicos: relatorio }),
       ...(empresaId && { empresaId: parseInt(empresaId) })
     },
     include: INCLUDE_PADRAO
@@ -300,7 +333,7 @@ router.post('/:id/emitir', autenticar, exigirPerfil('gerente', 'admin'), async (
     return res.status(400).json({ erro: 'Data de emissão e validade são obrigatórias para emitir o certificado' })
   }
 
-  if (relatorio && certificado.relatorioId) {
+  if (relatorio && certificado.relatorioId && certificado.tipo === 'balsa') {
     await atualizarRelatorioCompleto(certificado.relatorioId, relatorio)
   }
 
@@ -328,7 +361,7 @@ router.post('/:id/emitir', autenticar, exigirPerfil('gerente', 'admin'), async (
         email: email || null,
         ...extrairEquipamentoCertificado(req.body),
         ...extrairCamposLista(req.body),
-        ...(relatorio && !certificado.relatorioId && { dadosTecnicos: relatorio }),
+        ...(relatorio && guardaDadosTecnicos(certificado) && { dadosTecnicos: relatorio }),
         ...(empresaId && { empresaId: parseInt(empresaId) })
       },
       include: INCLUDE_PADRAO

@@ -130,10 +130,96 @@ export const MODELOS_LISTA = {
     observacaoPadrao: 'INSPECIONADO/TESTADO\nAPTO PARA O PROPÓSITO A QUE SE DESTINA.',
     validade: { rotulo: 'Validade', placeholder: 'Ex: 1 ANO', padrao: '1 ANO' },
     rodape: 'validade'
+  },
+
+  // Modelo_Certificado_Gatos_Preenchivel.pdf — nasce do Relatório técnico de
+  // gatos (uma linha por gato, tirada dos blocos de equipamento do relatório),
+  // mas também pode ser criado avulso. Layout próprio (rodape 'gatos'): tabela
+  // do navio, norma, nº do relatório técnico, "NEXT INSPECTION BEFORE" e até
+  // 3 assinaturas lado a lado.
+  gatos: {
+    nome: 'Hooks (Gatos) — Quinquenal',
+    titulo: 'CERTIFICADO DE TESTE E INSPEÇÃO QUINQUENAL (GATOS)',
+    tituloEn: 'CERTIFICATE OF TEST AND INSPECTION 5(Y) FIVE-YEARLY (HOOKS)',
+    subtitulo: 'Dispositivo de liberação de balsas salva-vidas',
+    subtituloEn: 'Release hook for liferaft',
+    cabecalho: [
+      { campo: 'navio', rotulo: 'Navio', rotuloEn: 'Ship', obrigatorio: true },
+      { campo: 'imo', rotulo: 'IMO', rotuloEn: null },
+      { campo: 'bandeira', rotulo: 'Bandeira', rotuloEn: 'Flag' },
+      { campo: 'classificadora', rotulo: 'Class', rotuloEn: null },
+      { campo: 'tipoNavio', rotulo: 'Tipo Navio', rotuloEn: null },
+      { campo: 'armador', rotulo: 'Armador', rotuloEn: 'Owner' }
+    ],
+    colunas: [
+      { campo: 'marca', rotulo: 'Marca', rotuloEn: 'Mark' },
+      { campo: 'numeroSerie', rotulo: 'Número de série', rotuloEn: 'Serial Number', chave: true },
+      { campo: 'modelo', rotulo: 'Modelo', rotuloEn: 'Model' },
+      { campo: 'teste', rotulo: 'Teste ou Exame', rotuloEn: null, padrao: 'T & E' },
+      { campo: 'swl', rotulo: 'Carga Trab', rotuloEn: 'S W L' },
+      { campo: 'resultado', rotulo: 'Resultado', rotuloEn: 'Result', padrao: 'APROVADO' }
+    ],
+    // Guardados em dadosTecnicos (não têm coluna no Certificado).
+    extras: [
+      { campo: 'norma', rotulo: 'Norma aplicada', padrao: 'IMO MSC 554 (108)' },
+      { campo: 'relatorioNumero', rotulo: 'Relatório técnico nº' }
+    ],
+    assinaturas: [
+      { empresa: 'Natal Safety', nome: 'Augusto Gustavo', cargo: 'Mec Aut' },
+      { empresa: 'Natal Safety', nome: 'Noel Cavalheiro', cargo: 'Eng Mec' },
+      { empresa: 'Natal Safety', nome: 'Celso Moura', cargo: 'Surveyor' }
+    ],
+    observacaoPadrao: 'APTO PARA O USO NA PRESENTE DATA / FIT FOR PURPOSE',
+    validade: { rotulo: 'Próxima inspeção (Next inspection before)', placeholder: 'Ex: 22 JUNE 2031', padrao: 'cincoAnos' },
+    rodape: 'gatos'
   }
 }
 
 export const TIPOS_LISTA = Object.keys(MODELOS_LISTA)
+
+// Dados do certificado de gatos tirados de um Relatório técnico de gatos
+// concluído (backend/templates/relatorio-tecnico.js): cada bloco da seção de
+// equipamentos vira uma linha (acha a seção pelo rótulo dos hooks, não pela
+// posição — o técnico pode ter reordenado as seções). Tudo continua editável
+// no certificado depois.
+export function certificadoGatosDeRelatorio(relatorio) {
+  const c = relatorio.conteudo || {}
+  const secoes = Array.isArray(c.secoes) ? c.secoes : []
+  const valorDe = (grupo, ...rotulos) => {
+    const alvo = rotulos.map(r => r.toLowerCase())
+    return (grupo.find(f => alvo.includes((f.rotulo || '').trim().toLowerCase()))?.valor || '').trim()
+  }
+  const equipamentos = secoes.find(s => s.tipo === 'campos' &&
+    (s.grupos || []).some(g => g.some(f => /hooks/i.test(f.rotulo || ''))))
+  const solicitante = secoes.find(s => s.tipo === 'campos' &&
+    (s.grupos || []).some(g => g.some(f => (f.rotulo || '').trim().toUpperCase() === 'EMPRESA')))
+  const modelo = MODELOS_LISTA.gatos
+
+  const itens = (equipamentos?.grupos || []).map(g => ({
+    marca: valorDe(g, 'Fabricante dos Hooks (Gatos)'),
+    numeroSerie: valorDe(g, 'Nº Série'),
+    modelo: valorDe(g, 'Modelo / Tipo'),
+    teste: 'T & E',
+    swl: valorDe(g, 'Capacidade de carga (SWL)'),
+    resultado: 'APROVADO'
+  })).filter(i => i.marca || i.numeroSerie || i.modelo || i.swl)
+
+  return {
+    tipo: 'gatos',
+    navio: relatorio.navio || null,
+    imo: c.imo || null,
+    armador: (solicitante ? valorDe(solicitante.grupos[0], 'EMPRESA') : '') || null,
+    localEmissao: c.local || null,
+    observacoes: modelo.observacaoPadrao,
+    itens,
+    dadosTecnicos: {
+      tecnicoNome: (c.assinaturas || []).find(a => (a.nome || '').trim())?.nome || '',
+      norma: modelo.extras[0].padrao,
+      relatorioNumero: c.certificadoNumero || `${relatorio.numero}/${relatorio.ano}`,
+      assinaturas: modelo.assinaturas
+    }
+  }
+}
 
 const MESES_PT = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro']
 const MESES_EN = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
@@ -170,6 +256,7 @@ function datas(dataEmissao) {
 
 export function htmlCertificadoLista(c) {
   const modelo = MODELOS_LISTA[c.tipo]
+  if (modelo.rodape === 'gatos') return htmlCertificadoGatos(c, modelo)
   const itens = Array.isArray(c.itens) ? c.itens : []
   const data = datas(c.dataEmissao)
   const tecnico = c.dadosTecnicos?.tecnicoNome || ''
@@ -282,6 +369,95 @@ export function htmlCertificadoLista(c) {
     <div class="en">TECHNICAL LEAD – Stamp &amp; Sign</div>
     ${c.empresa?.nome ? `<div>${escapeHtml(c.empresa.nome)}</div>` : ''}
   </div>
+</body>
+</html>`
+}
+
+// Layout do Modelo_Certificado_Gatos_Preenchivel.pdf. Também sai em papel
+// timbrado (mesmas margens dos outros de lista).
+function htmlCertificadoGatos(c, modelo) {
+  const itens = Array.isArray(c.itens) ? c.itens : []
+  const extras = c.dadosTecnicos || {}
+  const assinaturas = (Array.isArray(extras.assinaturas) ? extras.assinaturas : [])
+    .filter(a => (a.empresa || a.nome || a.cargo || '').trim())
+  const d = c.dataEmissao ? new Date(c.dataEmissao) : null
+  const dataCurta = d ? `${String(d.getUTCDate()).padStart(2, '0')}/${String(d.getUTCMonth() + 1).padStart(2, '0')}/${d.getUTCFullYear()}` : ''
+  const campo = nome => escapeHtml(c[nome]) || '&nbsp;'
+  const rot = f => `${escapeHtml(f.rotulo)}${f.rotuloEn ? ` / ${escapeHtml(f.rotuloEn)}` : ''}`
+  const [navio, imo, bandeira, classe, tipoNavio, armador] = modelo.cabecalho
+
+  return `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<style>
+  @page { size: A4; margin: 45mm 18mm 30mm 18mm; }
+  * { box-sizing: border-box; }
+  body { font-family: Arial, Helvetica, sans-serif; font-size: 9.5pt; color: #111; margin: 0; }
+  .numero { text-align: right; font-size: 9pt; margin-bottom: 3mm; }
+  .titulo { text-align: center; margin-bottom: 5mm; }
+  .titulo .pt { font-weight: bold; font-size: 12pt; }
+  .titulo .en { font-size: 10.5pt; }
+  .titulo .sub { font-weight: bold; font-size: 10.5pt; margin-top: 4mm; }
+  table { width: 100%; border-collapse: collapse; }
+  .navio td { border: 1px solid #333; padding: 1mm 2mm; text-align: center; font-size: 9pt; }
+  .navio td.rot { font-weight: bold; width: 22%; }
+  .norma { border: 1px solid #333; margin-top: 4mm; padding: 1mm 2mm; font-weight: bold; text-align: center; }
+  .norma span { margin-left: 12mm; }
+  .relatorio { text-align: center; font-weight: bold; margin: 1mm 0 4mm; }
+  .itens { border: 1px solid #333; }
+  .itens th { border-bottom: 2px solid #333; border-right: 1px solid #333; padding: 1.5mm; font-size: 9pt; }
+  .itens th:last-child { border-right: 0; }
+  .itens td { padding: 3mm 1.5mm; text-align: center; font-weight: bold; }
+  .itens tr { page-break-inside: avoid; }
+  .remarks { border: 1px solid #333; padding: 1.5mm 2mm; min-height: 15mm; margin-top: 3mm; white-space: pre-line; }
+  .rodape { display: flex; justify-content: space-between; gap: 6mm; margin-top: 7mm; }
+  .proxima { flex: 1; border: 1.5px solid #333; padding: 1.5mm 2mm; font-weight: bold; font-size: 11pt; }
+  .local { width: 62mm; border: 1px solid #333; padding: 1.5mm 2mm; }
+  .assinaturas { display: flex; justify-content: space-around; margin-top: 25mm; border-top: 1px dotted #333; padding-top: 2mm; text-align: center; font-size: 9pt; page-break-inside: avoid; }
+  .assinaturas div { flex: 1; }
+</style>
+</head>
+<body>
+  <div class="numero">Nº ${escapeHtml(c.numero)}/${escapeHtml(c.ano)}</div>
+
+  <div class="titulo">
+    <div class="pt">${escapeHtml(modelo.titulo)}</div>
+    <div class="en">${escapeHtml(modelo.tituloEn)}</div>
+    <div class="sub">${escapeHtml(modelo.subtitulo)}</div>
+    <div class="en">${escapeHtml(modelo.subtituloEn)}</div>
+  </div>
+
+  <table class="navio">
+    <tr><td class="rot">${rot(navio)}</td><td>${campo('navio')}</td><td class="rot">${rot(imo)}</td><td>${campo('imo')}</td></tr>
+    <tr><td class="rot">${rot(bandeira)}</td><td>${campo('bandeira')}</td><td class="rot">${rot(classe)}</td><td>${campo('classificadora')}</td></tr>
+    <tr><td class="rot">${rot(tipoNavio)}</td><td>${campo('tipoNavio')}</td><td class="rot">${rot(armador)}</td><td>${campo('armador')}</td></tr>
+  </table>
+
+  <div class="norma">Norma Aplicada / Relevant Standard <span>${escapeHtml(extras.norma)}</span></div>
+  <div class="relatorio">Relatório Técnico nr ${escapeHtml(extras.relatorioNumero)}</div>
+
+  <table class="itens">
+    <thead>
+      <tr>${modelo.colunas.map(col => `<th>${escapeHtml(col.rotulo)}${col.rotuloEn ? `<br>${escapeHtml(col.rotuloEn)}` : ''}</th>`).join('')}</tr>
+    </thead>
+    <tbody>
+      ${itens.map(item => `<tr>${modelo.colunas.map(col => `<td>${escapeHtml(item[col.campo])}</td>`).join('')}</tr>`).join('')}
+    </tbody>
+  </table>
+
+  <div class="remarks">Remarks: ${escapeHtml(c.observacoes)}</div>
+
+  <div class="rodape">
+    <div class="proxima">NEXT INSPECTION BEFORE ${escapeHtml(c.validade)}</div>
+    <div class="local">${escapeHtml([c.localEmissao, dataCurta].filter(Boolean).join(' '))}</div>
+  </div>
+
+  ${assinaturas.length ? `
+    <div class="assinaturas">
+      ${assinaturas.map(a => `<div>${escapeHtml(a.empresa)}<br>${escapeHtml(a.nome)}<br>${escapeHtml(a.cargo)}</div>`).join('')}
+    </div>
+  ` : ''}
 </body>
 </html>`
 }

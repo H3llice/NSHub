@@ -172,7 +172,8 @@ router.get('/', autenticar, async (req, res) => {
 router.get('/modelos', autenticar, (req, res) => {
   const modelos = {}
   for (const chave of Object.keys(MODELOS_RELATORIO_TECNICO)) {
-    modelos[chave] = { nome: MODELOS_RELATORIO_TECNICO[chave].nome, conteudo: conteudoInicial(chave) }
+    const { nome, certificado } = MODELOS_RELATORIO_TECNICO[chave]
+    modelos[chave] = { nome, certificado, conteudo: conteudoInicial(chave) }
   }
   res.json(modelos)
 })

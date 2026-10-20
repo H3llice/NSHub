@@ -46,9 +46,13 @@ const NOEL = { nome: 'NOEL CAVALHEIRO JR', cargo: 'ENG MECÂNICO', registro: 'CR
 const AUGUSTO = { nome: 'AUGUSTO GUSTAVO FILHO', cargo: 'ENG DE PROF, MAN, INSP', registro: 'CREA: 2002105847\nCRT: 39009629791' }
 const CELSO = { nome: 'CELSO MOURA', cargo: 'REPARADOR DE FIBRA', registro: 'SISPAT: 47522597' }
 
+// `certificado`: tipo de certificado (backend/templates/certificado-lista.js)
+// que o relatório concluído gera. Todo relatório gera certificado, mas só o de
+// gatos tem modelo até agora — null = "modelo de certificado pendente" na tela.
 export const MODELOS_RELATORIO_TECNICO = {
   gatos: {
     nome: 'Inspeção de Hooks (Gatos)',
+    certificado: 'gatos',
     titulo: 'RELATÓRIO DE INSPEÇÃO E CERTIFICAÇÃO\nHOOKS (GATOS) DE LIBERAÇÃO DOS TURCOS DE BALSAS SALVA-VIDAS',
     local: 'RIO DE JANEIRO-RJ',
     secoes: [
@@ -76,6 +80,7 @@ export const MODELOS_RELATORIO_TECNICO = {
   // P-76_RELATORIO TECNICO DE REPARO DE FIBRA.pdf
   fibra: {
     nome: 'Reparação em Fibra de Vidro e Pintura',
+    certificado: null,
     titulo: 'RELATÓRIO TÉCNICO DE SERVIÇOS DE REPARAÇÃO EM FIBRA DE VIDRO E PINTURA',
     local: 'RIO DE JANEIRO-RJ',
     secoes: [
@@ -95,6 +100,7 @@ export const MODELOS_RELATORIO_TECNICO = {
   // P78 RELATÓRIO TÉCNICO DE SERVIÇOS SS-24/2026 (delineamento das mangueiras).
   mangueiras: {
     nome: 'Delineamento das Mangueiras de Ar Respirável',
+    certificado: null,
     titulo: 'RELATÓRIO TÉCNICO DE SERVIÇOS\nDELINEAMENTO DAS MANGUEIRAS DO SISTEMA DE AR RESPIRÁVEL DAS BALEEIRAS',
     local: 'RIO DE JANEIRO-RJ',
     secoes: [
@@ -111,6 +117,7 @@ export const MODELOS_RELATORIO_TECNICO = {
   // RELATÓRIO DE MANUTENÇÃO SUBSTITUIÇÃO DE CILINDROS DE AR RESPIRÁVEL (P-74).
   cilindros: {
     nome: 'Substituição de Cilindros de Ar Respirável',
+    certificado: null,
     titulo: 'RELATÓRIO DE MANUTENÇÃO / SUBSTITUIÇÃO DE CILINDROS DE AR RESPIRÁVEL DE BALEEIRA',
     local: 'RIO DE JANEIRO-RJ',
     secoes: [
@@ -136,6 +143,7 @@ export const MODELOS_RELATORIO_TECNICO = {
 
   branco: {
     nome: 'Em branco',
+    certificado: null,
     titulo: 'RELATÓRIO TÉCNICO DE SERVIÇOS',
     local: 'RIO DE JANEIRO-RJ',
     secoes: [

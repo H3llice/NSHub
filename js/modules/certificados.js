@@ -89,6 +89,8 @@ window.gerarCertificadoDeRelatorio = async function (relatorioId) {
   if (res.ok) {
     const certificado = await res.json()
     const empresas = await apiFetch(`${API}/empresas`).then(r => r.json())
+    // Relatório técnico (gatos...) gera certificado de lista, não de balsa.
+    if (certificado.tipo && certificado.tipo !== 'balsa') return exibirCertificadoLista(certificado, empresas)
     exibirCertificado(certificado, empresas)
   } else {
     const err = await res.json()
@@ -455,6 +457,9 @@ window.excluirCertificado = async function (id) {
 let modelosLista = null
 let certificadoListaAtual = null
 let itensLista = []
+// Assinaturas impressas (só modelos com `assinaturas`, ex.: gatos) —
+// { empresa, nome, cargo }, guardadas em dadosTecnicos.assinaturas.
+let assinaturasLista = []
 
 async function carregarModelosLista() {
   if (!modelosLista) modelosLista = await apiFetch(`${API}/certificados/modelos`).then(r => r.json())
@@ -468,10 +473,15 @@ export async function nomeTipoCertificado(tipo) {
 
 // "mesAnoSeguinte": respiração/cilindros imprimem "Próxima inspeção: 08/2027"
 // — um ano depois do mês da inspeção. Os demais tipos têm texto fixo.
+// "cincoAnos": gatos imprime "NEXT INSPECTION BEFORE 22 JUNE 2031" — mesmo
+// dia, cinco anos depois (quinquenal), com o mês em inglês.
+const MESES_EN = ['JANUARY', 'FEBRUARY', 'MARCH', 'APRIL', 'MAY', 'JUNE', 'JULY', 'AUGUST', 'SEPTEMBER', 'OCTOBER', 'NOVEMBER', 'DECEMBER']
+const VALIDADES_CALCULADAS = ['mesAnoSeguinte', 'cincoAnos']
 function validadePadraoLista(modelo, dataEmissaoStr) {
-  if (modelo.validade.padrao !== 'mesAnoSeguinte') return modelo.validade.padrao
+  if (!VALIDADES_CALCULADAS.includes(modelo.validade.padrao)) return modelo.validade.padrao
   if (!dataEmissaoStr) return ''
-  const [ano, mes] = dataEmissaoStr.split('-')
+  const [ano, mes, dia] = dataEmissaoStr.split('-')
+  if (modelo.validade.padrao === 'cincoAnos') return `${dia} ${MESES_EN[Number(mes) - 1]} ${Number(ano) + 5}`
   return `${mes}/${Number(ano) + 1}`
 }
 
@@ -489,11 +499,13 @@ async function exibirCertificadoLista(c, empresas) {
   const modelo = modelos[c.tipo]
   certificadoListaAtual = c
   itensLista = Array.isArray(c.itens) && c.itens.length ? c.itens.map(i => ({ ...i })) : [linhaPadrao(modelo)]
+  assinaturasLista = (Array.isArray(c.dadosTecnicos?.assinaturas) ? c.dadosTecnicos.assinaturas : (modelo.assinaturas || [])).map(a => ({ ...a }))
 
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'))
   document.getElementById('relatorios').classList.add('active')
   document.getElementById('relatorios').innerHTML = renderCertificadoLista(c, modelo, empresas)
   renderizarItensLista()
+  renderizarAssinaturasLista()
 }
 
 function renderCertificadoLista(c, modelo, empresas) {
@@ -582,10 +594,25 @@ function renderCertificadoLista(c, modelo, empresas) {
             <input type="text" id="cert-tecnicoNome" class="form-control" value="${esc(tecnicoValor)}" ${dis}>
           </div>
         </div>
+        ${(modelo.extras || []).length ? `
+          <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:16px; margin-top:16px;">
+            ${modelo.extras.map(f => `
+              <div><label>${esc(f.rotulo)}</label>
+                <input type="text" id="cert-extra-${f.campo}" class="form-control" value="${esc(c.dadosTecnicos?.[f.campo] ?? (novo ? f.padrao || '' : ''))}" ${dis}></div>
+            `).join('')}
+          </div>
+        ` : ''}
         <div style="margin-top:16px;">
           <label>Observação (sai impressa no certificado)</label>
           <textarea id="cert-observacoes" class="form-control" rows="4" ${dis}>${esc(observacaoValor)}</textarea>
         </div>
+        ${modelo.assinaturas ? `
+          <div style="margin-top:16px;">
+            <label>Assinaturas (saem lado a lado no rodapé)</label>
+            <div id="cert-assinaturas-lista"></div>
+            ${dis ? '' : '<button type="button" class="btn btn-sm btn-secondary" onclick="adicionarAssinaturaLista()">+ Assinatura</button>'}
+          </div>
+        ` : ''}
 
         ${botoesCertificado(c, { criar: 'criarCertificadoLista', salvar: 'atualizarCertificadoLista', emitir: 'emitirCertificadoLista' })}
       </div>
@@ -595,7 +622,7 @@ function renderCertificadoLista(c, modelo, empresas) {
 
 window.atualizarValidadeLista = function () {
   const modelo = modelosLista[certificadoListaAtual.tipo]
-  if (modelo.validade.padrao !== 'mesAnoSeguinte') return
+  if (!VALIDADES_CALCULADAS.includes(modelo.validade.padrao)) return
   document.getElementById('cert-validade').value = validadePadraoLista(modelo, document.getElementById('cert-dataEmissao').value)
 }
 
@@ -621,6 +648,40 @@ function lerItensLista() {
   document.querySelectorAll('#cert-itens-lista .cert-item').forEach(input => {
     itensLista[Number(input.dataset.linha)][input.dataset.campo] = input.value.trim()
   })
+}
+
+function renderizarAssinaturasLista() {
+  const div = document.getElementById('cert-assinaturas-lista')
+  if (!div) return
+  const c = certificadoListaAtual
+  const dis = (!podeEditarCertificado || c.status === 'cancelado') ? 'disabled' : ''
+  div.innerHTML = assinaturasLista.map((a, i) => `
+    <div style="display:grid; grid-template-columns:${dis ? '1fr 1fr 1fr' : '1fr 1fr 1fr 40px'}; gap:8px; margin-bottom:8px;">
+      <input type="text" class="form-control form-control-sm cert-assinatura" data-linha="${i}" data-campo="empresa" placeholder="Empresa" value="${esc(a.empresa)}" ${dis}>
+      <input type="text" class="form-control form-control-sm cert-assinatura" data-linha="${i}" data-campo="nome" placeholder="Nome" value="${esc(a.nome)}" ${dis}>
+      <input type="text" class="form-control form-control-sm cert-assinatura" data-linha="${i}" data-campo="cargo" placeholder="Cargo" value="${esc(a.cargo)}" ${dis}>
+      ${dis ? '' : `<button type="button" class="btn btn-sm btn-danger" title="Remover assinatura" onclick="removerAssinaturaLista(${i})">✕</button>`}
+    </div>
+  `).join('') || '<p style="color:#999; font-size:13px; margin:0 0 8px;">Nenhuma assinatura.</p>'
+}
+
+function lerAssinaturasLista() {
+  document.querySelectorAll('#cert-assinaturas-lista .cert-assinatura').forEach(input => {
+    assinaturasLista[Number(input.dataset.linha)][input.dataset.campo] = input.value.trim()
+  })
+  return assinaturasLista
+}
+
+window.adicionarAssinaturaLista = function () {
+  lerAssinaturasLista()
+  assinaturasLista.push({ empresa: 'Natal Safety', nome: '', cargo: '' })
+  renderizarAssinaturasLista()
+}
+
+window.removerAssinaturaLista = function (i) {
+  lerAssinaturasLista()
+  assinaturasLista.splice(i, 1)
+  renderizarAssinaturasLista()
 }
 
 window.adicionarItemLista = function () {
@@ -656,6 +717,10 @@ function lerFormularioCertificadoLista() {
     // por técnico já leem dadosTecnicos.tecnicoNome.
     relatorio: { tecnicoNome: document.getElementById('cert-tecnicoNome').value.trim() }
   }
+  for (const f of modelo.extras || []) {
+    body.relatorio[f.campo] = document.getElementById(`cert-extra-${f.campo}`).value.trim()
+  }
+  if (modelo.assinaturas) body.relatorio.assinaturas = lerAssinaturasLista()
   for (const f of modelo.cabecalho) {
     body[f.campo] = document.getElementById(`cert-${f.campo}`).value.trim()
   }
