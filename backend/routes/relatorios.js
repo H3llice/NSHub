@@ -5,7 +5,7 @@ import fs from 'fs'
 import path from 'path'
 import { prisma } from '../server.js'
 import { autenticar, exigirPerfil } from '../middleware/auth.js'
-import { MODELOS_RELATORIO_TECNICO, conteudoInicial, normalizarConteudo, htmlRelatorioTecnico, aplicarTimbrado } from '../templates/relatorio-tecnico.js'
+import { MODELOS_RELATORIO_TECNICO, conteudoInicial, normalizarConteudo, gerarPdfRelatorioTecnico } from '../templates/relatorio-tecnico.js'
 
 const router = Router()
 
@@ -1095,8 +1095,7 @@ router.get('/:id/pdf', autenticar, async (req, res) => {
   if (!relatorio) return res.status(404).json({ erro: 'Relatório não encontrado' })
 
   if (relatorio.modelo) {
-    const conteudoBytes = await gerarPdf(htmlRelatorioTecnico(relatorio), { preferCSSPageSize: true })
-    const pdfBytes = await aplicarTimbrado(conteudoBytes, relatorio.empresa?.cnpj)
+    const pdfBytes = await gerarPdfRelatorioTecnico(relatorio)
     const nomeArquivo = `Relatorio ${relatorio.numero}.${relatorio.ano}${relatorio.navio ? ` ${relatorio.navio}` : ''}.pdf`
     res.setHeader('Content-Type', 'application/pdf')
     res.setHeader('Content-Disposition', `inline; filename*=UTF-8''${encodeURIComponent(nomeArquivo)}`)

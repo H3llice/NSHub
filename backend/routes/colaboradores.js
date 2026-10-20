@@ -267,6 +267,18 @@ router.get('/simples', autenticar, async (req, res) => {
   res.json(colaboradores)
 })
 
+// ─── Técnicos de manutenção com SISPAT (assinaturas do Relatório técnico) ────
+// Só nome/função/SISPAT — o SISPAT sai impresso no relatório, não é dado
+// pessoal. Antes de /:id.
+router.get('/tecnicos', autenticar, async (req, res) => {
+  const tecnicos = await prisma.colaborador.findMany({
+    where: { ativo: true, funcao: { in: FUNCOES_TECNICO } },
+    select: { id: true, nome: true, funcao: true, sispat: true },
+    orderBy: { nome: 'asc' }
+  })
+  res.json(tecnicos)
+})
+
 // ─── Detalhe de um colaborador ─────────────────────────────────────────────────
 router.get('/:id', autenticar, async (req, res) => {
   const completo = podeGerir(req)

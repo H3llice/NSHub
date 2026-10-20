@@ -14,7 +14,8 @@
 
 import fs from 'fs'
 import path from 'path'
-import { PDFDocument, StandardFonts, rgb } from 'pdf-lib'
+import { PDFDocument, PDFName, StandardFonts, rgb } from 'pdf-lib'
+import { gerarPdf } from '../pdf-browser.js'
 
 // Seção 'texto': título + texto livre (quebras de linha mantidas no PDF).
 // Seção 'campos': título + um ou mais grupos de "Rótulo: valor" — no
@@ -212,7 +213,9 @@ function comQuebras(valor) {
   return escapeHtml(valor).replaceAll('\n', '<br>')
 }
 
-export function htmlRelatorioTecnico(relatorio) {
+// `paginas`: nº da página de cada seção (índice da seção → página), pra
+// imprimir no sumário — vem da 1ª passada de gerarPdfRelatorioTecnico().
+export function htmlRelatorioTecnico(relatorio, paginas = {}) {
   const c = normalizarConteudo(relatorio.conteudo)
   // data é gravada como meia-noite UTC — ler em UTC pra não voltar um dia
   // (e, no dia 1º, um mês inteiro na capa).
@@ -254,8 +257,13 @@ export function htmlRelatorioTecnico(relatorio) {
 
   .sumario { page-break-after: always; }
   .sumario h2 { text-align: center; font-size: 12pt; margin: 0 0 8mm; }
-  .sumario div { margin-bottom: 3mm; font-weight: bold; }
-  .sumario div.sub { margin-left: 8mm; font-weight: normal; }
+  /* Título longo quebra em mais linhas: o nº da página e os pontos ficam
+     na última linha, e o título nunca ocupa a largura toda (sempre sobra
+     um trecho pontilhado até o número). */
+  .sumario a { display: flex; align-items: flex-end; margin-bottom: 3mm; font-weight: bold; color: inherit; text-decoration: none; }
+  .sumario a.sub { margin-left: 8mm; font-weight: normal; }
+  .sumario .titulo-item { max-width: 138mm; }
+  .sumario .pontos { flex: 1; min-width: 8mm; border-bottom: 1px dotted #555; margin: 0 2mm 1.2mm; }
 
   .secao { margin-bottom: 7mm; }
   .secao h3 { font-size: 10.5pt; margin: 0 0 2mm; text-transform: uppercase; page-break-after: avoid; }
@@ -287,12 +295,18 @@ export function htmlRelatorioTecnico(relatorio) {
 
   <div class="sumario">
     <h2>SUMÁRIO</h2>
-    ${secoes.filter(s => s.numero).map(s => `<div class="${s.sub ? 'sub' : ''}">${s.numero}${s.sub ? '' : '.'} ${escapeHtml(s.titulo)}</div>`).join('')}
+    ${secoes.map((s, i) => !s.numero ? '' : `
+      <a href="#secao-${i}" class="${s.sub ? 'sub' : ''}">
+        <span class="titulo-item">${s.numero}${s.sub ? '' : '.'} ${escapeHtml(s.titulo)}</span>
+        <span class="pontos"></span>
+        <span>${paginas[i] ?? ''}</span>
+      </a>
+    `).join('')}
   </div>
 
   ${secoes.map((s, i) => `
     ${i === secoes.length - 1 ? '<div class="fecho">' : ''}
-    <div class="secao ${s.sub ? 'sub' : ''}">
+    <div class="secao ${s.sub ? 'sub' : ''}" id="secao-${i}">
       ${s.numero ? `<h3>${s.numero} – ${escapeHtml(s.titulo)}</h3>` : ''}
       ${corpoSecao(s)}
     </div>
@@ -317,6 +331,38 @@ export function htmlRelatorioTecnico(relatorio) {
   ${secoes.length ? '</div>' : ''}
 </body>
 </html>`
+}
+
+// O Chromium não diz em que página cada seção caiu. Os itens do sumário são
+// links (#secao-N) e o PDF guarda o destino de cada link no catálogo (/Dests:
+// nome → [página, ...]) — daí sai a página de cada seção. Índice 0 = capa,
+// então a página impressa é índice + 1, como nos relatórios em papel.
+function paginasDasSecoes(pdfDoc) {
+  const indicePorPagina = new Map(pdfDoc.getPages().map((pagina, i) => [pagina.ref.toString(), i]))
+  const dests = pdfDoc.catalog.lookup(PDFName.of('Dests'))
+  const paginas = {}
+  if (!dests) return paginas
+  for (const [nome, valor] of dests.entries()) {
+    const id = nome.decodeText?.() ?? nome.toString().replace(/^\//, '')
+    const encontrado = /^secao-(\d+)$/.exec(id)
+    if (!encontrado) continue
+    const destino = pdfDoc.context.lookup(valor)
+    const refPagina = destino?.get?.(0) ?? destino?.lookup?.(PDFName.of('D'))?.get(0)
+    const indice = refPagina ? indicePorPagina.get(refPagina.toString()) : undefined
+    if (indice !== undefined) paginas[encontrado[1]] = indice + 1
+  }
+  return paginas
+}
+
+// PDF completo do relatório técnico, em duas passadas: a 1ª só descobre a
+// página de cada seção; a 2ª imprime o sumário com os números. O sumário é
+// uma página própria (page-break-after), então os números não mexem na
+// paginação do resto.
+export async function gerarPdfRelatorioTecnico(relatorio) {
+  const rascunho = await gerarPdf(htmlRelatorioTecnico(relatorio), { preferCSSPageSize: true })
+  const paginas = paginasDasSecoes(await PDFDocument.load(rascunho))
+  const conteudo = await gerarPdf(htmlRelatorioTecnico(relatorio, paginas), { preferCSSPageSize: true })
+  return aplicarTimbrado(conteudo, relatorio.empresa?.cnpj)
 }
 
 const mm = valor => valor * 72 / 25.4

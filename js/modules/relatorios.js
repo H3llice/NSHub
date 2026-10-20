@@ -1026,6 +1026,20 @@ window.excluirRelatorio = async function (id) {
 let modelosTecnico = null
 let tecnicoEstado = null
 let tecnicoSomenteLeitura = false
+// Técnicos de manutenção do cadastro de Colaboradores (com SISPAT) — sugeridos
+// no nome das assinaturas. Recarregado a cada abertura do formulário, pra
+// pegar técnico cadastrado ou SISPAT corrigido no meio do caminho.
+let tecnicosCadastrados = []
+
+async function carregarTecnicosCadastrados() {
+  try {
+    const res = await apiFetch(`${API}/colaboradores/tecnicos`)
+    tecnicosCadastrados = res.ok ? await res.json() : []
+  } catch {
+    // Sem a lista o campo continua livre — não impede de abrir o relatório.
+    tecnicosCadastrados = []
+  }
+}
 
 async function carregarModelosTecnico() {
   if (!modelosTecnico) {
@@ -1059,6 +1073,7 @@ async function novoRelatorioTecnico() {
 async function abrirFormularioRelatorioTecnico(r, empresas, modelos) {
   modelos = modelos || await carregarModelosTecnico()
   tecnicoSomenteLeitura = r.status === 'concluido' || r.status === 'cancelado'
+  if (!tecnicoSomenteLeitura) await carregarTecnicosCadastrados()
   tecnicoEstado = structuredClone(r.conteudo || {})
   tecnicoEstado.secoes = tecnicoEstado.secoes || []
   tecnicoEstado.assinaturas = tecnicoEstado.assinaturas || []
@@ -1087,7 +1102,6 @@ function renderFormularioRelatorioTecnico(r, empresas, modelos) {
       <div style="display:flex; align-items:center; gap:12px; margin-bottom:20px;">
         <h3 style="margin:0;">${r.id ? `Relatório ${r.numero}/${r.ano}` : 'Novo Relatório Técnico'}</h3>
         ${r.id ? badgeStatus(r.status) : ''}
-        <span style="color:#999; font-size:13px;">${esc(modelos[r.modelo]?.nome || '')}</span>
       </div>
 
       ${secao('Capa', `
@@ -1123,6 +1137,12 @@ function renderFormularioRelatorioTecnico(r, empresas, modelos) {
       `}
 
       ${secao('Assinaturas', `
+        ${tecnicoSomenteLeitura ? '' : `
+          <p style="color:#999; font-size:12px; margin:0 0 8px;">Digite o nome para escolher um técnico de manutenção cadastrado — cargo e SISPAT são preenchidos sozinhos.</p>
+          <datalist id="tec-lista-tecnicos">
+            ${tecnicosCadastrados.map(t => `<option value="${esc(t.nome)}">${esc(t.sispat ? `SISPAT ${t.sispat}` : 'sem SISPAT cadastrado')}</option>`).join('')}
+          </datalist>
+        `}
         <div id="rel-tec-assinaturas"></div>
         ${tecnicoSomenteLeitura ? '' : '<button type="button" class="btn btn-secondary btn-sm" style="margin-top:8px;" onclick="tecAdicionarAssinatura()">+ Assinatura</button>'}
       `)}
@@ -1223,7 +1243,7 @@ function renderizarAssinaturasTecnico() {
   div.innerHTML = tecnicoEstado.assinaturas.map((a, i) => `
     <div style="display:grid; grid-template-columns:${tecnicoSomenteLeitura ? '1fr 1fr 1fr 1fr' : '1fr 1fr 1fr 1fr 36px'}; gap:8px; margin-bottom:8px; align-items:start;">
       <input type="text" class="form-control form-control-sm" id="tec-a${i}-empresa" placeholder="Empresa (vazio = executante)" value="${esc(a.empresa || '')}" ${dis}>
-      <input type="text" class="form-control form-control-sm" id="tec-a${i}-nome" placeholder="Nome" value="${esc(a.nome || '')}" ${dis}>
+      <input type="text" class="form-control form-control-sm" id="tec-a${i}-nome" placeholder="Nome" list="tec-lista-tecnicos" autocomplete="off" onchange="tecSelecionarTecnico(${i})" value="${esc(a.nome || '')}" ${dis}>
       <input type="text" class="form-control form-control-sm" id="tec-a${i}-cargo" placeholder="Cargo (ex: ENG MECÂNICO)" value="${esc(a.cargo || '')}" ${dis}>
       <textarea class="form-control form-control-sm" id="tec-a${i}-registro" rows="2" placeholder="Registro (CREA, CRT, SISPAT...)" ${dis}>${esc(a.registro || '')}</textarea>
       ${tecnicoSomenteLeitura ? '' : `<button type="button" class="btn btn-sm btn-danger" title="Remover assinatura" onclick="tecRemoverAssinatura(${i})">✕</button>`}
@@ -1314,6 +1334,20 @@ window.tecAdicionarGrupo = function (i) {
 window.tecRemoverGrupo = function (i, gi) {
   if (!confirm('Remover este bloco?')) return
   alterarSecoesTecnico(secoes => secoes[i].grupos.splice(gi, 1))
+}
+
+// Nome igual ao de um técnico cadastrado → preenche cargo e SISPAT (a
+// assinatura é da Natal Safety, então limpa a "Empresa" de fora). Nome
+// digitado livre não mexe em nada.
+window.tecSelecionarTecnico = function (i) {
+  const nome = document.getElementById(`tec-a${i}-nome`).value.trim().toUpperCase()
+  const tecnico = tecnicosCadastrados.find(t => t.nome.trim().toUpperCase() === nome)
+  if (!tecnico) return
+  document.getElementById(`tec-a${i}-nome`).value = tecnico.nome.toUpperCase()
+  document.getElementById(`tec-a${i}-empresa`).value = ''
+  document.getElementById(`tec-a${i}-cargo`).value = 'TÉCNICO DE MANUTENÇÃO'
+  document.getElementById(`tec-a${i}-registro`).value = tecnico.sispat ? `SISPAT: ${tecnico.sispat}` : ''
+  if (!tecnico.sispat) alert(`${tecnico.nome} não tem SISPAT no cadastro de Colaboradores — preencha o registro à mão ou atualize o cadastro.`)
 }
 
 window.tecAdicionarAssinatura = function () {
