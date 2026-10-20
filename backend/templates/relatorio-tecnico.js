@@ -19,14 +19,26 @@ import { PDFDocument, StandardFonts, rgb } from 'pdf-lib'
 // Seção 'texto': título + texto livre (quebras de linha mantidas no PDF).
 // Seção 'campos': título + um ou mais grupos de "Rótulo: valor" — no
 // relatório de gatos cada turco inspecionado é um grupo da mesma seção.
-const texto = (titulo, conteudo = '') => ({ tipo: 'texto', titulo, texto: conteudo })
-const campos = (titulo, rotulos, valores = {}) => ({
+// `sub: true` numera como subseção da anterior (4.1, 4.2...), como nos
+// relatórios de fibra e de cilindros.
+const texto = (titulo, conteudo = '', sub = false) => ({ tipo: 'texto', titulo, texto: conteudo, sub })
+const campos = (titulo, rotulos, valores = {}, sub = false) => ({
   tipo: 'campos',
   titulo,
+  sub,
   grupos: [rotulos.map(rotulo => ({ rotulo, valor: valores[rotulo] || '' }))]
 })
 
 const EMPRESA_SOLICITANTE = ['EMPRESA', 'PLATAFORMA DE ORIGEM', 'GERÊNCIA SOLICITANTE']
+const PETROBRAS = { EMPRESA: 'PETROLEO BRASILEIRO S.A.' }
+
+// Assinatura com `empresa` preenchida é de fora (ex.: coordenador da
+// Petrobras na conclusão da fibra/P78) — imprime essa empresa no lugar da
+// executante e sem o CNPJ dela.
+const COORDENADOR_PETROBRAS = { empresa: 'PETROLEO BRASILEIRO S.A.', nome: '', cargo: 'COORDENADOR EMBARCAÇÃO', registro: 'BUZ/ATP-BUZ/OP-/GEPLAT' }
+const NOEL = { nome: 'NOEL CAVALHEIRO JR', cargo: 'ENG MECÂNICO', registro: 'CREA 160.369.515-0' }
+const AUGUSTO = { nome: 'AUGUSTO GUSTAVO FILHO', cargo: 'ENG DE PROF, MAN, INSP', registro: 'CREA: 2002105847\nCRT: 39009629791' }
+const CELSO = { nome: 'CELSO MOURA', cargo: 'REPARADOR DE FIBRA', registro: 'SISPAT: 47522597' }
 
 export const MODELOS_RELATORIO_TECNICO = {
   gatos: {
@@ -34,7 +46,7 @@ export const MODELOS_RELATORIO_TECNICO = {
     titulo: 'RELATÓRIO DE INSPEÇÃO E CERTIFICAÇÃO\nHOOKS (GATOS) DE LIBERAÇÃO DOS TURCOS DE BALSAS SALVA-VIDAS',
     local: 'RIO DE JANEIRO-RJ',
     secoes: [
-      campos('DADOS DA EMPRESA SOLICITANTE', EMPRESA_SOLICITANTE, { EMPRESA: 'PETROLEO BRASILEIRO S.A.' }),
+      campos('DADOS DA EMPRESA SOLICITANTE', EMPRESA_SOLICITANTE, PETROBRAS),
       campos('DADOS DOS EQUIPAMENTOS', [
         'Unidade / Embarcação', 'Nome / IMO (se aplicável)', 'Local da Inspeção', 'Data da Inspeção',
         'Ordem de Serviço / Certificado Nº', 'Identificação', 'Fabricante do Turco', 'Modelo',
@@ -49,10 +61,66 @@ export const MODELOS_RELATORIO_TECNICO = {
       texto('CONCLUSÃO', 'Com base na inspeção e testes executados, os hooks (gatos) dos turcos foram considerados:\nCERTIFICADOS E APTOS PARA OPERAÇÃO.')
     ],
     assinaturas: [
-      { nome: 'NOEL CAVALHEIRO JR', cargo: 'ENG MECÂNICO', registro: 'CREA 160.369.515-0' },
-      { nome: 'AUGUSTO GUSTAVO FILHO', cargo: 'ENG DE PROF, MAN, INSP', registro: 'CREA: 2002105847\nCRT: 39009629791' },
+      NOEL,
+      AUGUSTO,
       { nome: 'JOCIMAR SERAFIM DOS SANTOS', cargo: 'TEC MECÂNICA', registro: 'SISPAT: 45047786' }
     ]
+  },
+
+  // P-76_RELATORIO TECNICO DE REPARO DE FIBRA.pdf — as fotos (antes,
+  // durante e depois) entram quando o relatório tiver seção de fotos.
+  fibra: {
+    nome: 'Reparação em Fibra de Vidro e Pintura',
+    titulo: 'RELATÓRIO TÉCNICO DE SERVIÇOS DE REPARAÇÃO EM FIBRA DE VIDRO E PINTURA',
+    local: 'RIO DE JANEIRO-RJ',
+    secoes: [
+      campos('DADOS DA EMPRESA SOLICITANTE', EMPRESA_SOLICITANTE, PETROBRAS),
+      campos('DADOS DO EQUIPAMENTO', ['EQUIPAMENTO', 'MODELO', 'NÚMERO DE SÉRIE', 'DATA FABRICAÇÃO', 'FABRICANTE', 'TAG']),
+      texto('OBJETIVO', 'O PRESENTE TRABALHO TEVE COMO OBJETIVO A REPARAÇÃO DE FIBRA DE VIDRO E PINTURA EXTERNA NA '),
+      texto('REPARAÇÕES EM FIBRA'),
+      texto('REPARAÇÃO DE FIBRA DE VIDRO', 'NORMAM REV 1-2023 CAP 3 ANEXO 3G. SOLAS CAP III REG.20 E MSC.402(96) REG 20.11 ABNT NBR 15299.2005 ITEM 8 12:1 MANUAL DO FABRICANTE.\n\n* RELATÓRIO TÉCNICO E RELATÓRIO FOTOGRÁFICO EMITIDO\nRELATÓRIO FINAL RESULTADO "APTO" PARA O FIM A QUE SE DESTINA NA PRESENTE DATA.', true),
+      texto('CONCLUSÃO', 'OS SERVIÇOS DE REPARAÇÕES DAS FIBRAS DE VIDRO  FORAM CONCLUÍDOS COM ÊXITO, EXCELÊNCIA E APROVAÇÃO PELO RESPONSÁVEL PELA EMBARCAÇÃO.\nEMITIDO CERTIFICADO  COM 90 DIAS DE GARANTIA DOS SERVIÇOS EXECUTADOS.')
+    ],
+    assinaturas: [COORDENADOR_PETROBRAS, CELSO]
+  },
+
+  // P78 RELATÓRIO TÉCNICO DE SERVIÇOS SS-24/2026 (delineamento das mangueiras).
+  mangueiras: {
+    nome: 'Delineamento das Mangueiras de Ar Respirável',
+    titulo: 'RELATÓRIO TÉCNICO DE SERVIÇOS\nDELINEAMENTO DAS MANGUEIRAS DO SISTEMA DE AR RESPIRÁVEL DAS BALEEIRAS',
+    local: 'RIO DE JANEIRO-RJ',
+    secoes: [
+      campos('DADOS DA EMPRESA SOLICITANTE', EMPRESA_SOLICITANTE, PETROBRAS),
+      campos('DADOS DOS EQUIPAMENTOS', ['EQUIPAMENTOS', 'MODELO', 'NÚMEROS DE SÉRIE', 'DATAS DE FABRICAÇÃO', 'FABRICANTE', 'TAGs']),
+      texto('OBJETIVO', 'O PRESENTE TRABALHO TEVE COMO OBJETIVO O DELINEAMENTO DAS MANGUEIRAS DO SISTEMA DE AR RESPIRÁVEL DAS BALEEIRAS.'),
+      texto('DELINEAMENTO DAS MANGUEIRAS DO SISTEMA DE AR RESPIRÁVEL', '* RELATÓRIO TÉCNICO E RELATÓRIO FOTOGRÁFICO EMITIDO\nEquipamento: Baleeira \nModelo: \nSistema: Compressed Air / Emergency Breathing Air System com a configuração geral do sistema:\nCilindros de ar respirável ( unidades).\nVálvulas de cilindros individuais.\nMangueiras de alta pressão.\nColetor (manifold/Tee de distribuição).\nMangueira principal para regulador.\nRegulador redutor de pressão.\nLinha de distribuição de ar para o interior da cabine.\n\nMangueiras dos cilindros\nAplicação: Alta pressão (HP)\nCaracterísticas esperadas:\nMangueira flexível para ar comprimido respirável;\nPressão de trabalho compatível com a pressão de carga dos cilindros (200–300 bar conforme configuração);\nConexões prensadas pelo fabricante;\nIdentificação permanente (fabricante, pressão, lote/data de fabricação).\n\nO Sistema de ar Respirável das Baleeiras encontra-se "Apto" para o fim que se destina na presente data.'),
+      texto('CONCLUSÃO', 'OS SERVIÇOS DE DELINEAMENTO DAS MANGUEIRAS DO SISTEMA DE AR RESPIRÁVEL FORAM CONCLUÍDOS COM ÊXITO E EXCELÊNCIA COM AS SEGUINTES MEDIDAS:\n')
+    ],
+    assinaturas: [COORDENADOR_PETROBRAS, CELSO]
+  },
+
+  // RELATÓRIO DE MANUTENÇÃO SUBSTITUIÇÃO DE CILINDROS DE AR RESPIRÁVEL (P-74).
+  cilindros: {
+    nome: 'Substituição de Cilindros de Ar Respirável',
+    titulo: 'RELATÓRIO DE MANUTENÇÃO / SUBSTITUIÇÃO DE CILINDROS DE AR RESPIRÁVEL DE BALEEIRA',
+    local: 'RIO DE JANEIRO-RJ',
+    secoes: [
+      campos('DADOS DA EMPRESA SOLICITANTE', EMPRESA_SOLICITANTE, PETROBRAS),
+      campos('DADOS DO EQUIPAMENTO', ['POSTO', 'Baleeira Nº', 'Fabricante', 'Modelo', 'Capacidade', 'Data de fabricação']),
+      texto('OBJETIVO', 'Remoção e substituição dos cilindros de ar respirável e mangueiras da embarcação salva-vidas do Posto  em atendimento a SS- e conforme plano de manutenção preventiva, requisitos do fabricante, SOLAS, LSA Code, NORMAM e N-2225 e procedimentos.\nRemoção dos cilindros vencidos e instalação de novos cilindros certificados;\nTeste de estanqueidade das conexões;\nTeste funcional do sistema de ar respirável;\nRestabelecimento e liberação operacional da baleeira.'),
+      texto('MANUTENÇÃO/REPARO EM EQUIPAMENTO DE SALVATAGEM', 'Motivo: Vencimento do teste hidrostático dos Cilindros de ar Respirável.'),
+      texto('ESCOPO EXECUTADO', 'Foram executadas as seguintes atividades:\nRemoção dos assentos, carenagens, cilindros de ar respirável (vencidos) e mangueiras.\nInstalação de Cilindros de ar Respirável novos e Mangueiras novas.\nTeste de estanqueidade das mangueiras e conexões.\nSistema de ar com pressão de 200 Bar.\nTeste funcional OK.', true),
+      campos('INSTALAÇÃO DOS CILINDROS DE AR RESPIRÁVEL, MANGUEIRAS E CONEXÕES', [
+        'Série dos cilindros de ar respirável instalados', 'Laudo de qualidade de ar Nº',
+        'Laudo de ensaio de teste hidrostático Nº', 'Capacidade dos cilindros de ar respirável',
+        'Pressão de carga', 'Validade/Teste'
+      ], { 'Pressão de carga': '200 BAR' }, true),
+      texto('DADOS DAS MANGUEIRAS E CONEXÕES', 'Mangueiras dos Cilindros de ar Respirável instalados na Baleeira do Posto :\nCertificado Nº \nMangueira Hidráulica 1/4" (6500 PSI) X 33 CM TERMINAL FÊMEA GIRATÓRIA AÇO CARBONO/MACHO GIRATÓRIO 5/8" LATÃO.\nCertificado Nº \nMangueira Hidráulica 1/4" (6500 PSI) X 4.5 M TERMINAL FÊMEA GIRATÓRIA AÇO CARBONO/FÊMEA COM ADAPTADOR 20MM LATÃO.\nCertificado Nº \nTEE EM AÇO CARBONO MACHO CÔNICO.', true),
+      texto('TESTES E VERIFICAÇÕES FUNCIONAIS', 'Verificado após substituição:\nSuportes de fixações.\nSistema de ar Respirável sem vazamentos e Pressão de trabalho com 200 BAR OK.\nPainel/Indicadores verificados e conforme.\nBaleeira operacional.', true),
+      texto('CONCLUSÃO', 'Após inspeção, substituição dos Cilindros e Mangueiras de ar Respirável, o sistema foi considerado:\nOPERACIONAL E EM CONFORMIDADE.\n\nRecomendações:\nO sistema de ar respirável deve ser inspecionado e mantido operacional ALL TIME.'),
+      texto('CONFORMIDADE/REFERÊNCIAS', 'SOLAS Capítulo III, LSA Code, IMO Resolution MSC.402(96)\nManual do fabricante.\nPlano de manutenção / Procedimento.', true)
+    ],
+    assinaturas: [NOEL, AUGUSTO]
   },
 
   branco: {
@@ -100,11 +168,26 @@ export function normalizarConteudo(bruto) {
       ? {
           tipo: 'campos',
           titulo: txt(s.titulo),
+          sub: !!s.sub,
           grupos: lista(s.grupos).map(g => lista(g).map(f => ({ rotulo: txt(f?.rotulo), valor: txt(f?.valor) })))
         }
-      : { tipo: 'texto', titulo: txt(s?.titulo), texto: txt(s?.texto) }),
-    assinaturas: lista(c.assinaturas).map(a => ({ nome: txt(a?.nome), cargo: txt(a?.cargo), registro: txt(a?.registro) }))
+      : { tipo: 'texto', titulo: txt(s?.titulo), texto: txt(s?.texto), sub: !!s?.sub }),
+    assinaturas: lista(c.assinaturas).map(a => ({ empresa: txt(a?.empresa), nome: txt(a?.nome), cargo: txt(a?.cargo), registro: txt(a?.registro) }))
   }
+}
+
+// Seção sem título não entra na numeração nem no sumário. Subseção vira
+// "4.1", "4.2"... da última seção principal (antes de qualquer principal,
+// conta como principal).
+export function numerarSecoes(secoes) {
+  let principal = 0
+  let sub = 0
+  return secoes.map(s => {
+    if (!s.titulo.trim()) return { ...s, numero: null }
+    if (s.sub && principal) return { ...s, numero: `${principal}.${++sub}` }
+    sub = 0
+    return { ...s, numero: String(++principal) }
+  })
 }
 
 const MESES = ['JANEIRO', 'FEVEREIRO', 'MARÇO', 'ABRIL', 'MAIO', 'JUNHO', 'JULHO', 'AGOSTO', 'SETEMBRO', 'OUTUBRO', 'NOVEMBRO', 'DEZEMBRO']
@@ -138,9 +221,7 @@ export function htmlRelatorioTecnico(relatorio) {
   const empresaNome = (relatorio.empresa?.nome || '').toUpperCase()
   const cnpj = formatarCnpj(relatorio.empresa?.cnpj)
 
-  // Seção sem título não entra na numeração nem no sumário.
-  let n = 0
-  const secoes = c.secoes.map(s => ({ ...s, numero: s.titulo.trim() ? ++n : null }))
+  const secoes = numerarSecoes(c.secoes)
 
   const corpoSecao = s => {
     if (s.tipo === 'texto') return s.texto.trim() ? `<div class="texto">${comQuebras(s.texto)}</div>` : ''
@@ -153,7 +234,7 @@ export function htmlRelatorioTecnico(relatorio) {
     }).join('')
   }
 
-  const assinaturas = c.assinaturas.filter(a => a.nome.trim() || a.cargo.trim() || a.registro.trim())
+  const assinaturas = c.assinaturas.filter(a => a.empresa.trim() || a.nome.trim() || a.cargo.trim() || a.registro.trim())
 
   return `<!DOCTYPE html>
 <html lang="pt-BR">
@@ -174,11 +255,16 @@ export function htmlRelatorioTecnico(relatorio) {
   .sumario { page-break-after: always; }
   .sumario h2 { text-align: center; font-size: 12pt; margin: 0 0 8mm; }
   .sumario div { margin-bottom: 3mm; font-weight: bold; }
+  .sumario div.sub { margin-left: 8mm; font-weight: normal; }
 
   .secao { margin-bottom: 7mm; }
   .secao h3 { font-size: 10.5pt; margin: 0 0 2mm; text-transform: uppercase; page-break-after: avoid; }
+  .secao.sub h3 { font-size: 10pt; }
   .grupo { margin-bottom: 4mm; page-break-inside: avoid; }
 
+  /* Última seção (a conclusão) + assinaturas não se separam: sem isso as
+     assinaturas podiam ir sozinhas pra uma página nova. */
+  .fecho { page-break-inside: avoid; }
   .assinaturas { display: flex; justify-content: space-around; gap: 6mm; margin-top: 22mm; page-break-inside: avoid; text-align: center; font-size: 9pt; line-height: 1.3; }
   .assinatura { flex: 1; max-width: 60mm; }
   .assinatura .linha { border-top: 1px solid #333; margin-bottom: 2mm; }
@@ -201,11 +287,12 @@ export function htmlRelatorioTecnico(relatorio) {
 
   <div class="sumario">
     <h2>SUMÁRIO</h2>
-    ${secoes.filter(s => s.numero).map(s => `<div>${s.numero}. ${escapeHtml(s.titulo)}</div>`).join('')}
+    ${secoes.filter(s => s.numero).map(s => `<div class="${s.sub ? 'sub' : ''}">${s.numero}${s.sub ? '' : '.'} ${escapeHtml(s.titulo)}</div>`).join('')}
   </div>
 
-  ${secoes.map(s => `
-    <div class="secao">
+  ${secoes.map((s, i) => `
+    ${i === secoes.length - 1 ? '<div class="fecho">' : ''}
+    <div class="secao ${s.sub ? 'sub' : ''}">
       ${s.numero ? `<h3>${s.numero} – ${escapeHtml(s.titulo)}</h3>` : ''}
       ${corpoSecao(s)}
     </div>
@@ -216,8 +303,10 @@ export function htmlRelatorioTecnico(relatorio) {
       ${assinaturas.map(a => `
         <div class="assinatura">
           <div class="linha"></div>
-          ${empresaNome ? `<div class="empresa">${escapeHtml(empresaNome)}</div>` : ''}
-          ${cnpj ? `<div>CNPJ ${escapeHtml(cnpj)}</div>` : ''}
+          ${a.empresa.trim()
+            ? `<div class="empresa">${escapeHtml(a.empresa.toUpperCase())}</div>`
+            : `${empresaNome ? `<div class="empresa">${escapeHtml(empresaNome)}</div>` : ''}
+               ${cnpj ? `<div>CNPJ ${escapeHtml(cnpj)}</div>` : ''}`}
           <div>${escapeHtml(a.nome)}</div>
           <div>${escapeHtml(a.cargo)}</div>
           ${a.registro.trim() ? `<div>${comQuebras(a.registro)}</div>` : ''}
@@ -225,6 +314,7 @@ export function htmlRelatorioTecnico(relatorio) {
       `).join('')}
     </div>
   ` : ''}
+  ${secoes.length ? '</div>' : ''}
 </body>
 </html>`
 }

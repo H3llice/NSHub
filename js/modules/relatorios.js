@@ -1153,10 +1153,17 @@ function renderFormularioRelatorioTecnico(r, empresas, modelos) {
   `
 }
 
-// Mesma numeração do PDF: seção sem título não conta.
+// Mesma numeração do PDF (numerarSecoes em backend/templates/relatorio-tecnico.js):
+// seção sem título não conta; subseção vira 4.1, 4.2... da última principal.
 function numerosSecoesTecnico() {
-  let n = 0
-  return tecnicoEstado.secoes.map(s => (s.titulo || '').trim() ? ++n : null)
+  let principal = 0
+  let sub = 0
+  return tecnicoEstado.secoes.map(s => {
+    if (!(s.titulo || '').trim()) return null
+    if (s.sub && principal) return `${principal}.${++sub}`
+    sub = 0
+    return `${++principal}.`
+  })
 }
 
 function renderizarSecoesTecnico() {
@@ -1192,8 +1199,11 @@ function renderizarSecoesTecnico() {
     return `
       <div style="background:white; border-radius:6px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06); margin-bottom:16px;">
         <div style="display:flex; gap:8px; align-items:center; margin-bottom:10px;">
-          <span style="font-weight:700; color:var(--acento); min-width:24px;">${numeros[i] ? `${numeros[i]}.` : ''}</span>
+          <span style="font-weight:700; color:var(--acento); min-width:32px; ${s.sub ? 'padding-left:12px;' : ''}">${numeros[i] || ''}</span>
           <input type="text" class="form-control" style="font-weight:600;" id="tec-s${i}-titulo" placeholder="Título da seção" value="${esc(s.titulo || '')}" ${dis}>
+          <label style="display:flex; align-items:center; gap:4px; font-size:12px; white-space:nowrap;" title="Numera como 4.1, 4.2... da seção de cima">
+            <input type="checkbox" id="tec-s${i}-sub" ${s.sub ? 'checked' : ''} onchange="tecAtualizarNumeracao()" ${dis}> Subseção
+          </label>
           ${ro ? '' : `
             <button type="button" class="btn btn-sm btn-secondary" title="Subir" onclick="tecMoverSecao(${i}, -1)" ${i === 0 ? 'disabled' : ''}>↑</button>
             <button type="button" class="btn btn-sm btn-secondary" title="Descer" onclick="tecMoverSecao(${i}, 1)" ${i === total - 1 ? 'disabled' : ''}>↓</button>
@@ -1211,7 +1221,8 @@ function renderizarAssinaturasTecnico() {
   if (!div) return
   const dis = tecnicoSomenteLeitura ? 'disabled' : ''
   div.innerHTML = tecnicoEstado.assinaturas.map((a, i) => `
-    <div style="display:grid; grid-template-columns:${tecnicoSomenteLeitura ? '1fr 1fr 1fr' : '1fr 1fr 1fr 36px'}; gap:8px; margin-bottom:8px; align-items:start;">
+    <div style="display:grid; grid-template-columns:${tecnicoSomenteLeitura ? '1fr 1fr 1fr 1fr' : '1fr 1fr 1fr 1fr 36px'}; gap:8px; margin-bottom:8px; align-items:start;">
+      <input type="text" class="form-control form-control-sm" id="tec-a${i}-empresa" placeholder="Empresa (vazio = executante)" value="${esc(a.empresa || '')}" ${dis}>
       <input type="text" class="form-control form-control-sm" id="tec-a${i}-nome" placeholder="Nome" value="${esc(a.nome || '')}" ${dis}>
       <input type="text" class="form-control form-control-sm" id="tec-a${i}-cargo" placeholder="Cargo (ex: ENG MECÂNICO)" value="${esc(a.cargo || '')}" ${dis}>
       <textarea class="form-control form-control-sm" id="tec-a${i}-registro" rows="2" placeholder="Registro (CREA, CRT, SISPAT...)" ${dis}>${esc(a.registro || '')}</textarea>
@@ -1225,6 +1236,7 @@ function renderizarAssinaturasTecnico() {
 // re-render apagaria o que foi digitado.
 function sincronizarTecnicoDoForm() {
   const valor = id => document.getElementById(id)?.value ?? ''
+  const marcado = id => !!document.getElementById(id)?.checked
   tecnicoEstado.titulo = valor('rel-tec-titulo')
   tecnicoEstado.imo = valor('rel-tec-imo')
   tecnicoEstado.certificadoNumero = valor('rel-tec-certificadoNumero')
@@ -1233,13 +1245,15 @@ function sincronizarTecnicoDoForm() {
     ? {
         tipo: 'campos',
         titulo: valor(`tec-s${i}-titulo`),
+        sub: marcado(`tec-s${i}-sub`),
         grupos: (s.grupos || []).map((g, gi) => g.map((_, fi) => ({
           rotulo: valor(`tec-s${i}-g${gi}-f${fi}-rot`),
           valor: valor(`tec-s${i}-g${gi}-f${fi}-val`)
         })))
       }
-    : { tipo: 'texto', titulo: valor(`tec-s${i}-titulo`), texto: valor(`tec-s${i}-texto`) })
+    : { tipo: 'texto', titulo: valor(`tec-s${i}-titulo`), texto: valor(`tec-s${i}-texto`), sub: marcado(`tec-s${i}-sub`) })
   tecnicoEstado.assinaturas = tecnicoEstado.assinaturas.map((_, i) => ({
+    empresa: valor(`tec-a${i}-empresa`),
     nome: valor(`tec-a${i}-nome`),
     cargo: valor(`tec-a${i}-cargo`),
     registro: valor(`tec-a${i}-registro`)
@@ -1250,6 +1264,10 @@ function alterarSecoesTecnico(mudanca) {
   sincronizarTecnicoDoForm()
   mudanca(tecnicoEstado.secoes)
   renderizarSecoesTecnico()
+}
+
+window.tecAtualizarNumeracao = function () {
+  alterarSecoesTecnico(() => { })
 }
 
 window.tecMoverSecao = function (i, direcao) {
@@ -1300,7 +1318,7 @@ window.tecRemoverGrupo = function (i, gi) {
 
 window.tecAdicionarAssinatura = function () {
   sincronizarTecnicoDoForm()
-  tecnicoEstado.assinaturas.push({ nome: '', cargo: '', registro: '' })
+  tecnicoEstado.assinaturas.push({ empresa: '', nome: '', cargo: '', registro: '' })
   renderizarAssinaturasTecnico()
 }
 
