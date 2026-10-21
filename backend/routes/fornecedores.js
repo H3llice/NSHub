@@ -1,6 +1,6 @@
 import { Router } from 'express'
 import { prisma } from '../server.js'
-import { autenticar } from '../middleware/auth.js'
+import { autenticar, exigirPerfil } from '../middleware/auth.js'
 
 const router = Router()
 
@@ -87,6 +87,29 @@ router.put('/:id', autenticar, async (req, res) => {
   } catch {
     res.status(404).json({ erro: 'Fornecedor não encontrado' })
   }
+})
+
+// ─── Excluir fornecedor (só gerente/admin) ─────────────────────────────────────
+// Bloqueia se tiver OC vinculada: a OC é histórico de compra e não pode ficar
+// sem fornecedor. Os vendedores são parte do cadastro e saem junto.
+router.delete('/:id', autenticar, exigirPerfil('gerente', 'admin'), async (req, res) => {
+  const id = Number(req.params.id)
+  const fornecedor = Number.isInteger(id) && await prisma.fornecedor.findUnique({ where: { id } })
+  if (!fornecedor) return res.status(404).json({ erro: 'Fornecedor não encontrado' })
+
+  // OC conta também as canceladas: o job de limpeza só apaga depois de 30 dias
+  const qtdOCs = await prisma.ordemCompra.count({ where: { fornecedorId: id } })
+  if (qtdOCs) {
+    return res.status(400).json({
+      erro: `Não é possível excluir: existem ${qtdOCs} Ordem(ns) de Compra vinculadas a este fornecedor.`
+    })
+  }
+
+  await prisma.$transaction([
+    prisma.vendedor.deleteMany({ where: { fornecedorId: id } }),
+    prisma.fornecedor.delete({ where: { id } }),
+  ])
+  res.json({ ok: true })
 })
 
 export default router

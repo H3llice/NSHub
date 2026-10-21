@@ -53,6 +53,8 @@ function formatarDocumento(doc) {
 // ══════════════════════════════════════════════════════════════════════════
 
 let fornecedoresCache = []
+const usuarioAtual = JSON.parse(localStorage.getItem('ns_usuario') || 'null')
+const podeExcluirFornecedor = ['gerente', 'admin'].includes(usuarioAtual?.perfil || 'usuario')
 let paginaAtualFornecedores = 1
 
 export function inicializarFornecedores() {
@@ -152,7 +154,10 @@ function renderizarTabelaFornecedores(fornecedores) {
       <td>${formatarDocumento(f.documento)}</td>
       <td>${esc(f.cidade || '-')}</td>
       <td>${esc(f.telefone || '-')}</td>
-      <td><button class="btn btn-sm btn-info" onclick="editarFornecedor(${f.id})">Editar</button></td>
+      <td>
+        <button class="btn btn-sm btn-info" onclick="editarFornecedor(${f.id})">Editar</button>
+        ${podeExcluirFornecedor ? `<button class="btn btn-sm btn-danger" onclick="excluirFornecedor(${f.id})">Excluir</button>` : ''}
+      </td>
     </tr>
   `).join('')
 }
@@ -236,6 +241,7 @@ window.editarFornecedor = async function (id) {
       <h3 style="margin:20px 0;">Editar Fornecedor</h3>
       ${formularioFornecedorHtml(f)}
       <button type="button" class="btn btn-success" style="margin-top:20px;" onclick="atualizarFornecedor(${id})">Salvar Alterações</button>
+      ${podeExcluirFornecedor ? `<button type="button" class="btn btn-danger" style="margin-top:20px;" onclick="excluirFornecedor(${id})">Excluir</button>` : ''}
     </div>
   `
 }
@@ -249,6 +255,19 @@ window.atualizarFornecedor = async function (id) {
   } else {
     const err = await res.json()
     alert('Erro: ' + (err.erro || 'Falha ao atualizar'))
+  }
+}
+
+window.excluirFornecedor = async function (id) {
+  if (!confirm('Excluir este fornecedor? Essa ação não pode ser desfeita.')) return
+
+  const res = await apiJson(`${API}/fornecedores/${id}`, { method: 'DELETE' })
+  if (res.ok) {
+    alert('Fornecedor excluído.')
+    inicializarFornecedores()
+  } else {
+    const err = await res.json().catch(() => ({}))
+    alert('Erro ao excluir: ' + (err.erro || 'falha'))
   }
 }
 
