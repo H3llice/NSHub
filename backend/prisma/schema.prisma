@@ -388,8 +388,36 @@ model Embarcacao {
   certificados  Certificado[]
   embarques     Embarque[]
   portos        EmbarcacaoPorto[]
+  balsas        EquipamentoBalsa[]
 
   @@index([armadorId])
+}
+
+// Balsa salva-vidas atendida nos certificados (equipamento do cliente) — não
+// confundir com Balsa, que é a frota própria de locação/venda. Identificada
+// pelo nº de série, que acompanha a balsa a vida toda; a embarcação muda
+// quando ela é transferida de navio (o certificado que salvar com outro navio
+// move a balsa). O histórico de navios fica nos certificados (equipamentoBalsaId).
+// numeroSerie sem @unique: fabricantes diferentes podem repetir número.
+model EquipamentoBalsa {
+  id            Int         @id @default(autoincrement())
+  numeroSerie   String
+  tipo          String?
+  fabricante    String?
+  modelo        String?
+  classe        String?
+  // anoFabricacao é texto ("01/2010"), igual ao equipAnoFabricacao do Certificado
+  anoFabricacao String?
+  capacidade    Int?
+  embarcacao    Embarcacao? @relation(fields: [embarcacaoId], references: [id], onDelete: SetNull)
+  embarcacaoId  Int?
+  criadoEm      DateTime    @default(now())
+  atualizadoEm  DateTime    @updatedAt
+
+  certificados  Certificado[]
+
+  @@index([numeroSerie])
+  @@index([embarcacaoId])
 }
 
 // Portos onde a embarcação atraca. Mesmo padrão do ContratoBalsa: remover não
@@ -1148,6 +1176,8 @@ model Certificado {
   embarcacaoId Int?
   relatorio    Relatorio?  @relation(fields: [relatorioId], references: [id])
   relatorioId  Int?        @unique
+  equipamentoBalsa   EquipamentoBalsa? @relation(fields: [equipamentoBalsaId], references: [id], onDelete: SetNull)
+  equipamentoBalsaId Int?
 
   // Texto livre — NÃO exige cadastro prévio de Embarcacao/Cliente. O
   // certificado avulso é a porta de entrada durante a transição pro sistema

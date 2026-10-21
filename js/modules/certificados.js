@@ -90,6 +90,7 @@ window.gerarCertificadoDeRelatorio = async function (relatorioId) {
 
   if (res.ok) {
     const certificado = await res.json()
+    if (certificado.avisoCadastro) alert('Certificado gerado.' + textoAvisoCadastro(certificado))
     const empresas = await apiFetch(`${API}/empresas`).then(r => r.json())
     // Relatório técnico (gatos...) gera certificado de lista, não de balsa.
     if (certificado.tipo && certificado.tipo !== 'balsa') return exibirCertificadoLista(certificado, empresas)
@@ -241,7 +242,13 @@ function renderCertificado(c, empresas) {
         <div style="font-weight:700; color:var(--acento); margin-bottom:10px;">Equipamento</div>
         <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:16px;">
           <div><label>Equipamento</label><input type="text" id="cert-equipTipo" class="form-control" value="${esc(c.equipTipo || r?.equipTipo || 'BALSA INFLÁVEL')}" ${dis}></div>
-          <div><label>Nº Série</label><input type="text" id="cert-equipNumeroSerie" class="form-control" value="${esc(c.equipNumeroSerie || r?.equipNumeroSerie || '')}" ${dis}></div>
+          <div style="position:relative;">
+            <label>Nº Série</label>
+            <input type="text" id="cert-equipNumeroSerie" class="form-control" value="${esc(c.equipNumeroSerie || r?.equipNumeroSerie || '')}"
+              oninput="buscarBalsaCertificado(this.value, true)" onfocus="buscarBalsaCertificado(this.value)" autocomplete="off" ${dis}>
+            <div id="sugestoes-balsa-cert" style="position:absolute; background:white; border:1px solid #ccc; border-radius:4px; width:100%; min-width:320px; z-index:999; display:none; top:100%;"></div>
+            <input type="hidden" id="cert-equipamentoBalsaId" value="${esc(c.equipamentoBalsaId || '')}">
+          </div>
           <div><label>Ano Fabricação</label><input type="text" id="cert-equipAnoFabricacao" class="form-control" placeholder="Ex: 01/2010" value="${esc(c.equipAnoFabricacao || r?.equipAnoFabricacao || '')}" ${dis}></div>
           <div><label>Marca/Fabricante</label><input type="text" id="cert-equipFabricante" class="form-control" value="${esc(c.equipFabricante || r?.equipFabricante || '')}" ${dis}></div>
           <div><label>Modelo</label><input type="text" id="cert-equipModelo" class="form-control" value="${esc(c.equipModelo || r?.equipModelo || '')}" ${dis}></div>
@@ -383,17 +390,90 @@ window.selecionarEmbarcacaoCertificado = function (e) {
   document.getElementById('sugestoes-embarcacao-cert').style.display = 'none'
 }
 
-document.addEventListener('click', (e) => {
-  const div = document.getElementById('sugestoes-embarcacao-cert')
-  if (div && !div.contains(e.target) && e.target.id !== 'cert-navio') {
+// ─── Autocomplete de Balsa no campo Nº Série (certificado de balsa) ────────────
+// Mesma ideia do Navio: só sugere e preenche o equipamento. Com o navio já
+// escolhido, as balsas dele aparecem primeiro (e ao clicar no campo vazio, só
+// elas). Balsa que hoje está em outro navio pode ser escolhida — ao salvar, o
+// backend passa ela pro navio deste certificado.
+let seqBuscarBalsaCert = 0
+// digitando=true no oninput: mudar o texto solta o vínculo com a balsa escolhida;
+// só focar no campo (onfocus) não.
+window.buscarBalsaCertificado = async function (q, digitando = false) {
+  const seq = ++seqBuscarBalsaCert
+  const div = document.getElementById('sugestoes-balsa-cert')
+  const campoId = document.getElementById('cert-equipamentoBalsaId')
+  if (digitando) campoId.value = ''
+  const embarcacaoId = document.getElementById('cert-embarcacaoId')?.value || ''
+
+  if (q.length < 2 && !embarcacaoId) {
     div.style.display = 'none'
+    return
+  }
+
+  const params = new URLSearchParams({ q: q.length >= 2 ? q : '' })
+  if (embarcacaoId) params.set('embarcacaoId', embarcacaoId)
+  const results = await apiFetch(`${API}/certificados/balsas/buscar?${params}`).then(r => r.json())
+  if (seq !== seqBuscarBalsaCert) return
+
+  if (results.length === 0) {
+    if (q.length < 2) { div.style.display = 'none'; return }
+    div.innerHTML = `<div style="padding:8px 12px; color:#999;">Nenhuma balsa com esse nº de série — será cadastrada ao salvar o certificado</div>`
+    div.style.display = 'block'
+    return
+  }
+
+  div.style.display = 'block'
+  div.innerHTML = results.map(b => {
+    const descricao = [b.fabricante, b.modelo, b.capacidade ? `${b.capacidade} pessoas` : ''].filter(Boolean).join(' · ')
+    let navio = ''
+    if (b.embarcacao && String(b.embarcacao.id) === embarcacaoId) navio = `<div style="color:#198754; font-size:12px;">Neste navio</div>`
+    else if (b.embarcacao) navio = `<div style="color:#fd7e14; font-size:12px;">Hoje em ${esc(b.embarcacao.nome)} — passa pra este navio ao salvar</div>`
+    return `
+      <div onclick="selecionarBalsaCertificado(${esc(JSON.stringify(b))})"
+        style="padding: 8px 12px; cursor:pointer; border-bottom: 1px solid #eee;"
+        onmouseover="this.style.background='#f5f5f5'"
+        onmouseout="this.style.background='white'">
+        <strong>${esc(b.numeroSerie)}</strong>
+        <span style="color:#999; font-size:12px; margin-left:8px;">${esc(descricao)}</span>
+        ${navio}
+      </div>
+    `
+  }).join('')
+}
+
+window.selecionarBalsaCertificado = function (b) {
+  document.getElementById('cert-equipNumeroSerie').value = b.numeroSerie
+  document.getElementById('cert-equipamentoBalsaId').value = b.id
+  // Vazio no cadastro não apaga o que já foi digitado
+  const valores = {
+    equipTipo: b.tipo,
+    equipFabricante: b.fabricante,
+    equipModelo: b.modelo,
+    equipClasse: b.classe,
+    equipAnoFabricacao: b.anoFabricacao,
+    equipCapacidade: b.capacidade,
+  }
+  for (const [campo, valor] of Object.entries(valores)) {
+    const input = document.getElementById(`cert-${campo}`)
+    if (input && valor !== null && valor !== undefined && valor !== '') input.value = valor
+  }
+  // Certificado novo recalcula as quantidades padrão do kit pela capacidade
+  // (o onchange do campo só existe no novo, então no salvo isso não faz nada)
+  document.getElementById('cert-equipCapacidade')?.dispatchEvent(new Event('change'))
+  document.getElementById('sugestoes-balsa-cert').style.display = 'none'
+}
+
+document.addEventListener('click', (e) => {
+  for (const [divId, inputId] of [['sugestoes-embarcacao-cert', 'cert-navio'], ['sugestoes-balsa-cert', 'cert-equipNumeroSerie']]) {
+    const div = document.getElementById(divId)
+    if (div && !div.contains(e.target) && e.target.id !== inputId) div.style.display = 'none'
   }
 })
 
-// Aviso do backend quando o certificado salvou mas o cadastro da embarcação
-// não pôde ser atualizado por inteiro (IMO inválido, nome repetido...)
-function textoAvisoEmbarcacao(certificado) {
-  return certificado?.avisoEmbarcacao ? '\n\nAtenção: ' + certificado.avisoEmbarcacao : ''
+// Aviso do backend quando o certificado salvou mas o cadastro da embarcação/
+// balsa não pôde ser atualizado por inteiro (IMO inválido, nome repetido...)
+function textoAvisoCadastro(certificado) {
+  return certificado?.avisoCadastro ? '\n\nAtenção: ' + certificado.avisoCadastro : ''
 }
 
 function lerFormularioCertificado() {
@@ -413,6 +493,7 @@ function lerFormularioCertificado() {
     empresaId,
     navio,
     embarcacaoId: document.getElementById('cert-embarcacaoId').value,
+    equipamentoBalsaId: document.getElementById('cert-equipamentoBalsaId').value,
     armador: document.getElementById('cert-armador').value,
     portoRegistro: document.getElementById('cert-portoRegistro').value,
     telefone: document.getElementById('cert-telefone').value,
@@ -440,7 +521,7 @@ window.criarCertificadoAvulso = async function () {
 
   if (res.ok) {
     const certificado = await res.json()
-    alert('Certificado criado com sucesso!' + textoAvisoEmbarcacao(certificado))
+    alert('Certificado criado com sucesso!' + textoAvisoCadastro(certificado))
     window.abrirCertificado(certificado.id)
   } else {
     const err = await res.json()
@@ -462,7 +543,7 @@ window.atualizarCertificado = async function (id) {
   })
 
   if (res.ok) {
-    alert('Certificado atualizado com sucesso!' + textoAvisoEmbarcacao(await res.json()))
+    alert('Certificado atualizado com sucesso!' + textoAvisoCadastro(await res.json()))
     window.abrirCertificado(id)
   } else {
     const err = await res.json()
@@ -489,7 +570,7 @@ window.emitirCertificado = async function (id) {
   })
 
   if (res.ok) {
-    alert('Certificado emitido com sucesso!' + textoAvisoEmbarcacao(await res.json()))
+    alert('Certificado emitido com sucesso!' + textoAvisoCadastro(await res.json()))
     window.abrirCertificado(id)
   } else {
     const err = await res.json()
@@ -844,7 +925,7 @@ window.criarCertificadoLista = async function () {
   const res = await apiJson(`${API}/certificados`, { method: 'POST', body: JSON.stringify(body) })
   if (res.ok) {
     const certificado = await res.json()
-    alert('Certificado criado com sucesso!' + textoAvisoEmbarcacao(certificado))
+    alert('Certificado criado com sucesso!' + textoAvisoCadastro(certificado))
     window.abrirCertificado(certificado.id)
   } else {
     const err = await res.json()
@@ -858,7 +939,7 @@ window.atualizarCertificadoLista = async function (id) {
 
   const res = await apiJson(`${API}/certificados/${id}`, { method: 'PUT', body: JSON.stringify(body) })
   if (res.ok) {
-    alert('Certificado atualizado com sucesso!' + textoAvisoEmbarcacao(await res.json()))
+    alert('Certificado atualizado com sucesso!' + textoAvisoCadastro(await res.json()))
     window.abrirCertificado(id)
   } else {
     const err = await res.json()
@@ -873,7 +954,7 @@ window.emitirCertificadoLista = async function (id) {
 
   const res = await apiJson(`${API}/certificados/${id}/emitir`, { method: 'POST', body: JSON.stringify(body) })
   if (res.ok) {
-    alert('Certificado emitido com sucesso!' + textoAvisoEmbarcacao(await res.json()))
+    alert('Certificado emitido com sucesso!' + textoAvisoCadastro(await res.json()))
     window.abrirCertificado(id)
   } else {
     const err = await res.json()

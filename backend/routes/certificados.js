@@ -47,17 +47,78 @@ function extrairEquipamentoCertificado(body) {
 // esquema do extrairEquipamentoCertificado: ausente no body = não mexe.
 const CAMPOS_LISTA = ['imo', 'bandeira', 'classificadora', 'tipoNavio', 'cnpj', 'localEmissao']
 
-// Cadastra/atualiza a embarcação com o que veio no certificado (ver
-// sincronizarEmbarcacaoDoCertificado). Falha aqui não pode impedir o
-// certificado de ser salvo — vira aviso na resposta (avisoEmbarcacao).
-async function embarcacaoDoCertificado(body, tipo, embarcacaoIdAtual) {
+// Balsa (equipamento) do certificado de balsa — mesmo papel da embarcação:
+// acha a escolhida no autocomplete (equipamentoBalsaId) ou pelo nº de série,
+// cadastra se não existir e sobrescreve com o que veio preenchido. Se o
+// certificado é de outro navio, a balsa passa pra ele (foi transferida — o nº
+// de série acompanha a balsa, o navio não). Devolve { equipamentoBalsaId, avisos }.
+async function sincronizarBalsaDoCertificado(body, embarcacaoId) {
+  const avisos = []
+  const numeroSerie = String(body.equipNumeroSerie ?? '').trim()
+  if (!numeroSerie) return { equipamentoBalsaId: null, avisos }
+
+  const texto = campo => String(body[campo] ?? '').trim()
+  const dados = { numeroSerie }
+  for (const [campoCert, campoBalsa] of [['equipTipo', 'tipo'], ['equipFabricante', 'fabricante'], ['equipModelo', 'modelo'],
+    ['equipClasse', 'classe'], ['equipAnoFabricacao', 'anoFabricacao']]) {
+    if (texto(campoCert)) dados[campoBalsa] = texto(campoCert)
+  }
+  const capacidade = parseInt(body.equipCapacidade)
+  if (Number.isInteger(capacidade)) dados.capacidade = capacidade
+  if (embarcacaoId) dados.embarcacaoId = embarcacaoId
+
+  let balsa = null
+  const idEscolhido = Number(body.equipamentoBalsaId)
+  if (Number.isInteger(idEscolhido) && idEscolhido > 0) {
+    balsa = await prisma.equipamentoBalsa.findUnique({ where: { id: idEscolhido } })
+  }
+  if (!balsa) {
+    let mesmoNumero = await prisma.equipamentoBalsa.findMany({ where: { numeroSerie: { equals: numeroSerie, mode: 'insensitive' } } })
+    // Mesmo nº de série de fabricantes diferentes: desempata pelo fabricante
+    // (nenhuma desse fabricante = balsa nova)
+    if (mesmoNumero.length > 1 && dados.fabricante) {
+      mesmoNumero = mesmoNumero.filter(b => normalizarTexto(b.fabricante) === normalizarTexto(dados.fabricante))
+    }
+    if (mesmoNumero.length > 1) {
+      avisos.push(`Há mais de uma balsa com o nº de série ${numeroSerie} no cadastro — escolha a certa na lista de sugestões do campo Nº Série pra vincular o certificado`)
+      return { equipamentoBalsaId: null, avisos }
+    }
+    balsa = mesmoNumero[0] || null
+  }
+
+  const salva = balsa
+    ? await prisma.equipamentoBalsa.update({ where: { id: balsa.id }, data: dados })
+    : await prisma.equipamentoBalsa.create({ data: dados })
+  return { equipamentoBalsaId: salva.id, avisos }
+}
+
+// Cadastra/atualiza a embarcação (ver sincronizarEmbarcacaoDoCertificado) e,
+// no certificado de balsa, a balsa — nessa ordem, pra balsa ir pro navio já
+// resolvido. Falha aqui não pode impedir o certificado de ser salvo: vira
+// aviso na resposta (avisoCadastro) e o vínculo anterior é mantido.
+async function cadastrosDoCertificado(body, tipo, atual = {}) {
+  const avisos = []
+  let embarcacaoId = atual.embarcacaoId ?? null
+  let equipamentoBalsaId = atual.equipamentoBalsaId ?? null
   try {
-    const { embarcacaoId, avisos } = await sincronizarEmbarcacaoDoCertificado({ ...body, tipo }, body.embarcacaoId)
-    return { embarcacaoId: embarcacaoId ?? embarcacaoIdAtual ?? null, aviso: avisos.join('\n') || null }
+    const r = await sincronizarEmbarcacaoDoCertificado({ ...body, tipo }, body.embarcacaoId)
+    embarcacaoId = r.embarcacaoId ?? embarcacaoId
+    avisos.push(...r.avisos)
   } catch (err) {
     console.error('Erro ao cadastrar a embarcação do certificado:', err)
-    return { embarcacaoId: embarcacaoIdAtual ?? null, aviso: 'Não foi possível atualizar o cadastro da embarcação: ' + err.message }
+    avisos.push('Não foi possível atualizar o cadastro da embarcação: ' + err.message)
   }
+  if (tipo === 'balsa') {
+    try {
+      const r = await sincronizarBalsaDoCertificado(body, embarcacaoId)
+      equipamentoBalsaId = r.equipamentoBalsaId ?? equipamentoBalsaId
+      avisos.push(...r.avisos)
+    } catch (err) {
+      console.error('Erro ao cadastrar a balsa do certificado:', err)
+      avisos.push('Não foi possível atualizar o cadastro da balsa: ' + err.message)
+    }
+  }
+  return { embarcacaoId, equipamentoBalsaId, aviso: avisos.join('\n') || null }
 }
 
 function extrairCamposLista(body) {
@@ -153,6 +214,24 @@ router.get('/modelos', autenticar, (req, res) => {
   res.json(MODELOS_LISTA)
 })
 
+// ─── Buscar balsa (equipamento) pelo nº de série — autocomplete ────────────────
+// Antes de /:id. Com embarcacaoId (navio já escolhido no certificado), as balsas
+// desse navio vêm primeiro, e com o campo vazio a lista é só a delas.
+router.get('/balsas/buscar', autenticar, async (req, res) => {
+  const q = String(req.query.q ?? '').trim()
+  const embarcacaoId = Number(req.query.embarcacaoId) || null
+  if (q.length < 2 && !embarcacaoId) return res.json([])
+
+  const balsas = await prisma.equipamentoBalsa.findMany({
+    where: q.length >= 2 ? { numeroSerie: { contains: q, mode: 'insensitive' } } : { embarcacaoId },
+    include: { embarcacao: { select: { id: true, nome: true } } },
+    orderBy: { numeroSerie: 'asc' },
+    take: 30
+  })
+  if (embarcacaoId) balsas.sort((a, b) => (b.embarcacaoId === embarcacaoId) - (a.embarcacaoId === embarcacaoId))
+  res.json(balsas.slice(0, 10))
+})
+
 // ─── Buscar um certificado pelo ID ──────────────────────────────────────────────
 router.get('/:id', autenticar, async (req, res) => {
   const certificado = await prisma.certificado.findUnique({
@@ -242,7 +321,21 @@ router.post('/', autenticar, exigirPerfil('usuario', 'gerente', 'admin'), async 
       },
       include: INCLUDE_PADRAO
     })
-    return res.json(certificado)
+    // Balsa do Relatório entra no cadastro de balsas também (o navio já vem
+    // do Relatório, então só a balsa é sincronizada aqui)
+    let aviso = null
+    try {
+      const r = await sincronizarBalsaDoCertificado(certificado, certificado.embarcacaoId)
+      if (r.equipamentoBalsaId) {
+        await prisma.certificado.update({ where: { id: certificado.id }, data: { equipamentoBalsaId: r.equipamentoBalsaId } })
+        certificado.equipamentoBalsaId = r.equipamentoBalsaId
+      }
+      aviso = r.avisos.join('\n') || null
+    } catch (err) {
+      console.error('Erro ao cadastrar a balsa do certificado:', err)
+      aviso = 'Não foi possível atualizar o cadastro da balsa: ' + err.message
+    }
+    return res.json({ ...certificado, avisoCadastro: aviso })
   }
 
   // Avulso — sem Relatório/OS nem Embarcacao cadastrada. Navio/armador/etc.
@@ -257,7 +350,7 @@ router.post('/', autenticar, exigirPerfil('usuario', 'gerente', 'admin'), async 
     return res.status(400).json({ erro: 'Empresa e Navio são obrigatórios' })
   }
 
-  const { embarcacaoId, aviso } = await embarcacaoDoCertificado(req.body, tipo, null)
+  const { embarcacaoId, equipamentoBalsaId, aviso } = await cadastrosDoCertificado(req.body, tipo)
 
   // O tipo só é definido aqui — não muda depois (o formulário e o PDF dependem dele).
   const certificado = await prisma.certificado.create({
@@ -267,6 +360,7 @@ router.post('/', autenticar, exigirPerfil('usuario', 'gerente', 'admin'), async 
       tipo,
       empresaId: parseInt(empresaId),
       embarcacaoId,
+      equipamentoBalsaId,
       criadoPorId: req.usuario.id,
       navio,
       armador: armador || null,
@@ -283,7 +377,7 @@ router.post('/', autenticar, exigirPerfil('usuario', 'gerente', 'admin'), async 
     include: INCLUDE_PADRAO
   })
 
-  res.json({ ...certificado, avisoEmbarcacao: aviso })
+  res.json({ ...certificado, avisoCadastro: aviso })
 })
 
 // Onde vai o objeto `relatorio` que a tela manda: certificado de balsa com
@@ -314,12 +408,13 @@ router.put('/:id', autenticar, exigirPerfil('usuario', 'gerente', 'admin'), asyn
     await atualizarRelatorioCompleto(certificado.relatorioId, relatorio)
   }
 
-  const { embarcacaoId, aviso } = await embarcacaoDoCertificado(req.body, certificado.tipo, certificado.embarcacaoId)
+  const { embarcacaoId, equipamentoBalsaId, aviso } = await cadastrosDoCertificado(req.body, certificado.tipo, certificado)
 
   const atualizado = await prisma.certificado.update({
     where: { id },
     data: {
       embarcacaoId,
+      equipamentoBalsaId,
       dataEmissao: dataEmissao ? new Date(dataEmissao).toISOString() : null,
       validade: validade || null,
       observacoes: observacoes || null,
@@ -336,7 +431,7 @@ router.put('/:id', autenticar, exigirPerfil('usuario', 'gerente', 'admin'), asyn
     include: INCLUDE_PADRAO
   })
 
-  res.json({ ...atualizado, avisoEmbarcacao: aviso })
+  res.json({ ...atualizado, avisoCadastro: aviso })
 })
 
 // ─── Emitir certificado (só gerente/admin) ─────────────────────────────────────
@@ -357,7 +452,7 @@ router.post('/:id/emitir', autenticar, exigirPerfil('gerente', 'admin'), async (
     await atualizarRelatorioCompleto(certificado.relatorioId, relatorio)
   }
 
-  const { embarcacaoId, aviso } = await embarcacaoDoCertificado(req.body, certificado.tipo, certificado.embarcacaoId)
+  const { embarcacaoId, equipamentoBalsaId, aviso } = await cadastrosDoCertificado(req.body, certificado.tipo, certificado)
 
   const [, atualizado] = await prisma.$transaction([
     prisma.assinatura.create({
@@ -374,6 +469,7 @@ router.post('/:id/emitir', autenticar, exigirPerfil('gerente', 'admin'), async (
       data: {
         status: 'emitido',
         embarcacaoId,
+        equipamentoBalsaId,
         dataEmissao: new Date(dataEmissao).toISOString(),
         validade,
         observacoes: observacoes || null,
@@ -391,7 +487,7 @@ router.post('/:id/emitir', autenticar, exigirPerfil('gerente', 'admin'), async (
     })
   ])
 
-  res.json({ ...atualizado, avisoEmbarcacao: aviso })
+  res.json({ ...atualizado, avisoCadastro: aviso })
 })
 
 // ─── Cancelar certificado (só gerente/admin) ───────────────────────────────────
