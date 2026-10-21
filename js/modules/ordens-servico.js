@@ -295,7 +295,7 @@ window.buscarEmbarcacaoOS = async function (q) {
       onmouseover="this.style.background='#f5f5f5'"
       onmouseout="this.style.background='white'">
       <strong>${esc(e.nome)}</strong>
-      <span style="color:#999; font-size:12px; margin-left:8px;">${esc(e.armador?.nome || '')}</span>
+      <span style="color:#999; font-size:12px; margin-left:8px;">${esc(e.armador?.nome || e.armadorNome || '')}</span>
     </div>
   `).join('')
 }
@@ -310,6 +310,12 @@ window.selecionarEmbarcacaoOS = function (e) {
     document.getElementById('os-cliente-busca').value = e.armador.nome
     document.getElementById('os-clienteId').value = e.armador.id
     document.getElementById('os-cliente-cpfCnpj').value = e.armador.cpfCnpj || ''
+  } else if (e.armadorNome) {
+    // Embarcação cadastrada pelo certificado: armador só em texto, ainda sem
+    // Cliente — fica como sugestão e o CPF/CNPJ é pedido ao salvar a OS
+    document.getElementById('os-cliente-busca').value = e.armadorNome
+    document.getElementById('os-clienteId').value = ''
+    document.getElementById('os-cliente-cpfCnpj').value = ''
   }
 
   document.getElementById('sugestoes-embarcacao-os').style.display = 'none'

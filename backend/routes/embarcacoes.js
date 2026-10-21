@@ -76,7 +76,13 @@ router.get('/', autenticar, async (req, res) => {
 
   const where = {}
   if (nome) where.nome = { contains: nome, mode: 'insensitive' }
-  if (armador) where.armador = { nome: { contains: armador, mode: 'insensitive' } }
+  // Embarcação cadastrada pelo certificado pode ter só o nome do armador (sem Cliente)
+  if (armador) {
+    where.OR = [
+      { armador: { nome: { contains: armador, mode: 'insensitive' } } },
+      { armadorNome: { contains: armador, mode: 'insensitive' } }
+    ]
+  }
   // Só portos atuais: navio que deixou de atracar no porto não entra no filtro
   if (porto) where.portos = { some: { removidoEm: null, porto: { contains: porto, mode: 'insensitive' } } }
 
@@ -220,6 +226,10 @@ router.put('/:id', autenticar, async (req, res) => {
     const armador = armadorId && await prisma.cliente.findUnique({ where: { id: armadorId } })
     if (!armador) return res.status(400).json({ erro: 'Armador não encontrado' })
     dados.armadorId = armadorId
+    dados.armadorNome = null
+  } else if (req.body.armadorNome !== undefined) {
+    // Embarcação ainda sem Cliente vinculado: o armador continua só texto
+    dados.armadorNome = String(req.body.armadorNome ?? '').trim() || null
   }
 
   const erroDuplicado = dados.imo && await erroImoDuplicado([dados.imo], id)
@@ -296,5 +306,70 @@ router.delete('/:id', autenticar, exigirPerfil('gerente', 'admin'), async (req, 
   await prisma.embarcacao.delete({ where: { id } })
   res.json({ ok: true })
 })
+
+// ─── Cadastro da embarcação a partir do certificado ────────────────────────────
+// Mesmo papel do fornecedor na OC: salvar o certificado cadastra o navio que
+// ainda não existe, ou sobrescreve o cadastro com o que veio preenchido. Nunca
+// trava o certificado — o que não der pra gravar volta como aviso.
+// Ordem pra achar a embarcação: a escolhida no autocomplete (embarcacaoId),
+// depois o IMO, depois o nome (só se houver uma única com esse nome).
+// Devolve { embarcacaoId, avisos }.
+export async function sincronizarEmbarcacaoDoCertificado(c, embarcacaoIdEscolhida) {
+  const avisos = []
+  const nome = String(c.navio ?? '').trim()
+  // Colete de aeronave usa o campo navio pra aeronave — não é embarcação
+  if (!nome || c.tipo === 'colete_aeronave') return { embarcacaoId: c.embarcacaoId ?? null, avisos }
+
+  const texto = campo => String(c[campo] ?? '').trim()
+  const dados = { nome }
+  for (const [campoCert, campoEmb] of [['portoRegistro', 'portoRegistro'], ['telefone', 'telefone'], ['email', 'email'],
+    ['classificadora', 'classe'], ['tipoNavio', 'tipo']]) {
+    if (texto(campoCert)) dados[campoEmb] = texto(campoCert)
+  }
+
+  let embarcacao = null
+  const idEscolhido = lerId(embarcacaoIdEscolhida)
+  if (idEscolhido) embarcacao = await prisma.embarcacao.findUnique({ where: { id: idEscolhido } })
+
+  const imo = texto('imo').replace(/^IMO\s*/i, '').replace(/\D/g, '')
+  if (imo) {
+    const erro = erroImo(imo)
+    if (erro) avisos.push(`IMO não gravado no cadastro da embarcação — ${erro}`)
+    else {
+      if (!embarcacao) embarcacao = await prisma.embarcacao.findFirst({ where: { imo } })
+      const duplicado = await erroImoDuplicado([imo], embarcacao?.id)
+      if (duplicado) avisos.push(`IMO não gravado no cadastro da embarcação — ${duplicado}`)
+      else dados.imo = imo
+    }
+  }
+
+  if (!embarcacao) {
+    const mesmoNome = await prisma.embarcacao.findMany({ where: { nome: { equals: nome, mode: 'insensitive' } }, take: 2 })
+    if (mesmoNome.length > 1) {
+      avisos.push(`Há mais de uma embarcação "${nome}" no cadastro — escolha a certa na lista de sugestões do campo Navio pra vincular o certificado`)
+      return { embarcacaoId: null, avisos }
+    }
+    embarcacao = mesmoNome[0] || null
+  }
+
+  // Armador: vincula ao Cliente se o nome bater com um (e só um) cadastrado;
+  // senão fica como texto. Não desfaz vínculo com Cliente por causa de texto
+  // diferente — "NORSUL" no certificado não deve soltar o Cliente "Cia. Norsul".
+  const armadorTexto = texto('armador')
+  if (armadorTexto) {
+    const clientes = await prisma.cliente.findMany({ where: { nome: { equals: armadorTexto, mode: 'insensitive' } }, take: 2 })
+    if (clientes.length === 1) {
+      dados.armadorId = clientes[0].id
+      dados.armadorNome = null
+    } else if (!embarcacao?.armadorId) {
+      dados.armadorNome = armadorTexto
+    }
+  }
+
+  const salva = embarcacao
+    ? await prisma.embarcacao.update({ where: { id: embarcacao.id }, data: dados })
+    : await prisma.embarcacao.create({ data: dados })
+  return { embarcacaoId: salva.id, avisos }
+}
 
 export default router

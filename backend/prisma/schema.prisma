@@ -360,8 +360,12 @@ model Embarcacao {
   id            Int      @id @default(autoincrement())
   nome          String
   // nome do navio
-  armador       Cliente  @relation(fields: [armadorId], references: [id])
-  armadorId     Int
+  // Armador é opcional: o certificado cadastra a embarcação ao salvar e lá o
+  // armador é só texto, sem CPF/CNPJ pra virar Cliente. Nesse caso o nome fica
+  // em armadorNome até alguém vincular o Cliente na tela de Embarcações.
+  armador       Cliente? @relation(fields: [armadorId], references: [id])
+  armadorId     Int?
+  armadorNome   String?
   portoRegistro String?
   imo           String?
   // nº IMO: 7 dígitos, último é dígito verificador (validado na rota)
@@ -1149,8 +1153,9 @@ model Certificado {
   // certificado avulso é a porta de entrada durante a transição pro sistema
   // novo e pra importar certificados antigos: o cadastro formal da
   // embarcação/armador pode ser feito depois, sem bloquear a emissão agora.
-  // embarcacaoId (acima) só existe quando o certificado vem de um Relatório
-  // de verdade — o conteúdo impresso sempre lê daqui, nunca da Embarcacao.
+  // Salvar o certificado cadastra/atualiza a Embarcacao com esses dados e
+  // preenche embarcacaoId (ver sincronizarEmbarcacaoDoCertificado), mas o
+  // conteúdo impresso sempre lê daqui, nunca da Embarcacao.
   navio         String?
   armador       String?
   portoRegistro String?

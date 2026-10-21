@@ -291,7 +291,7 @@ window.carregarRelatorios = async function (pagina = 1) {
       <tr>
         <td style="cursor:pointer;" onclick="editarRelatorio(${r.id})">${r.numero}/${r.ano}</td>
         <td style="cursor:pointer;" onclick="editarRelatorio(${r.id})">${esc(r.navio || r.embarcacao?.nome || '-')}</td>
-        <td>${esc(r.armador || r.embarcacao?.armador?.nome || '-')}</td>
+        <td>${esc(r.armador || r.embarcacao?.armador?.nome || r.embarcacao?.armadorNome || '-')}</td>
         <td>${new Date(r.data).toLocaleDateString('pt-BR', { timeZone: 'UTC' })}</td>
         <td>${badgeStatus(r.status)}</td>
         <td class="col-acoes">
@@ -343,7 +343,7 @@ window.gerarRelatorioDeOS = async function (ordemServicoId) {
     embarcacaoId: os.embarcacaoId,
     embarcacao: os.embarcacao,
     navio: os.embarcacao?.nome || '',
-    armador: os.embarcacao?.armador?.nome || '',
+    armador: os.embarcacao?.armador?.nome || os.embarcacao?.armadorNome || '',
     portoRegistro: os.embarcacao?.portoRegistro || '',
     equipTipo: os.equipModelo || '',
     equipNumeroSerie: os.equipNumeroSerie || '',
@@ -654,7 +654,7 @@ function renderFormularioRelatorio(r, empresas) {
             <div id="sugestoes-embarcacao" style="position:absolute; background:white; border:1px solid #ccc; border-radius:4px; width:100%; z-index:999; display:none; top:100%;"></div>
             <input type="hidden" id="rel-embarcacaoId" value="${esc(r?.embarcacaoId || '')}">
           </div>
-          <div><label>Armador</label><input type="text" id="rel-embarcacao-armador" class="form-control" value="${esc(r?.armador || r?.embarcacao?.armador?.nome || '')}" ${dis}></div>
+          <div><label>Armador</label><input type="text" id="rel-embarcacao-armador" class="form-control" value="${esc(r?.armador || r?.embarcacao?.armador?.nome || r?.embarcacao?.armadorNome || '')}" ${dis}></div>
           <div><label>Porto de Registro</label><input type="text" id="rel-embarcacao-porto" class="form-control" value="${esc(r?.portoRegistro || r?.embarcacao?.portoRegistro || '')}" ${dis}></div>
         </div>
       `)}
@@ -739,7 +739,7 @@ window.buscarEmbarcacaoRelatorio = async function (q) {
       onmouseover="this.style.background='#f5f5f5'"
       onmouseout="this.style.background='white'">
       <strong>${esc(e.nome)}</strong>
-      <span style="color:#999; font-size:12px; margin-left:8px;">${esc(e.armador?.nome || '')}</span>
+      <span style="color:#999; font-size:12px; margin-left:8px;">${esc(e.armador?.nome || e.armadorNome || '')}</span>
     </div>
   `).join('')
 }
@@ -747,7 +747,7 @@ window.buscarEmbarcacaoRelatorio = async function (q) {
 window.selecionarEmbarcacaoRelatorio = function (e) {
   document.getElementById('rel-embarcacao-busca').value = e.nome
   document.getElementById('rel-embarcacaoId').value = e.id
-  document.getElementById('rel-embarcacao-armador').value = e.armador?.nome || ''
+  document.getElementById('rel-embarcacao-armador').value = e.armador?.nome || e.armadorNome || ''
   document.getElementById('rel-embarcacao-porto').value = e.portoRegistro || ''
   document.getElementById('sugestoes-embarcacao').style.display = 'none'
 }

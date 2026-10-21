@@ -195,7 +195,7 @@ function renderizarTabelaEmbarcacoes(embarcacoes) {
       <td style="cursor:pointer;" onclick="editarEmbarcacao(${e.id})">${esc(e.nome)}</td>
       <td>${esc(e.imo || '-')}</td>
       <td>${esc(e.tipo || '-')}</td>
-      <td>${esc(e.armador?.nome || '-')}</td>
+      <td>${esc(e.armador?.nome || e.armadorNome || '-')}</td>
       <td>${esc(e.portoRegistro || '-')}</td>
       <td>${esc((e.portos || []).map(p => p.porto).join(', ') || '-')}</td>
       <td style="white-space:nowrap;">${proximoVencimentoHtml(e)}</td>
@@ -259,15 +259,20 @@ function numerarBlocosEmbarcacao() {
 }
 
 function campoArmadorHtml(e = {}) {
+  // Embarcação cadastrada pelo certificado pode ter o armador só em texto
+  // (armadorNome) — dá pra salvar assim, ou escolher o Cliente pra vincular
+  const semCliente = e.id && !e.armadorId
   return `
     <div style="position:relative; margin-bottom:16px;">
       <label>Armador * <small style="color:#999;">(busca por nome ou CPF/CNPJ do cliente já cadastrado)</small></label>
+      ${semCliente ? `<p style="color:#fd7e14; font-size:12px; margin:0 0 6px;">Armador ainda não vinculado a um cliente cadastrado (veio de um certificado). Escolha o cliente na lista pra vincular.</p>` : ''}
       <input type="text" id="embarcacao-armador-busca" class="form-control"
         placeholder="Digite nome ou CPF/CNPJ..."
-        value="${esc(e.armador?.nome || '')}"
+        value="${esc(e.armador?.nome || e.armadorNome || '')}"
         oninput="buscarArmadorEmbarcacao(this.value)" autocomplete="off">
       <div id="sugestoes-armador" style="position:absolute; background:white; border:1px solid #ccc; border-radius:4px; width:100%; z-index:999; display:none; top:100%;"></div>
       <input type="hidden" id="embarcacao-armadorId" value="${e.armadorId || ''}">
+      <input type="hidden" id="embarcacao-sem-cliente" value="${semCliente ? '1' : ''}">
     </div>
   `
 }
@@ -514,8 +519,13 @@ window.removerPortoEmbarcacao = async function (id, portoId, nomePorto) {
 }
 
 window.atualizarEmbarcacao = async function (id) {
-  const body = { armadorId: armadorSelecionado(), ...lerCamposEmbarcacao(document.getElementById('form-embarcacao-edicao')) }
-  if (!body.armadorId || !body.nome) {
+  const body = lerCamposEmbarcacao(document.getElementById('form-embarcacao-edicao'))
+  const armadorId = armadorSelecionado()
+  const semCliente = document.getElementById('embarcacao-sem-cliente').value === '1'
+  if (armadorId) body.armadorId = armadorId
+  // Sem Cliente vinculado ainda: pode continuar só com o nome em texto
+  else if (semCliente) body.armadorNome = document.getElementById('embarcacao-armador-busca').value.trim()
+  if ((!armadorId && !semCliente) || !body.nome) {
     alert('Armador e nome do navio são obrigatórios! Selecione o armador na lista de sugestões.')
     return
   }

@@ -8,6 +8,7 @@ import { desenharPaginaRelatorio, INCLUDE_PDF_RELATORIO, atualizarRelatorioCompl
 import { gerarPdf } from '../pdf-browser.js'
 import { MODELOS_LISTA, TIPOS_LISTA, htmlCertificadoLista, certificadoGatosDeRelatorio } from '../templates/certificado-lista.js'
 import { MODELOS_RELATORIO_TECNICO } from '../templates/relatorio-tecnico.js'
+import { sincronizarEmbarcacaoDoCertificado } from './embarcacoes.js'
 
 // Como montar o certificado a partir de cada tipo de Relatório técnico —
 // mesmas chaves de MODELOS_RELATORIO_TECNICO[...].certificado.
@@ -45,6 +46,19 @@ function extrairEquipamentoCertificado(body) {
 // Campos só dos certificados de lista (respiração, cilindros, coletes) — mesmo
 // esquema do extrairEquipamentoCertificado: ausente no body = não mexe.
 const CAMPOS_LISTA = ['imo', 'bandeira', 'classificadora', 'tipoNavio', 'cnpj', 'localEmissao']
+
+// Cadastra/atualiza a embarcação com o que veio no certificado (ver
+// sincronizarEmbarcacaoDoCertificado). Falha aqui não pode impedir o
+// certificado de ser salvo — vira aviso na resposta (avisoEmbarcacao).
+async function embarcacaoDoCertificado(body, tipo, embarcacaoIdAtual) {
+  try {
+    const { embarcacaoId, avisos } = await sincronizarEmbarcacaoDoCertificado({ ...body, tipo }, body.embarcacaoId)
+    return { embarcacaoId: embarcacaoId ?? embarcacaoIdAtual ?? null, aviso: avisos.join('\n') || null }
+  } catch (err) {
+    console.error('Erro ao cadastrar a embarcação do certificado:', err)
+    return { embarcacaoId: embarcacaoIdAtual ?? null, aviso: 'Não foi possível atualizar o cadastro da embarcação: ' + err.message }
+  }
+}
 
 function extrairCamposLista(body) {
   const dados = {}
@@ -104,7 +118,7 @@ router.get('/', autenticar, async (req, res) => {
     const filtrados = todos.filter(c => {
       if (busca && !String(c.numero).startsWith(busca.trim())) return false
       if (navio && !contemNormalizado(c.navio || c.embarcacao?.nome, navio)) return false
-      if (armador && !contemNormalizado(c.armador || c.embarcacao?.armador?.nome, armador)) return false
+      if (armador && !contemNormalizado(c.armador || c.embarcacao?.armador?.nome || c.embarcacao?.armadorNome, armador)) return false
       if (tecnico) {
         const nomeTecnico = (c.relatorio && c.tipo === 'balsa' ? c.relatorio.tecnicoNome : c.dadosTecnicos?.tecnicoNome)
           || (c.relatorio ? c.relatorio.criadoPor?.nome : c.criadoPor?.nome)
@@ -214,7 +228,7 @@ router.post('/', autenticar, exigirPerfil('usuario', 'gerente', 'admin'), async 
         relatorioId: relatorio.id,
         criadoPorId: req.usuario.id,
         navio: relatorio.navio || relatorio.embarcacao?.nome || null,
-        armador: relatorio.armador || relatorio.embarcacao?.armador?.nome || null,
+        armador: relatorio.armador || relatorio.embarcacao?.armador?.nome || relatorio.embarcacao?.armadorNome || null,
         portoRegistro: relatorio.portoRegistro || relatorio.embarcacao?.portoRegistro || null,
         telefone: relatorio.embarcacao?.armador?.telefone || null,
         email: relatorio.embarcacao?.armador?.email || null,
@@ -234,14 +248,16 @@ router.post('/', autenticar, exigirPerfil('usuario', 'gerente', 'admin'), async 
   // Avulso — sem Relatório/OS nem Embarcacao cadastrada. Navio/armador/etc.
   // são texto livre, criados e emitidos num só passo (ver js/modules/
   // certificados.js: a tela de criação é o mesmo formulário completo da
-  // edição). O cadastro formal de Embarcacao/Cliente, se algum dia for feito,
-  // é independente disso — nunca é pré-requisito.
+  // edição). Embarcacao/Cliente nunca são pré-requisito: a embarcação é
+  // cadastrada (ou atualizada) a partir do próprio certificado ao salvar.
   if (tipo !== 'balsa' && !TIPOS_LISTA.includes(tipo)) {
     return res.status(400).json({ erro: 'Tipo de certificado inválido' })
   }
   if (!empresaId || !navio) {
     return res.status(400).json({ erro: 'Empresa e Navio são obrigatórios' })
   }
+
+  const { embarcacaoId, aviso } = await embarcacaoDoCertificado(req.body, tipo, null)
 
   // O tipo só é definido aqui — não muda depois (o formulário e o PDF dependem dele).
   const certificado = await prisma.certificado.create({
@@ -250,6 +266,7 @@ router.post('/', autenticar, exigirPerfil('usuario', 'gerente', 'admin'), async 
       ano,
       tipo,
       empresaId: parseInt(empresaId),
+      embarcacaoId,
       criadoPorId: req.usuario.id,
       navio,
       armador: armador || null,
@@ -266,7 +283,7 @@ router.post('/', autenticar, exigirPerfil('usuario', 'gerente', 'admin'), async 
     include: INCLUDE_PADRAO
   })
 
-  res.json(certificado)
+  res.json({ ...certificado, avisoEmbarcacao: aviso })
 })
 
 // Onde vai o objeto `relatorio` que a tela manda: certificado de balsa com
@@ -297,9 +314,12 @@ router.put('/:id', autenticar, exigirPerfil('usuario', 'gerente', 'admin'), asyn
     await atualizarRelatorioCompleto(certificado.relatorioId, relatorio)
   }
 
+  const { embarcacaoId, aviso } = await embarcacaoDoCertificado(req.body, certificado.tipo, certificado.embarcacaoId)
+
   const atualizado = await prisma.certificado.update({
     where: { id },
     data: {
+      embarcacaoId,
       dataEmissao: dataEmissao ? new Date(dataEmissao).toISOString() : null,
       validade: validade || null,
       observacoes: observacoes || null,
@@ -316,7 +336,7 @@ router.put('/:id', autenticar, exigirPerfil('usuario', 'gerente', 'admin'), asyn
     include: INCLUDE_PADRAO
   })
 
-  res.json(atualizado)
+  res.json({ ...atualizado, avisoEmbarcacao: aviso })
 })
 
 // ─── Emitir certificado (só gerente/admin) ─────────────────────────────────────
@@ -337,6 +357,8 @@ router.post('/:id/emitir', autenticar, exigirPerfil('gerente', 'admin'), async (
     await atualizarRelatorioCompleto(certificado.relatorioId, relatorio)
   }
 
+  const { embarcacaoId, aviso } = await embarcacaoDoCertificado(req.body, certificado.tipo, certificado.embarcacaoId)
+
   const [, atualizado] = await prisma.$transaction([
     prisma.assinatura.create({
       data: {
@@ -351,6 +373,7 @@ router.post('/:id/emitir', autenticar, exigirPerfil('gerente', 'admin'), async (
       where: { id },
       data: {
         status: 'emitido',
+        embarcacaoId,
         dataEmissao: new Date(dataEmissao).toISOString(),
         validade,
         observacoes: observacoes || null,
@@ -368,7 +391,7 @@ router.post('/:id/emitir', autenticar, exigirPerfil('gerente', 'admin'), async (
     })
   ])
 
-  res.json(atualizado)
+  res.json({ ...atualizado, avisoEmbarcacao: aviso })
 })
 
 // ─── Cancelar certificado (só gerente/admin) ───────────────────────────────────
@@ -459,7 +482,7 @@ function valoresCertificado(c) {
     // desses campos existirem.
     navio: c.navio || e?.nome || '',
     portoRegistro: c.portoRegistro || e?.portoRegistro || '',
-    armador: c.armador || a?.nome || '',
+    armador: c.armador || a?.nome || e?.armadorNome || '',
     telefone: c.telefone || a?.telefone || '',
     email: c.email || a?.email || '',
     // equip* também são cópias próprias do certificado (obrigatório pro avulso,

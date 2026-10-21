@@ -699,7 +699,7 @@ function gerarHtmlServicoBalsa(relatorio) {
   // Embarcacao vinculada só em relatórios antigos que não tinham esses campos.
   const navio = relatorio.navio || relatorio.embarcacao?.nome || ''
   const portoRegistro = relatorio.portoRegistro || relatorio.embarcacao?.portoRegistro || ''
-  const armador = relatorio.armador || relatorio.embarcacao?.armador?.nome || ''
+  const armador = relatorio.armador || relatorio.embarcacao?.armador?.nome || relatorio.embarcacao?.armadorNome || ''
   const cilindros = relatorio.cilindros || []
   // Mesmo campo único de valor de teste do desenharPaginaRelatorio (Certificado)
   // — só um dos 5 xxxValor vem preenchido, o PDF mostra esse abaixo da temperatura.

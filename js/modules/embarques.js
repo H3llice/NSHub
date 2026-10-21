@@ -468,7 +468,7 @@ window.buscarEmbarcacaoEmbarque = async function (q) {
   div.style.display = 'block'
   div.innerHTML = embEmbarcacoesBusca.length === 0
     ? `<div style="padding:8px 12px; color:#999;">Nenhuma embarcação encontrada — será cadastrada ao salvar o embarque</div>`
-    : embEmbarcacoesBusca.map(e => sugestaoHtml(`selecionarEmbarcacaoEmbarque(${e.id})`, e.nome, e.armador?.nome)).join('')
+    : embEmbarcacoesBusca.map(e => sugestaoHtml(`selecionarEmbarcacaoEmbarque(${e.id})`, e.nome, e.armador?.nome || e.armadorNome)).join('')
 }
 
 window.selecionarEmbarcacaoEmbarque = function (id) {
@@ -481,6 +481,12 @@ window.selecionarEmbarcacaoEmbarque = function (id) {
     document.getElementById('emb-armador-busca').value = e.armador.nome
     document.getElementById('emb-armadorId').value = e.armador.id
     document.getElementById('emb-armador-cpfCnpj').value = e.armador.cpfCnpj || ''
+  } else if (e.armadorNome) {
+    // Embarcação cadastrada pelo certificado: armador só em texto, ainda sem
+    // Cliente — o CPF/CNPJ é pedido ao salvar o embarque
+    document.getElementById('emb-armador-busca').value = e.armadorNome
+    document.getElementById('emb-armadorId').value = ''
+    document.getElementById('emb-armador-cpfCnpj').value = ''
   }
   document.getElementById('emb-sugestoes-embarcacao').style.display = 'none'
 }

@@ -57,7 +57,9 @@ const tokenAtual = localStorage.getItem('ns_token')
 // antes — necessário pra transição pro sistema novo (OS/Relatório ainda no
 // papel) e pra importar certificados antigos depois. Navio/armador/porto/
 // telefone/email são sempre texto livre no Certificado, nunca dependem de
-// cadastro prévio de Embarcacao/Cliente. Por enquanto só cobre balsa; os
+// cadastro prévio de Embarcacao/Cliente — o campo Navio sugere as embarcações
+// cadastradas, e salvar o certificado cadastra/atualiza a embarcação (igual a
+// OC com o fornecedor). Por enquanto só cobre balsa; os
 // demais tipos (baleeira/turco/colete) continuam no formulário avulso antigo,
 // acessível em Serviços → Certificados.
 // ══════════════════════════════════════════════════════════════════════════
@@ -184,7 +186,7 @@ window.atualizarValidadePadrao = function () {
 
 // Navio/armador/porto/telefone/email e os dados do equipamento são sempre
 // texto livre, guardados direto no Certificado — nunca exigem uma Embarcacao/
-// Cliente cadastrados antes. Quando o certificado tem um Relatório vinculado
+// Cliente cadastrados antes (o autocomplete do Navio só preenche, não trava). Quando o certificado tem um Relatório vinculado
 // (fluxo OS -> Relatório), editar aqui também atualiza o Relatório de origem
 // por baixo dos panos (única exceção às travas de documento concluído).
 function renderCertificado(c, empresas) {
@@ -227,7 +229,7 @@ function renderCertificado(c, empresas) {
         <div style="font-weight:700; color:var(--acento); margin-bottom:10px;">Identificação</div>
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
           <div><label>Empresa executante *</label><select id="cert-empresaId" class="form-control" ${dis}>${opcoesEmpresas}</select></div>
-          <div><label>Navio *</label><input type="text" id="cert-navio" class="form-control" value="${esc(c.navio || c.embarcacao?.nome || '')}" ${dis}></div>
+          ${campoNavioHtml('Navio *', c.navio || c.embarcacao?.nome || '', c.embarcacaoId, dis)}
           <div><label>Armador</label><input type="text" id="cert-armador" class="form-control" value="${esc(c.armador || '')}" ${dis}></div>
           <div><label>Porto de Registro</label><input type="text" id="cert-portoRegistro" class="form-control" value="${esc(c.portoRegistro || '')}" ${dis}></div>
           <div><label>Telefone</label><input type="text" id="cert-telefone" class="form-control" value="${esc(c.telefone || '')}" ${dis}></div>
@@ -310,6 +312,90 @@ function botoesCertificado(c, fn) {
   `
 }
 
+// ─── Autocomplete de Embarcação no campo Navio ─────────────────────────────────
+// Só sugere: escolher uma embarcação preenche os campos do certificado que
+// existirem na tela, e tudo continua editável. Digitar de novo no Navio solta o
+// vínculo (embarcacaoId vazio) — aí o backend acha a embarcação pelo IMO/nome
+// ou cadastra uma nova ao salvar.
+function campoNavioHtml(rotulo, valor, embarcacaoId, dis) {
+  return `
+    <div style="position:relative;">
+      <label>${rotulo}</label>
+      <input type="text" id="cert-navio" class="form-control" value="${esc(valor)}"
+        oninput="buscarEmbarcacaoCertificado(this.value)" autocomplete="off" ${dis}>
+      <div id="sugestoes-embarcacao-cert" style="position:absolute; background:white; border:1px solid #ccc; border-radius:4px; width:100%; z-index:999; display:none; top:100%;"></div>
+      <input type="hidden" id="cert-embarcacaoId" value="${esc(embarcacaoId || '')}">
+    </div>
+  `
+}
+
+let seqBuscarEmbarcacaoCert = 0
+window.buscarEmbarcacaoCertificado = async function (q) {
+  const seq = ++seqBuscarEmbarcacaoCert
+  const div = document.getElementById('sugestoes-embarcacao-cert')
+  document.getElementById('cert-embarcacaoId').value = ''
+
+  if (q.length < 2) {
+    div.style.display = 'none'
+    return
+  }
+
+  const results = await apiFetch(`${API}/embarcacoes/buscar?q=${encodeURIComponent(q)}`).then(r => r.json())
+  if (seq !== seqBuscarEmbarcacaoCert) return
+
+  if (results.length === 0) {
+    div.innerHTML = `<div style="padding:8px 12px; color:#999;">Nenhuma embarcação encontrada — será cadastrada ao salvar o certificado</div>`
+    div.style.display = 'block'
+    return
+  }
+
+  div.style.display = 'block'
+  div.innerHTML = results.map(e => `
+    <div onclick="selecionarEmbarcacaoCertificado(${esc(JSON.stringify(e))})"
+      style="padding: 8px 12px; cursor:pointer; border-bottom: 1px solid #eee;"
+      onmouseover="this.style.background='#f5f5f5'"
+      onmouseout="this.style.background='white'">
+      <strong>${esc(e.nome)}</strong>
+      <span style="color:#999; font-size:12px; margin-left:8px;">${esc(e.armador?.nome || e.armadorNome || '')}</span>
+    </div>
+  `).join('')
+}
+
+window.selecionarEmbarcacaoCertificado = function (e) {
+  document.getElementById('cert-navio').value = e.nome
+  document.getElementById('cert-embarcacaoId').value = e.id
+  // Campo do certificado → valor do cadastro. Só os campos que existem nesta
+  // tela (balsa e cada certificado de lista têm cabeçalhos diferentes), e
+  // vazio no cadastro não apaga o que já foi digitado.
+  const valores = {
+    armador: e.armador?.nome || e.armadorNome,
+    portoRegistro: e.portoRegistro,
+    telefone: e.telefone,
+    email: e.email,
+    imo: e.imo,
+    classificadora: e.classe,
+    tipoNavio: e.tipo,
+  }
+  for (const [campo, valor] of Object.entries(valores)) {
+    const input = document.getElementById(`cert-${campo}`)
+    if (input && valor) input.value = valor
+  }
+  document.getElementById('sugestoes-embarcacao-cert').style.display = 'none'
+}
+
+document.addEventListener('click', (e) => {
+  const div = document.getElementById('sugestoes-embarcacao-cert')
+  if (div && !div.contains(e.target) && e.target.id !== 'cert-navio') {
+    div.style.display = 'none'
+  }
+})
+
+// Aviso do backend quando o certificado salvou mas o cadastro da embarcação
+// não pôde ser atualizado por inteiro (IMO inválido, nome repetido...)
+function textoAvisoEmbarcacao(certificado) {
+  return certificado?.avisoEmbarcacao ? '\n\nAtenção: ' + certificado.avisoEmbarcacao : ''
+}
+
 function lerFormularioCertificado() {
   const equip = {
     equipTipo: document.getElementById('cert-equipTipo').value,
@@ -326,6 +412,7 @@ function lerFormularioCertificado() {
   return {
     empresaId,
     navio,
+    embarcacaoId: document.getElementById('cert-embarcacaoId').value,
     armador: document.getElementById('cert-armador').value,
     portoRegistro: document.getElementById('cert-portoRegistro').value,
     telefone: document.getElementById('cert-telefone').value,
@@ -353,7 +440,7 @@ window.criarCertificadoAvulso = async function () {
 
   if (res.ok) {
     const certificado = await res.json()
-    alert('Certificado criado com sucesso!')
+    alert('Certificado criado com sucesso!' + textoAvisoEmbarcacao(certificado))
     window.abrirCertificado(certificado.id)
   } else {
     const err = await res.json()
@@ -375,7 +462,7 @@ window.atualizarCertificado = async function (id) {
   })
 
   if (res.ok) {
-    alert('Certificado atualizado com sucesso!')
+    alert('Certificado atualizado com sucesso!' + textoAvisoEmbarcacao(await res.json()))
     window.abrirCertificado(id)
   } else {
     const err = await res.json()
@@ -402,7 +489,7 @@ window.emitirCertificado = async function (id) {
   })
 
   if (res.ok) {
-    alert('Certificado emitido com sucesso!')
+    alert('Certificado emitido com sucesso!' + textoAvisoEmbarcacao(await res.json()))
     window.abrirCertificado(id)
   } else {
     const err = await res.json()
@@ -520,7 +607,10 @@ function renderCertificadoLista(c, modelo, empresas) {
     `<option value="${e.id}" ${c.empresaId === e.id ? 'selected' : ''}>${esc(e.nome)} (${esc(e.sigla)})</option>`
   ).join('')
 
-  const camposCabecalho = modelo.cabecalho.map(f => `
+  // No colete de aeronave o campo "navio" é a aeronave — sem autocomplete de embarcação
+  const camposCabecalho = modelo.cabecalho.map(f => f.campo === 'navio' && c.tipo !== 'colete_aeronave'
+    ? campoNavioHtml(`${f.rotulo}${f.obrigatorio ? ' *' : ''}`, c.navio || '', c.embarcacaoId, dis)
+    : `
     <div><label>${f.rotulo}${f.obrigatorio ? ' *' : ''}</label>
       <input type="text" id="cert-${f.campo}" class="form-control" value="${esc(c[f.campo])}" ${dis}></div>
   `).join('')
@@ -724,6 +814,8 @@ function lerFormularioCertificadoLista() {
   for (const f of modelo.cabecalho) {
     body[f.campo] = document.getElementById(`cert-${f.campo}`).value.trim()
   }
+  const embarcacaoId = document.getElementById('cert-embarcacaoId')
+  if (embarcacaoId) body.embarcacaoId = embarcacaoId.value
   return body
 }
 
@@ -752,7 +844,7 @@ window.criarCertificadoLista = async function () {
   const res = await apiJson(`${API}/certificados`, { method: 'POST', body: JSON.stringify(body) })
   if (res.ok) {
     const certificado = await res.json()
-    alert('Certificado criado com sucesso!')
+    alert('Certificado criado com sucesso!' + textoAvisoEmbarcacao(certificado))
     window.abrirCertificado(certificado.id)
   } else {
     const err = await res.json()
@@ -766,7 +858,7 @@ window.atualizarCertificadoLista = async function (id) {
 
   const res = await apiJson(`${API}/certificados/${id}`, { method: 'PUT', body: JSON.stringify(body) })
   if (res.ok) {
-    alert('Certificado atualizado com sucesso!')
+    alert('Certificado atualizado com sucesso!' + textoAvisoEmbarcacao(await res.json()))
     window.abrirCertificado(id)
   } else {
     const err = await res.json()
@@ -781,7 +873,7 @@ window.emitirCertificadoLista = async function (id) {
 
   const res = await apiJson(`${API}/certificados/${id}/emitir`, { method: 'POST', body: JSON.stringify(body) })
   if (res.ok) {
-    alert('Certificado emitido com sucesso!')
+    alert('Certificado emitido com sucesso!' + textoAvisoEmbarcacao(await res.json()))
     window.abrirCertificado(id)
   } else {
     const err = await res.json()
