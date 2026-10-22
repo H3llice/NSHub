@@ -72,6 +72,7 @@ export function inicializarColaboradores() {
     <div class="tab">Colaboradores</div>
     ${podeGerir ? `<button class="btn btn-success" onclick="abrirFormularioColaborador()">+ Novo Colaborador</button>` : ''}
     <div id="avisos-ferias-colaboradores" style="margin-top:16px;"></div>
+    <div id="avisos-aso-colaboradores" style="margin-top:16px;"></div>
 
     <div class="filtros-grid">
       <div>
@@ -116,6 +117,7 @@ export function inicializarColaboradores() {
 
   carregarColaboradores()
   renderizarAvisosFerias(document.getElementById('avisos-ferias-colaboradores'))
+  renderizarAvisosAso(document.getElementById('avisos-aso-colaboradores'))
 }
 
 // ─── Aviso de férias (30 dias antes do início até o fim) — admin/gerente ─────
@@ -150,18 +152,55 @@ async function renderizarAvisosFerias(painel) {
   }
 }
 
-export async function renderizarDashboardFerias() {
+// ─── Aviso de ASO (60 dias antes do vencimento em diante) — admin/gerente ────
+// Vencido continua aparecendo até lançarem a data do ASO novo no cadastro.
+async function renderizarAvisosAso(painel) {
+  if (!painel || !podeGerir) return
+  try {
+    const avisos = await apiFetch(`${API}/colaboradores/aso-avisos`).then(r => r.json())
+    if (!Array.isArray(avisos) || avisos.length === 0) { painel.innerHTML = ''; return }
+
+    painel.innerHTML = `
+      <div style="background:#fff3cd; border:1px solid #ffe69c; border-radius:6px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06);">
+        <div style="font-weight:700; color:#664d03; margin-bottom:10px;">🩺 ASO de colaboradores</div>
+        <ul style="list-style:none; padding:0; margin:0;">
+          ${avisos.map(a => {
+            const dias = Math.abs(a.diasParaVencer)
+            const situacao = a.diasParaVencer < 0 ? `<span style="color:#dc3545;">vencido há ${dias} ${dias === 1 ? 'dia' : 'dias'}</span>`
+              : a.diasParaVencer === 0 ? '<span style="color:#dc3545;">vence hoje</span>'
+              : `vence em ${dias} ${dias === 1 ? 'dia' : 'dias'}`
+            return `
+            <li style="padding:6px 0; border-bottom:1px solid #ffe69c; font-size:13px; display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap;">
+              <span><strong>${esc(a.nome)}</strong> — ${esc(labelFuncao(a.funcao))}</span>
+              <span>
+                realizado em ${formatarDataUTC(a.dataAso)}, válido até ${formatarDataUTC(a.vencimento)} ·
+                <strong>${situacao}</strong>
+              </span>
+            </li>
+          `}).join('')}
+        </ul>
+      </div>
+    `
+  } catch {
+    painel.innerHTML = ''
+  }
+}
+
+// Avisos de férias e de ASO na página inicial, um painel cada
+export async function renderizarDashboardColaboradores() {
   const container = document.getElementById('inicio')
   if (!container || !podeGerir) return
 
-  let painel = document.getElementById('painel-ferias-inicio')
-  if (!painel) {
-    painel = document.createElement('div')
-    painel.id = 'painel-ferias-inicio'
-    painel.style = 'margin-top:20px;'
-    container.appendChild(painel)
+  for (const [id, renderizar] of [['painel-ferias-inicio', renderizarAvisosFerias], ['painel-aso-inicio', renderizarAvisosAso]]) {
+    let painel = document.getElementById(id)
+    if (!painel) {
+      painel = document.createElement('div')
+      painel.id = id
+      painel.style = 'margin-top:20px;'
+      container.appendChild(painel)
+    }
+    renderizar(painel)
   }
-  renderizarAvisosFerias(painel)
 }
 
 window.carregarColaboradores = async function (pagina = 1) {
@@ -238,6 +277,10 @@ window.verColaborador = async function (id) {
 
   const data = d => d ? formatarDataUTC(d) : '-'
   const ferias = c.feriasInicio ? `${data(c.feriasInicio)} a ${data(c.feriasFim)}` : '-'
+  // ASO vale 1 ano a partir da realização (mesma conta do backend)
+  const vencimentoAso = c.dataAso && new Date(c.dataAso)
+  if (vencimentoAso) vencimentoAso.setUTCFullYear(vencimentoAso.getUTCFullYear() + 1)
+  const aso = c.dataAso ? `${data(c.dataAso)} (válido até ${data(vencimentoAso)})` : '-'
   const badge = `<span style="background:${c.ativo ? '#198754' : '#6c757d'}; color:white; padding:2px 8px; border-radius:12px; font-size:12px;">${c.ativo ? 'Ativo' : 'Inativo'}</span>`
 
   document.getElementById('colaboradores').innerHTML = `
@@ -263,6 +306,7 @@ window.verColaborador = async function (id) {
             ${campo('Email corporativo', esc(c.emailCorporativo || '-'))}
             ${campo('Usuário do sistema', esc(c.usuario?.nome || '-'))}
             ${campo('Férias', ferias)}
+            ${campo('ASO', aso)}
           </div>
         </div>
 
@@ -393,6 +437,10 @@ async function formularioColaboradorHtml(c = {}) {
         <label>Fim das férias</label><input type="date" id="colaborador-feriasFim" class="form-control" value="${c.feriasFim ? c.feriasFim.slice(0, 10) : ''}">
         <small style="color:#999;">Aviso na página inicial 30 dias antes do início.</small>
       </div>
+      <div>
+        <label>Data de realização do ASO</label><input type="date" id="colaborador-dataAso" class="form-control" value="${c.dataAso ? c.dataAso.slice(0, 10) : ''}">
+        <small style="color:#999;">Validade de 1 ano. Aviso na página inicial 60 dias antes de vencer.</small>
+      </div>
     </div>
   `
 }
@@ -434,6 +482,7 @@ function lerFormularioColaborador() {
     valorAuxilioMoradia: document.getElementById('colaborador-valorAuxilioMoradia').value,
     feriasInicio: document.getElementById('colaborador-feriasInicio').value,
     feriasFim: document.getElementById('colaborador-feriasFim').value,
+    dataAso: document.getElementById('colaborador-dataAso').value,
     usuarioId: document.getElementById('colaborador-usuarioId').value || null,
     ativo: document.getElementById('colaborador-ativo').checked,
     // Só existe na tela do admin — sem as caixas, o campo nem vai e o backend não mexe

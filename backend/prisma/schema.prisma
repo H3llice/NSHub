@@ -1279,6 +1279,10 @@ model Colaborador {
   // antes do início até o fim (GET /colaboradores/ferias-avisos)
   feriasInicio DateTime?
   feriasFim    DateTime?
+  // Data de realização do último ASO (data pura, meia-noite UTC), opcional.
+  // Validade de 1 ano — o vencimento é calculado, não gravado. Admin/gerente veem
+  // aviso de 60 dias antes do vencimento em diante (GET /colaboradores/aso-avisos)
+  dataAso      DateTime?
   // Datas puras (meia-noite UTC). Opcionais
   dataNascimento DateTime?
   dataAdmissao   DateTime?

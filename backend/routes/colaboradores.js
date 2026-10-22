@@ -109,6 +109,7 @@ function lerCorpo(body) {
   const feriasFim = lerData(body.feriasFim)
   const dataNascimento = lerData(body.dataNascimento)
   const dataAdmissao = lerData(body.dataAdmissao)
+  const dataAso = lerData(body.dataAso)
   const contatoEmergenciaNome = (body.contatoEmergenciaNome || '').trim() || null
   const contatoEmergenciaTelefone = (body.contatoEmergenciaTelefone || '').trim() || null
 
@@ -125,6 +126,7 @@ function lerCorpo(body) {
   if (feriasInicio && feriasFim < feriasInicio) return { erro: 'O fim das férias não pode ser antes do início' }
   if (dataNascimento === undefined) return { erro: 'Data de nascimento inválida' }
   if (dataAdmissao === undefined) return { erro: 'Data de admissão inválida' }
+  if (dataAso === undefined) return { erro: 'Data do ASO inválida' }
 
   return {
     dados: {
@@ -143,6 +145,7 @@ function lerCorpo(body) {
       feriasFim,
       dataNascimento,
       dataAdmissao,
+      dataAso,
       sispat: FUNCOES_TECNICO.includes(funcao) ? (body.sispat || '').trim() || null : null,
       contatoEmergenciaNome,
       contatoEmergenciaTelefone,
@@ -254,6 +257,35 @@ router.get('/ferias-avisos', autenticar, exigirPerfil(...PERFIS_GESTAO), async (
     emFerias: c.feriasInicio <= hoje,
     diasParaInicio: Math.round((c.feriasInicio - hoje) / (24 * 60 * 60 * 1000))
   })))
+})
+
+// ─── Avisos de ASO (página inicial e Colaboradores, admin/gerente) ───────────
+// O ASO vale 1 ano a partir da realização. Lista os colaboradores ativos com
+// ASO vencendo nos próximos 60 dias ou já vencido (continua aparecendo até
+// alguém lançar a data do ASO novo). Mesmo "hoje" do aviso de férias. Antes de /:id.
+const DIAS_AVISO_ASO = 60
+const vencimentoAso = dataAso => {
+  const v = new Date(dataAso)
+  v.setUTCFullYear(v.getUTCFullYear() + 1)
+  return v
+}
+router.get('/aso-avisos', autenticar, exigirPerfil(...PERFIS_GESTAO), async (req, res) => {
+  const agora = new Date()
+  const hoje = new Date(Date.UTC(agora.getFullYear(), agora.getMonth(), agora.getDate()))
+  // vencimento <= hoje + 60 dias  ⇔  realização <= (hoje + 60 dias) - 1 ano
+  const limite = new Date(hoje.getTime() + DIAS_AVISO_ASO * 24 * 60 * 60 * 1000)
+  limite.setUTCFullYear(limite.getUTCFullYear() - 1)
+
+  const colaboradores = await prisma.colaborador.findMany({
+    where: { ativo: true, dataAso: { lte: limite } },
+    select: { id: true, nome: true, funcao: true, dataAso: true },
+    orderBy: { dataAso: 'asc' }
+  })
+
+  res.json(colaboradores.map(c => {
+    const vencimento = vencimentoAso(c.dataAso)
+    return { ...c, vencimento, diasParaVencer: Math.round((vencimento - hoje) / (24 * 60 * 60 * 1000)) }
+  }))
 })
 
 // ─── Lista simples de colaboradores ativos (seleção em Embarques) ─────────────
