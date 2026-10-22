@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import { prisma } from '../server.js'
 import { autenticar, exigirPerfil } from '../middleware/auth.js'
+import { buscarPorDocumento } from './fornecedores.js'
 
 const router = Router()
 
@@ -348,11 +349,10 @@ router.post('/:id/aprovar', autenticar, exigirPerfil('gerente', 'admin'), async 
       ? { tipoConta: fornecedorEscolhido.tipoConta, agencia: fornecedorEscolhido.agencia, contaNumero: fornecedorEscolhido.contaNumero }
       : {}
 
-    // Cria ou reusa um Fornecedor cadastrado com o nome do fornecedor cotado
-    // (a OC exige fornecedorId vinculado a um Fornecedor real do sistema)
-    let fornecedorCadastro = await tx.fornecedor.findFirst({
-      where: { nome: fornecedorEscolhido.nome }
-    })
+    // Cria ou reusa um Fornecedor cadastrado — primeiro pelo CPF/CNPJ, depois pelo
+    // nome exato (a OC exige fornecedorId vinculado a um Fornecedor real do sistema)
+    let fornecedorCadastro = await buscarPorDocumento(tx, fornecedorEscolhido.documento) ||
+      await tx.fornecedor.findFirst({ where: { nome: fornecedorEscolhido.nome } })
     if (!fornecedorCadastro) {
       fornecedorCadastro = await tx.fornecedor.create({
         data: {

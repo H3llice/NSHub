@@ -1,4 +1,5 @@
 import { esc } from './html.js'
+import { verificarFornecedorNovo } from './fornecedores.js'
 const API = 'https://override-steerable-professed.ngrok-free.dev'
 
 // ─── Auth helper ──────────────────────────────────────────────────────────────
@@ -768,6 +769,35 @@ window.adicionarItemOC = function () {
   tbody.appendChild(tr)
 }
 
+// Nome digitado sem escolher da lista → fornecedor novo. Antes avisa se já existe
+// cadastro com o mesmo CPF/CNPJ (oferece usar ele) ou com nome parecido.
+// Devolve o id do fornecedor, ou null se o usuário desistiu / deu erro.
+async function criarFornecedorDaOC(fornecedorNome, detalhesPagto) {
+  const documento = document.getElementById('oc-fornecedor-doc').value
+  const verificacao = await verificarFornecedorNovo(fornecedorNome, documento)
+  if (verificacao.cancelar) return null
+  if (verificacao.usar) {
+    // A OC grava o nome do formulário no cadastro — mantém o nome do cadastro existente
+    document.getElementById('oc-fornecedor-nome').value = verificacao.usar.nome
+    return verificacao.usar.id
+  }
+
+  const res = await apiJson(`${API}/fornecedores`, {
+    method: 'POST',
+    body: JSON.stringify({
+      nome: fornecedorNome,
+      documento,
+      endereco: document.getElementById('oc-fornecedor-end').value,
+      cidade: document.getElementById('oc-fornecedor-cidade').value,
+      telefone: document.getElementById('oc-fornecedor-tel').value,
+      ...dadosFornecedorMestreDoPagto(detalhesPagto),
+    })
+  })
+  const novoFornecedor = await res.json().catch(() => ({}))
+  if (!res.ok) { alert('Erro ao cadastrar fornecedor: ' + (novoFornecedor.erro || 'falha')); return null }
+  return novoFornecedor.id
+}
+
 window.salvarOC = async function () {
   const empresaId = parseInt(document.getElementById('oc-empresaId').value)
   const fornecedorNome = document.getElementById('oc-fornecedor-nome').value.trim()
@@ -784,18 +814,8 @@ window.salvarOC = async function () {
   if (erroPagto) { alert(erroPagto); return }
 
   if (!fornecedorId) {
-    const novoFornecedor = await apiJson(`${API}/fornecedores`, {
-      method: 'POST',
-      body: JSON.stringify({
-        nome: fornecedorNome,
-        documento: document.getElementById('oc-fornecedor-doc').value,
-        endereco: document.getElementById('oc-fornecedor-end').value,
-        cidade: document.getElementById('oc-fornecedor-cidade').value,
-        telefone: document.getElementById('oc-fornecedor-tel').value,
-        ...dadosFornecedorMestreDoPagto(detalhesPagto),
-      })
-    }).then(r => r.json())
-    fornecedorId = novoFornecedor.id
+    fornecedorId = await criarFornecedorDaOC(fornecedorNome, detalhesPagto)
+    if (!fornecedorId) return
   }
 
   const itens = lerItensOC()
@@ -1249,18 +1269,8 @@ window.atualizarOC = async function (id) {
   if (erroPagto) { alert(erroPagto); return }
 
   if (!fornecedorId) {
-    const novoFornecedor = await apiJson(`${API}/fornecedores`, {
-      method: 'POST',
-      body: JSON.stringify({
-        nome: fornecedorNome,
-        documento: document.getElementById('oc-fornecedor-doc').value,
-        endereco: document.getElementById('oc-fornecedor-end').value,
-        cidade: document.getElementById('oc-fornecedor-cidade').value,
-        telefone: document.getElementById('oc-fornecedor-tel').value,
-        ...dadosFornecedorMestreDoPagto(detalhesPagto),
-      })
-    }).then(r => r.json())
-    fornecedorId = novoFornecedor.id
+    fornecedorId = await criarFornecedorDaOC(fornecedorNome, detalhesPagto)
+    if (!fornecedorId) return
   }
 
   const itens = lerItensOC()
