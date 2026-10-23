@@ -191,14 +191,19 @@ export async function renderizarDashboardColaboradores() {
   const container = document.getElementById('inicio')
   if (!container || !podeGerir) return
 
+  // Férias e ASO vão no topo (logo abaixo do "Visão geral"), antes dos outros
+  // painéis: são os avisos que o gerente precisa ver primeiro
+  let anterior = container.querySelector(':scope > p') || container.querySelector(':scope > .tab')
   for (const [id, renderizar] of [['painel-ferias-inicio', renderizarAvisosFerias], ['painel-aso-inicio', renderizarAvisosAso]]) {
     let painel = document.getElementById(id)
     if (!painel) {
       painel = document.createElement('div')
       painel.id = id
       painel.style = 'margin-top:20px;'
-      container.appendChild(painel)
     }
+    if (anterior) anterior.after(painel)
+    else container.prepend(painel)
+    anterior = painel
     renderizar(painel)
   }
 }
