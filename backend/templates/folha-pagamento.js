@@ -32,6 +32,7 @@ const LABEL_FUNCAO = {
   tecnico_n2: 'Técnico de Manutenção N2',
   tecnico_n3: 'Técnico de Manutenção N3',
   engenheiro: 'Engenheiro',
+  analista_sistemas: 'Analista de Sistemas',
   estagiario: 'Estagiário',
   gerente: 'Gerente',
   tecnico: 'Técnico',

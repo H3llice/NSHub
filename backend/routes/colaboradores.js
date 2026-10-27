@@ -15,7 +15,7 @@ const PERFIS_GESTAO = ['admin', 'gerente']
 const FUNCOES = [
   'gerente_operacional', 'gerente_comercial', 'gerente_administrativo', 'gerente_financeiro',
   'auxiliar_manutencao', 'assistente_administrativo', 'assistente_comercial',
-  'tecnico_n1', 'tecnico_n2', 'tecnico_n3', 'engenheiro', 'estagiario'
+  'tecnico_n1', 'tecnico_n2', 'tecnico_n3', 'engenheiro', 'analista_sistemas', 'estagiario'
 ]
 const TIPOS_CONTRATO = ['mensalista', 'intermitente']
 // Quem aparece como "Vendedor Responsável" em Orçamento/Vendas

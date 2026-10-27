@@ -13,6 +13,7 @@ export const FUNCOES = {
   tecnico_n2: 'TÉCNICO DE MANUTENÇÃO N2',
   tecnico_n3: 'TÉCNICO DE MANUTENÇÃO N3',
   engenheiro: 'ENGENHEIRO',
+  analista_sistemas: 'ANALISTA DE SISTEMAS',
   estagiario: 'ESTAGIÁRIO',
 }
 
