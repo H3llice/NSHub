@@ -147,6 +147,17 @@ router.put('/', autenticar, exigirPerfil(...PERFIS_IMC), async (req, res) => {
   res.json({ ok: true })
 })
 
+// ─── Histórico de um colaborador (ficha em Colaboradores) ─────────────────────
+// Todas as pesagens dele, do mês mais antigo pro mais recente
+router.get('/colaborador/:id', autenticar, exigirPerfil(...PERFIS_IMC), async (req, res) => {
+  const medicoes = await prisma.medicaoImc.findMany({
+    where: { colaboradorId: Number(req.params.id) || 0 },
+    include: { controle: { select: { mes: true, ano: true } } },
+    orderBy: [{ controle: { ano: 'asc' } }, { controle: { mes: 'asc' } }]
+  })
+  res.json(medicoes.map(m => ({ mes: m.controle.mes, ano: m.controle.ano, altura: m.altura, peso: m.peso, observacoes: m.observacoes })))
+})
+
 // ─── PDF do mês (link em nova aba, token via ?token=) ─────────────────────────
 // Documento de auditoria: cabeçalho (empresa/período/PCMSO) + gráfico, no papel
 // timbrado. Sem nomes — só o número de cada técnico.

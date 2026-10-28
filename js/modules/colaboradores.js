@@ -1,5 +1,6 @@
 import { FUNCOES, FUNCOES_TECNICO, TIPOS_CONTRATO, labelFuncao } from './funcoes-colaborador.js'
 import { esc } from './html.js'
+import { svgGraficoImc, legendaImcHtml, calcularImc, faixaImc, formatarImc, baixarGraficoPng } from './grafico-imc.mjs'
 
 const API = 'https://override-steerable-professed.ngrok-free.dev'
 
@@ -616,9 +617,86 @@ window.editarColaborador = async function (id) {
       <h3 style="margin:20px 0;">Editar Colaborador</h3>
       ${await formularioColaboradorHtml(c)}
       ${secaoDocumentosHtml(c.documentos || [])}
+      <div id="imc-colaborador"></div>
       <button type="button" class="btn btn-success" style="margin-top:20px;" onclick="salvarColaborador(${id})">Salvar Alterações</button>
     </div>
   `
+  carregarImcColaborador(c)
+}
+
+// ─── Controle de IMC do colaborador (só leitura) ──────────────────────────────
+// As pesagens são lançadas em Conformidade → Controle de IMC (uma por mês); aqui
+// é o histórico dele com o gráfico pessoal. Só admin/gerente (é a tela de
+// edição, e o backend também barra). Aparece pra técnico ou pra quem já tem
+// pesagem (técnico que mudou de função).
+const MESES_CURTOS_IMC = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez']
+// O gráfico pessoal mostra só os últimos 12 meses pesados; a tabela mostra tudo
+const MESES_GRAFICO_IMC = 12
+let imcColaborador = null // { nome, barras } do gráfico na tela, pro download
+
+async function carregarImcColaborador(c) {
+  const alvo = document.getElementById('imc-colaborador')
+  const res = await apiFetch(`${API}/controle-imc/colaborador/${c.id}`).catch(() => null)
+  if (!alvo || !res?.ok) return
+  const pesagens = await res.json()
+  if (pesagens.length === 0 && !FUNCOES_TECNICO.includes(c.funcao)) return
+
+  const rotulo = p => `${MESES_CURTOS_IMC[p.mes - 1]}/${String(p.ano).slice(-2)}`
+  const linhas = pesagens.map((p, i) => ({
+    ...p,
+    rotulo: rotulo(p),
+    imc: calcularImc(p.peso, p.altura),
+    variacao: i > 0 ? Math.round((p.peso - pesagens[i - 1].peso) * 10) / 10 : null
+  }))
+  imcColaborador = { nome: c.nome, barras: linhas.slice(-MESES_GRAFICO_IMC) }
+
+  const badgeImc = imc => {
+    const f = faixaImc(imc)
+    const corTexto = f.cor === '#2b5797' || f.cor === '#e00000' ? '#fff' : '#000'
+    return `<span style="display:inline-block; min-width:44px; padding:2px 6px; border-radius:10px; background:${f.cor}; color:${corTexto}; font-weight:600;" title="${f.texto}">${formatarImc(imc)}</span>`
+  }
+
+  alvo.innerHTML = `
+    <div style="margin-top:24px;">
+      <h5>Controle de IMC</h5>
+      ${linhas.length === 0
+        ? '<p style="color:#999; font-size:13px;">Nenhuma pesagem ainda — lance em Conformidade → Controle de IMC.</p>'
+        : `
+        <div style="display:flex; gap:12px; align-items:flex-start; flex-wrap:wrap;">
+          <div style="flex:1; min-width:280px; background:white; border:1px solid #ddd; border-radius:6px; padding:8px;">
+            ${svgGraficoImc(imcColaborador.barras, tituloImcColaborador())}
+          </div>
+          <div style="font-size:13px;">
+            ${legendaImcHtml()}
+            <button type="button" class="btn btn-sm btn-secondary" style="margin-top:12px;" onclick="baixarGraficoImcColaborador()">⬇️ Baixar gráfico (PNG)</button>
+          </div>
+        </div>
+        ${linhas.length > MESES_GRAFICO_IMC ? `<small style="color:#999;">O gráfico mostra os últimos ${MESES_GRAFICO_IMC} meses pesados; a tabela, todos.</small>` : ''}
+        <div class="table-scroll" style="margin-top:12px;">
+          <table class="table-certificados" style="font-size:13px;">
+            <thead><tr><th>Mês</th><th>Altura (m)</th><th>Peso (kg)</th><th>IMC</th><th title="Diferença para a pesagem anterior">Variação</th><th>Observações</th></tr></thead>
+            <tbody>
+              ${[...linhas].reverse().map(l => `
+                <tr>
+                  <td>${l.rotulo}</td>
+                  <td style="text-align:center;">${l.altura.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                  <td style="text-align:center;">${l.peso.toLocaleString('pt-BR', { minimumFractionDigits: 1 })}</td>
+                  <td style="text-align:center;">${badgeImc(l.imc)}</td>
+                  <td style="text-align:center;">${l.variacao === null ? '<span style="color:#999;">-</span>' : `${l.variacao > 0 ? '+' : ''}${l.variacao.toLocaleString('pt-BR', { minimumFractionDigits: 1 })} kg`}</td>
+                  <td>${esc(l.observacoes) || '-'}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>`}
+    </div>
+  `
+}
+
+const tituloImcColaborador = () => `EVOLUÇÃO DO IMC - ${imcColaborador.nome.toUpperCase()}`
+
+window.baixarGraficoImcColaborador = function () {
+  baixarGraficoPng(svgGraficoImc(imcColaborador.barras, tituloImcColaborador(), { legenda: true }), `Grafico IMC - ${imcColaborador.nome}.png`)
 }
 
 // Sem id = cadastro novo; com id = edição

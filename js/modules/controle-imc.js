@@ -1,6 +1,6 @@
 import { labelFuncao } from './funcoes-colaborador.js'
 import { esc } from './html.js'
-import { svgGraficoImc, legendaImcHtml, numerarTecnicosImc, faixaImc, formatarImc } from './grafico-imc.mjs'
+import { svgGraficoImc, legendaImcHtml, numerarTecnicosImc, faixaImc, formatarImc, baixarGraficoPng } from './grafico-imc.mjs'
 
 const API = 'https://override-steerable-professed.ngrok-free.dev'
 
@@ -143,7 +143,10 @@ function renderizarControleImc() {
 
     <div style="display:flex; gap:16px; align-items:flex-start; flex-wrap:wrap; margin-top:20px;">
       <div id="imc-grafico" style="flex:1; min-width:300px; background:white; border:1px solid #ddd; border-radius:6px; padding:8px;"></div>
-      <div style="font-size:13px;">${legendaImcHtml()}</div>
+      <div style="font-size:13px;">
+        ${legendaImcHtml()}
+        <button class="btn btn-sm btn-secondary" style="margin-top:12px;" onclick="baixarGraficoImcMes()">⬇️ Baixar gráfico (PNG)</button>
+      </div>
     </div>
   `
   window.atualizarTelaImc()
@@ -188,9 +191,18 @@ window.atualizarTelaImc = function () {
     }
   }
 
-  const barras = [...numeros.values()].sort((a, b) => a.numero - b.numero)
-  document.getElementById('imc-grafico').innerHTML =
-    svgGraficoImc(barras, `CONTROLE DE ÍNDICES DE IMC - ${MESES[imcAtual.mes - 1].toUpperCase()}/${imcAtual.ano}`)
+  document.getElementById('imc-grafico').innerHTML = svgGraficoImc(barrasDaTelaImc(numeros), tituloGraficoImc())
+}
+
+const tituloGraficoImc = () => `CONTROLE DE ÍNDICES DE IMC - ${MESES[imcAtual.mes - 1].toUpperCase()}/${imcAtual.ano}`
+const barrasDaTelaImc = (numeros = numerarTecnicosImc(lerLinhasImc())) => [...numeros.values()].sort((a, b) => a.numero - b.numero)
+
+// Só o gráfico, como imagem (pra colar num documento) — com a legenda dentro.
+// Sai do que está digitado na tela, mesmo antes de salvar.
+window.baixarGraficoImcMes = function () {
+  const barras = barrasDaTelaImc()
+  if (barras.length === 0) { alert('Lance ao menos uma pesagem!'); return }
+  baixarGraficoPng(svgGraficoImc(barras, tituloGraficoImc(), { legenda: true }), `Grafico IMC ${String(imcAtual.mes).padStart(2, '0')}-${imcAtual.ano}.png`)
 }
 
 // Salva a tela inteira; retorna true/false (já avisando o erro)
