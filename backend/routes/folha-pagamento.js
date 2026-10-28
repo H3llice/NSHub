@@ -17,6 +17,10 @@ const grupoDaFuncao = funcao => (FUNCOES_TECNICO.includes(funcao) ? 'tecnicos' :
 // Campos em R$ digitados na tela (descontoPlanoSaude e comissao vêm
 // preenchidos pela geração, mas também são editáveis)
 const CAMPOS_VALOR = ['descontoPlanoSaude', 'coparticipacaoPlanoSaude', 'auxilioMoradia', 'ajudaCusto', 'premio', 'comissao']
+// Campos que a folha preenche sozinha mas que também são editáveis na tela.
+// Alterado à mão → entra em ItemFolhaPagamento.camposEditados e a atualização
+// automática passa a pular ele (até alguém clicar no ↺ do campo).
+const CAMPOS_AUTO_EDITAVEIS = ['descontoPlanoSaude', 'auxilioMoradia', 'comissao', 'diasTrabalhados']
 
 const INCLUDE_ITENS = { itens: { orderBy: [{ grupo: 'asc' }, { nome: 'asc' }] } }
 
@@ -211,17 +215,18 @@ router.post('/', autenticar, exigirPerfil(...PERFIS_FOLHA), async (req, res) => 
 // ─── Atualizar dados automáticos (folha aberta) ────────────────────────────────
 // Refaz embarques/dias/dobras, desconto do plano de saúde e comissão a partir
 // dos cadastros atuais, e inclui colaboradores ativados depois da geração.
-// Coparticipação, ajuda de custo, prêmio e observações NÃO são tocados.
-// Dias trabalhados (intermitente) acompanha os embarques só enquanto ninguém
-// mexeu nele: se ainda é igual aos dias embarcados de antes (ou está vazio),
-// passa a ser os de agora; se foi editado à mão, fica como está.
+// Coparticipação, ajuda de custo, prêmio, atestados, faltas e observações NÃO
+// são tocados, nem os campos automáticos alterados à mão (camposEditados).
+// Dias trabalhados (intermitente) também fica como está se for diferente dos
+// dias embarcados de antes — regra de antes do camposEditados existir, mantida
+// pros itens editados antes dele.
 router.post('/:id/atualizar', autenticar, exigirPerfil(...PERFIS_FOLHA), async (req, res) => {
   const folha = await buscarFolhaAberta(Number(req.params.id), res)
   if (!folha) return
 
   const itensAtuais = await prisma.itemFolhaPagamento.findMany({
     where: { folhaId: folha.id },
-    select: { colaboradorId: true, diasTrabalhados: true, diasEmbarcados: true }
+    select: { colaboradorId: true, diasTrabalhados: true, diasEmbarcados: true, camposEditados: true }
   })
   const itemAtual = new Map(itensAtuais.map(i => [i.colaboradorId, i]))
   const colaboradores = await prisma.colaborador.findMany({
@@ -230,14 +235,18 @@ router.post('/:id/atualizar', autenticar, exigirPerfil(...PERFIS_FOLHA), async (
   const dados = await dadosAutomaticos(colaboradores, folha.mes, folha.ano)
 
   await prisma.$transaction(colaboradores.map(c => {
-    const novo = dados.get(c.id)
+    const novo = { ...dados.get(c.id) }
     const sugerido = diasTrabalhadosSugeridos(novo)
     const antes = itemAtual.get(c.id)
-    const naoEditado = antes && (antes.diasTrabalhados === null || antes.diasTrabalhados === antes.diasEmbarcados)
+    const editados = antes?.camposEditados || []
+    for (const campo of editados) delete novo[campo]
+
+    const diasNaoEditados = antes && !editados.includes('diasTrabalhados') &&
+      (antes.diasTrabalhados === null || antes.diasTrabalhados === antes.diasEmbarcados)
 
     return prisma.itemFolhaPagamento.upsert({
       where: { folhaId_colaboradorId: { folhaId: folha.id, colaboradorId: c.id } },
-      update: { ...novo, ...(naoEditado && novo.tipoContrato === 'intermitente' ? { diasTrabalhados: sugerido } : {}) },
+      update: { ...novo, ...(diasNaoEditados && novo.tipoContrato === 'intermitente' ? { diasTrabalhados: sugerido } : {}) },
       create: { folhaId: folha.id, colaboradorId: c.id, ...novo, diasTrabalhados: sugerido }
     })
   }))
@@ -245,18 +254,50 @@ router.post('/:id/atualizar', autenticar, exigirPerfil(...PERFIS_FOLHA), async (
   res.json(await prisma.folhaPagamento.findUnique({ where: { id: folha.id }, include: INCLUDE_ITENS }))
 })
 
+// ─── Voltar um campo editado à mão pro valor automático (↺ da tela) ────────────
+// body.campo: um dos CAMPOS_AUTO_EDITAVEIS. Tira o campo de camposEditados e
+// grava o valor que a folha puxaria agora.
+router.post('/:id/itens/:itemId/automatico', autenticar, exigirPerfil(...PERFIS_FOLHA), async (req, res) => {
+  const folha = await buscarFolhaAberta(Number(req.params.id), res)
+  if (!folha) return
+
+  const campo = req.body.campo
+  if (!CAMPOS_AUTO_EDITAVEIS.includes(campo)) return res.status(400).json({ erro: 'Campo inválido' })
+
+  const item = await prisma.itemFolhaPagamento.findFirst({ where: { id: Number(req.params.itemId), folhaId: folha.id } })
+  if (!item) return res.status(404).json({ erro: 'Item não encontrado' })
+
+  const colaborador = await prisma.colaborador.findUnique({ where: { id: item.colaboradorId } })
+  const novo = (await dadosAutomaticos([colaborador], folha.mes, folha.ano)).get(colaborador.id)
+  const valor = campo === 'diasTrabalhados' ? diasTrabalhadosSugeridos(novo) : novo[campo]
+
+  await prisma.itemFolhaPagamento.update({
+    where: { id: item.id },
+    data: { [campo]: valor, camposEditados: item.camposEditados.filter(c => c !== campo) }
+  })
+  res.json(await prisma.folhaPagamento.findUnique({ where: { id: folha.id }, include: INCLUDE_ITENS }))
+})
+
 // ─── Salvar valores digitados (folha aberta) ───────────────────────────────────
 // body.itens: [{ id, diasTrabalhados, atestados, faltasNaoJustificadas, descontoPlanoSaude, coparticipacaoPlanoSaude, ajudaCusto, premio, comissao, observacoes }]
+// Só grava os campos presentes em cada item (a tela manda só o que mudou — assim
+// uma tela aberta há tempo não desfaz o que outra pessoa salvou ou atualizou).
+// Campo automático (CAMPOS_AUTO_EDITAVEIS) com valor diferente do gravado entra
+// em camposEditados.
 router.put('/:id/itens', autenticar, exigirPerfil(...PERFIS_FOLHA), async (req, res) => {
   const folha = await buscarFolhaAberta(Number(req.params.id), res)
   if (!folha) return
 
   const itens = Array.isArray(req.body.itens) ? req.body.itens : []
+  // where com folhaId: item de outra folha não é alterado por engano
+  const gravados = new Map((await prisma.itemFolhaPagamento.findMany({ where: { folhaId: folha.id } })).map(i => [i.id, i]))
   const atualizacoes = []
   for (const item of itens) {
-    const data = { observacoes: (item.observacoes || '').trim() || null }
-    // Só grava o que veio na requisição — diasTrabalhados, por exemplo, só vem
-    // pra quem é intermitente (é quem tem o campo na tela)
+    const atual = gravados.get(Number(item.id))
+    if (!atual) continue
+
+    const data = {}
+    if (item.observacoes !== undefined) data.observacoes = (item.observacoes || '').trim() || null
     for (const [campo, titulo] of Object.entries(CAMPOS_DIAS)) {
       if (item[campo] === undefined) continue
       const dias = lerDias(item[campo])
@@ -264,12 +305,20 @@ router.put('/:id/itens', autenticar, exigirPerfil(...PERFIS_FOLHA), async (req, 
       data[campo] = dias
     }
     for (const campo of CAMPOS_VALOR) {
+      if (item[campo] === undefined) continue
       const valor = lerValor(item[campo])
       if (valor === undefined) return res.status(400).json({ erro: `Valor inválido em ${campo}` })
       data[campo] = valor
     }
-    // where com folhaId: item de outra folha não é alterado por engano
-    atualizacoes.push(prisma.itemFolhaPagamento.updateMany({ where: { id: Number(item.id), folhaId: folha.id }, data }))
+
+    const editados = new Set(atual.camposEditados)
+    for (const campo of CAMPOS_AUTO_EDITAVEIS) {
+      if (campo in data && data[campo] !== atual[campo]) editados.add(campo)
+    }
+    if (editados.size !== atual.camposEditados.length) data.camposEditados = [...editados]
+
+    if (Object.keys(data).length === 0) continue
+    atualizacoes.push(prisma.itemFolhaPagamento.update({ where: { id: atual.id }, data }))
   }
 
   await prisma.$transaction(atualizacoes)

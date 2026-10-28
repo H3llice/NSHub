@@ -201,7 +201,7 @@ function renderizarFolha(folha) {
       </div>
       <p style="font-size:12px; color:#999; margin:0 0 16px;">
         ${aberta
-          ? 'Embarques, dobras, vale-transporte, desconto do plano de saúde, auxílio moradia e comissões vêm preenchidos. "Atualizar dados automáticos" puxa de novo esses dados (e inclui colaboradores novos), sem mexer em atestados, faltas, coparticipação, ajuda de custo, prêmio e observações. Dias trabalhados é só pra intermitente (o salário dele é por dia): vem preenchido com os dias embarcados e pode ser alterado — depois de alterado à mão, a atualização automática não mexe mais nele.'
+          ? 'Embarques, dobras, vale-transporte, desconto do plano de saúde, auxílio moradia e comissões vêm preenchidos. "Atualizar dados automáticos" puxa de novo esses dados (e inclui colaboradores novos), sem mexer em atestados, faltas, coparticipação, ajuda de custo, prêmio e observações. Dias trabalhados é só pra intermitente (o salário dele é por dia) e vem com os dias embarcados. Valor automático alterado à mão fica em amarelo e a atualização não mexe mais nele — o ↺ ao lado volta pro automático.'
           : `Fechada em ${new Date(folha.fechadaEm).toLocaleDateString('pt-BR')} — valores congelados.`}
       </p>
 
@@ -294,15 +294,32 @@ window.abrirPdfFolha = async function () {
 
 function secaoGrupoHtml(grupo, itens, aberta) {
   const dis = aberta ? '' : 'disabled'
+  // Campo automático alterado à mão: amarelo, e com a folha aberta um ↺ pra
+  // voltar ao valor automático (ver camposEditados no schema)
+  const editado = (item, campo) => (item.camposEditados || []).includes(campo)
+  const estiloEditado = (item, campo) => (editado(item, campo) ? 'background:#fff3cd;' : '')
+  const titleEditado = (item, campo) => editado(item, campo)
+    ? 'title="Alterado à mão — &quot;Atualizar dados automáticos&quot; não mexe neste valor"'
+    : ''
+  const botaoAutomatico = (item, campo) => aberta && editado(item, campo)
+    ? `<button type="button" class="btn btn-sm btn-link" style="padding:0 2px;" title="Voltar ao valor automático" onclick="voltarAutomaticoFolha(${item.id}, '${campo}')">↺</button>`
+    : ''
+
   const inputValor = (item, campo) => `
-    <input type="number" class="form-control form-control-sm folha-valor" data-item="${item.id}" data-campo="${campo}"
-      min="0" step="0.01" value="${item[campo] ?? ''}" style="width:110px;" oninput="atualizarTotaisFolha()" ${dis}>
+    <div style="display:flex; align-items:center;">
+      <input type="number" class="form-control form-control-sm folha-valor" data-item="${item.id}" data-campo="${campo}"
+        min="0" step="0.01" value="${item[campo] ?? ''}" style="width:110px; ${estiloEditado(item, campo)}" ${titleEditado(item, campo)} oninput="atualizarTotaisFolha()" ${dis}>
+      ${botaoAutomatico(item, campo)}
+    </div>
   `
 
   // Campo de contagem de dias (dias trabalhados, atestados, faltas)
   const inputDias = (item, campo) => `
-    <input type="number" class="form-control form-control-sm folha-dias" data-item="${item.id}" data-campo="${campo}"
-      min="0" max="31" step="1" value="${item[campo] ?? ''}" style="width:72px; margin:0 auto;" oninput="atualizarTotaisFolha()" ${dis}>
+    <div style="display:flex; align-items:center; justify-content:center;">
+      <input type="number" class="form-control form-control-sm folha-dias" data-item="${item.id}" data-campo="${campo}"
+        min="0" max="31" step="1" value="${item[campo] ?? ''}" style="width:72px; ${estiloEditado(item, campo)}" ${titleEditado(item, campo)} oninput="atualizarTotaisFolha()" ${dis}>
+      ${botaoAutomatico(item, campo)}
+    </div>
   `
 
   return `
@@ -389,15 +406,20 @@ window.atualizarTotaisFolha = function () {
   })
 }
 
+// Só o que mudou em relação ao que veio do servidor (folhaAtual): o backend
+// marca como "editado à mão" todo campo automático recebido com valor novo, e
+// mandar a tela inteira faria uma tela aberta há tempo desfazer o que outra
+// pessoa salvou ou atualizou nesse meio-tempo.
 function lerItensDaTela() {
+  const gravados = new Map(folhaAtual.itens.map(i => [String(i.id), i]))
   const porItem = new Map()
-  const item = id => {
+  const anotar = (id, campo, valor) => {
+    if (String(gravados.get(id)?.[campo] ?? '') === valor) return
     if (!porItem.has(id)) porItem.set(id, { id: Number(id) })
-    return porItem.get(id)
+    porItem.get(id)[campo] = valor
   }
-  document.querySelectorAll('.folha-valor').forEach(el => { item(el.dataset.item)[el.dataset.campo] = el.value })
-  document.querySelectorAll('.folha-dias').forEach(el => { item(el.dataset.item)[el.dataset.campo] = el.value })
-  document.querySelectorAll('.folha-obs').forEach(el => { item(el.dataset.item).observacoes = el.value })
+  document.querySelectorAll('.folha-valor, .folha-dias').forEach(el => anotar(el.dataset.item, el.dataset.campo, el.value))
+  document.querySelectorAll('.folha-obs').forEach(el => anotar(el.dataset.item, 'observacoes', el.value))
   return [...porItem.values()]
 }
 
@@ -417,13 +439,24 @@ window.salvarFolhaPagamento = async function () {
 }
 
 window.atualizarAutomaticosFolha = async function () {
-  if (!confirm('Puxar de novo embarques, dobras, vale-transporte, desconto do plano de saúde, auxílio moradia e comissões? Se você editou desconto do plano, auxílio moradia ou comissão à mão, eles voltam pro valor do cadastro/vendas. Dias trabalhados que você alterou à mão são mantidos.')) return
+  if (!confirm('Puxar de novo embarques, dobras, vale-transporte, desconto do plano de saúde, auxílio moradia e comissões? Valores alterados à mão (em amarelo) são mantidos.')) return
   // Salva antes pra não perder coparticipação/ajuda/prêmio digitados agora
   if (!(await salvarItensFolha())) return
 
   const res = await apiFetch(`${API}/folha-pagamento/${folhaAtual.id}/atualizar`, { method: 'POST' })
   const dados = await res.json()
   if (!res.ok) { alert('Erro ao atualizar: ' + (dados.erro || '')); return }
+  renderizarFolha(dados)
+}
+
+// ↺ de um campo editado à mão: salva o que foi digitado e volta o campo pro valor automático
+window.voltarAutomaticoFolha = async function (itemId, campo) {
+  if (!confirm('Voltar este valor pro automático (cadastro/vendas/embarques)? O valor digitado à mão será substituído.')) return
+  if (!(await salvarItensFolha())) return
+
+  const res = await apiJson(`${API}/folha-pagamento/${folhaAtual.id}/itens/${itemId}/automatico`, { method: 'POST', body: JSON.stringify({ campo }) })
+  const dados = await res.json()
+  if (!res.ok) { alert('Erro ao voltar pro automático: ' + (dados.erro || '')); return }
   renderizarFolha(dados)
 }
 

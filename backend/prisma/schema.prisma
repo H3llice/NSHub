@@ -1439,6 +1439,11 @@ model ItemFolhaPagamento {
   comissao                 Float?
   observacoes              String?
 
+  // Campos automáticos (descontoPlanoSaude, auxilioMoradia, comissao,
+  // diasTrabalhados) que alguém alterou à mão — "atualizar dados automáticos"
+  // não mexe neles. Sai da lista pelo ↺ da tela (volta ao valor automático).
+  camposEditados String[] @default([])
+
   @@unique([folhaId, colaboradorId])
 
   @@index([colaboradorId])
