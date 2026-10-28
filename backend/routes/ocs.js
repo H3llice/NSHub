@@ -7,6 +7,21 @@ const router = Router()
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3000'
 
+// Vendedor é digitado como texto na OC, mas gravado como Vendedor do
+// fornecedor: reaproveita o de mesmo nome (sem acento/maiúscula/espaços
+// extras) ou cadastra um novo. Nome vazio → sem vendedor.
+const chaveNomeVendedor = nome => String(nome || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/\s+/g, ' ').trim()
+
+async function resolverVendedor(fornecedorId, nome) {
+  const chave = chaveNomeVendedor(nome)
+  if (!chave || !fornecedorId) return null
+  const vendedores = await prisma.vendedor.findMany({ where: { fornecedorId }, orderBy: { id: 'asc' } })
+  const existente = vendedores.find(v => chaveNomeVendedor(v.nome) === chave)
+  if (existente) return existente.id
+  const novo = await prisma.vendedor.create({ data: { nome: String(nome).trim().replace(/\s+/g, ' '), fornecedorId } })
+  return novo.id
+}
+
 // ─── Listar todas as OCs ──────────────────────────────────────────────────────
 router.get('/', autenticar, async (req, res) => {
   const { busca, empresa, status, dataInicio, dataFim, pagina = 1 } = req.query
@@ -169,7 +184,7 @@ function normalizarItensOC(itens) {
 // ─── Criar nova OC ────────────────────────────────────────────────────────────
 // Técnico não mexe com compras.
 router.post('/', autenticar, exigirPerfil('usuario', 'gerente', 'financeiro', 'admin'), async (req, res) => {
-  const { empresaId, fornecedorId, vendedorId, itens,
+  const { empresaId, fornecedorId, vendedorId, vendedorNome, itens,
           fornecedorNome, fornecedorDocumento, fornecedorEndereco, fornecedorCidade, fornecedorTelefone,
           ...dados } = req.body
 
@@ -210,7 +225,8 @@ router.post('/', autenticar, exigirPerfil('usuario', 'gerente', 'financeiro', 'a
       status: 'aguardando_aprovacao',
       empresaId,
       fornecedorId,
-      vendedorId,
+      // vendedorNome (texto da tela) tem prioridade; vendedorId fica por compatibilidade
+      vendedorId: vendedorNome !== undefined ? await resolverVendedor(fornecedorId, vendedorNome) : (vendedorId || null),
       criadoPorId: req.usuario.id,
       itens: { create: normalizarItensOC(itens) }
     },
@@ -268,7 +284,7 @@ router.put('/:id', autenticar, exigirPerfil('usuario', 'gerente', 'financeiro', 
     return res.status(400).json({ erro: 'OC não pode ser editada neste status' })
   }
 
-  const { itens, empresaId, fornecedorId, vendedorId, dataPedido, fornecedorNome, fornecedorDocumento, fornecedorEndereco, fornecedorCidade, fornecedorTelefone, ...resto } = req.body
+  const { itens, empresaId, fornecedorId, vendedorId, vendedorNome, dataPedido, fornecedorNome, fornecedorDocumento, fornecedorEndereco, fornecedorCidade, fornecedorTelefone, ...resto } = req.body
 
   // Atualiza dados do fornecedor existente se vieram preenchidos
   if (fornecedorId) {
@@ -291,7 +307,9 @@ router.put('/:id', autenticar, exigirPerfil('usuario', 'gerente', 'financeiro', 
   const dadosLimpos = {
     empresaId: parseInt(empresaId),
     fornecedorId: parseInt(fornecedorId),
-    vendedorId: vendedorId ? parseInt(vendedorId) : null,
+    vendedorId: vendedorNome !== undefined
+      ? await resolverVendedor(parseInt(fornecedorId), vendedorNome)
+      : (vendedorId ? parseInt(vendedorId) : null),
     dataPedido: dataPedido ? new Date(dataPedido).toISOString() : undefined,
     condicoesPagto: resto.condicoesPagto,
     formaPagto: resto.formaPagto,

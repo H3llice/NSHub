@@ -821,7 +821,8 @@ window.salvarOC = async function () {
   const itens = lerItensOC()
 
   const body = {
-    empresaId, fornecedorId, vendedorId: null,
+    empresaId, fornecedorId,
+    vendedorNome: document.getElementById('oc-vendedor-nome').value.trim(),
     fornecedorNome: document.getElementById('oc-fornecedor-nome').value.trim(),
     fornecedorDocumento: document.getElementById('oc-fornecedor-doc').value,
     fornecedorEndereco: document.getElementById('oc-fornecedor-end').value,
@@ -1276,7 +1277,8 @@ window.atualizarOC = async function (id) {
   const itens = lerItensOC()
 
   const body = {
-    empresaId, fornecedorId, vendedorId: null,
+    empresaId, fornecedorId,
+    vendedorNome: document.getElementById('oc-vendedor-nome').value.trim(),
     fornecedorNome: document.getElementById('oc-fornecedor-nome').value.trim(),
     fornecedorDocumento: document.getElementById('oc-fornecedor-doc').value,
     fornecedorEndereco: document.getElementById('oc-fornecedor-end').value,
