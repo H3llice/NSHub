@@ -365,6 +365,25 @@ router.put('/:id', autenticar, exigirPerfil(...PERFIS_GESTAO), async (req, res) 
   }
 })
 
+// ─── Ativar/inativar (botão da lista, só admin e gerente) ─────────────────────
+// Inativo some de Embarques, Folha de pagamento nova, Controle de IMC etc. —
+// cada tela filtra por ativo. O histórico (embarques, folhas, pesagens) fica.
+router.patch('/:id/ativo', autenticar, exigirPerfil(...PERFIS_GESTAO), async (req, res) => {
+  if (typeof req.body.ativo !== 'boolean') return res.status(400).json({ erro: 'Informe ativo (true/false)' })
+
+  const anterior = await prisma.colaborador.findUnique({ where: { id: Number(req.params.id) } })
+  if (!anterior) return res.status(404).json({ erro: 'Colaborador não encontrado' })
+
+  const colaborador = await prisma.colaborador.update({
+    where: { id: anterior.id },
+    data: { ativo: req.body.ativo },
+    include: incluirUsuario
+  })
+  // Mesma regra do PUT: só na transição ativo → inativo
+  if (anterior.ativo) await desativarLoginSeInativo(colaborador, req)
+  res.json(filtrarCampos(colaborador, req))
+})
+
 // ═══════════════════════════════ DOCUMENTOS ══════════════════════════════════════
 
 // ─── Anexar documento (PDF + título) ───────────────────────────────────────────

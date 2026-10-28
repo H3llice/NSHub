@@ -254,6 +254,9 @@ router.get('/resumo', autenticar, async (req, res) => {
 
   const resumo = []
   for (const { colaborador, embarques } of grupos.values()) {
+    // Inativo (saiu da empresa) não aparece no resumo; os embarques dele
+    // continuam no histórico, só não entram mais na conta de folgas/dobras
+    if (!colaborador.ativo) continue
     const porId = new Map(embarques.map(e => [e.id, e]))
     const dias = [...calcularDiasColaborador(embarques).entries()]
       .filter(([data]) => data >= deChave && data <= ateChave)
@@ -307,6 +310,7 @@ router.get('/calendario', autenticar, async (req, res) => {
 
   const folgas = []
   for (const { colaborador, embarques: doColaborador } of grupos.values()) {
+    if (!colaborador.ativo) continue // inativo não tem folga no calendário
     const considerados = doColaborador.filter(e => e.id !== ignorarEmbarqueId)
     const datas = [...calcularDiasColaborador(considerados).entries()]
       .filter(([data, info]) => info.tipo === 'folga' && data >= deChave && data <= ateChave)

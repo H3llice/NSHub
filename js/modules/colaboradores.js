@@ -260,13 +260,30 @@ function renderizarTabelaColaboradores(colaboradores) {
       <td>${esc(labelFuncao(c.funcao))}</td>
       <td>${esc(c.emailCorporativo) || '-'}</td>
       ${podeGerir ? `<td>${esc(c.usuario?.nome) || '-'}</td>` : ''}
-      <td>
+      <td style="white-space:nowrap;">
         <button class="btn btn-sm btn-info" onclick="${podeGerir ? 'editarColaborador' : 'verColaborador'}(${c.id})">
           ${podeGerir ? 'Editar' : 'Ver'}
         </button>
+        ${podeGerir ? (c.ativo
+          ? `<button class="btn btn-sm btn-outline-secondary" onclick="alterarAtivoColaborador(${esc(JSON.stringify({ id: c.id, nome: c.nome, ativo: false, login: !!c.usuario }))})">Inativar</button>`
+          : `<button class="btn btn-sm btn-outline-success" onclick="alterarAtivoColaborador(${esc(JSON.stringify({ id: c.id, nome: c.nome, ativo: true, login: false }))})">Reativar</button>`) : ''}
       </td>
     </tr>
   `).join('')
+}
+
+// Inativar = saiu da empresa: some de Embarques, Folha de pagamento, Controle
+// de IMC e das outras listas; o histórico dele continua. Mesma coisa que
+// desmarcar "Ativo" no formulário.
+window.alterarAtivoColaborador = async function ({ id, nome, ativo, login }) {
+  const pergunta = ativo
+    ? `Reativar ${nome}? Ele volta a aparecer em Embarques, Folha de pagamento, Controle de IMC etc. O login do sistema (se houver) não é reativado — isso é feito em usuários.`
+    : `Inativar ${nome}? Ele deixa de aparecer em Embarques, Folha de pagamento, Controle de IMC e nas outras telas (o histórico fica guardado).${login ? ' O login vinculado também será desativado e a pessoa não conseguirá mais entrar no sistema.' : ''}`
+  if (!confirm(pergunta)) return
+
+  const res = await apiJson(`${API}/colaboradores/${id}/ativo`, { method: 'PATCH', body: JSON.stringify({ ativo }) })
+  if (!res.ok) { alert('Erro: ' + ((await res.json().catch(() => ({}))).erro || 'Falha ao salvar')); return }
+  carregarColaboradores(paginaAtualColaboradores)
 }
 
 // ─── Visualização (clique no nome) — só leitura, no mesmo formato da tela da OC ─
