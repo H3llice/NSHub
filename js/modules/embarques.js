@@ -916,12 +916,7 @@ window.salvarEmbarque = async function () {
   }
 
   const avisos = await window.atualizarAvisosEmbarque()
-  if (avisos.length && !confirm(`Atenção:
-
-${avisos.map(a => '• ' + a).join('
-')}
-
-Salvar mesmo assim?`)) return
+  if (avisos.length && !confirm(`Atenção:\n\n${avisos.map(a => '• ' + a).join('\n')}\n\nSalvar mesmo assim?`)) return
 
   // Só cadastra armador/embarcação novos depois das validações acima, pra um
   // erro de data/colaborador não deixar cadastro criado à toa
