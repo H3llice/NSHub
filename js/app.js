@@ -18,6 +18,7 @@ import { inicializarOrdensServico } from './modules/ordens-servico.js'
 import { listarCertificados, urlPdfCertificado, badgeStatusCertificado, nomeTipoCertificado } from './modules/certificados.js'
 import { inicializarPerfil } from './modules/perfil.js'
 import { inicializarAuditoria } from './modules/auditoria.js'
+import { inicializarControleImc } from './modules/controle-imc.js'
 import { esc } from './modules/html.js'
 
 
@@ -176,6 +177,10 @@ window.abrirPagina = function (event, id) {
 
     if (id === 'auditoria') {
         inicializarAuditoria()
+    }
+
+    if (id === 'controleImc') {
+        inicializarControleImc()
     }
 
     if (id === 'embarcacoes') {

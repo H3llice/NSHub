@@ -25,6 +25,7 @@ model Empresa {
   relatorios    Relatorio[]
   ordensServico OrdemServico[]
   certificados  Certificado[]
+  controlesImc  ControleImc[]
 }
 
 model Fornecedor {
@@ -1302,6 +1303,7 @@ model Colaborador {
   documentos DocumentoColaborador[]
   embarques  EmbarqueColaborador[]
   itensFolha ItemFolhaPagamento[]
+  medicoesImc MedicaoImc[]
 }
 
 // Documentos pessoais do colaborador (PDF). Ficam fora da pasta uploads/ pública
@@ -1469,4 +1471,40 @@ model LogAuditoria {
   @@index([criadoEm])
   @@index([usuarioId])
   @@index([entidade, entidadeId])
+}
+
+// ═══ Conformidade → Controle de IMC (documento de auditoria do PCMSO) ═══
+// Uma pesagem por técnico por mês (em vez do controle diário de um técnico só
+// da planilha antiga). O PDF tem o gráfico com os técnicos numerados, sem nome.
+model ControleImc {
+  id  Int @id @default(autoincrement())
+  mes Int
+  ano Int
+  // Cabeçalho do PDF: empresa do grupo e revisão do PCMSO ("2026 – REV09")
+  empresa   Empresa? @relation(fields: [empresaId], references: [id])
+  empresaId Int?
+  pcmso     String?
+
+  criadoEm     DateTime @default(now())
+  atualizadoEm DateTime @updatedAt
+
+  medicoes MedicaoImc[]
+
+  @@unique([ano, mes])
+}
+
+model MedicaoImc {
+  id            Int         @id @default(autoincrement())
+  controle      ControleImc @relation(fields: [controleId], references: [id], onDelete: Cascade)
+  controleId    Int
+  colaborador   Colaborador @relation(fields: [colaboradorId], references: [id])
+  colaboradorId Int
+  // Altura (m) gravada em cada medição: a tela sugere a do último mês do
+  // técnico, e o IMC de um mês passado não muda se a altura for corrigida depois.
+  // IMC = peso / altura² — calculado, não gravado.
+  altura      Float
+  peso        Float
+  observacoes String?
+
+  @@unique([controleId, colaboradorId])
 }

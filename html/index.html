@@ -137,6 +137,16 @@
                 </div>
             </div>
 
+            <a href="#" onclick="toggleMenu(event,'conformidade')" data-perm="admin,gerente">📑 Conformidade</a>
+
+            <!-- Documentos para auditoria (PCMSO etc.) — dados de saúde, só admin/gerente -->
+            <div id="conformidade" class="submenu" data-perm="admin,gerente">
+                <div class="menu-item">
+                    <a href="#" onclick="abrirPagina(event,'controleImc')" style="flex: 1;">Controle de IMC</a>
+                    <button class="star-btn" onclick="toggleFavorito(event, 'controleImc', 'Controle de IMC')">☆</button>
+                </div>
+            </div>
+
             <a href="#" onclick="toggleMenu(event,'cadastros')" data-perm="admin,gerente,usuario,tecnico,financeiro">🗂️ Cadastros</a>
 
             <div id="cadastros" class="submenu" data-perm="admin,gerente,usuario,tecnico,financeiro">
@@ -335,6 +345,8 @@
         <div id="produtosServicos" class="page"></div>
 
         <div id="auditoria" class="page"></div>
+
+        <div id="controleImc" class="page"></div>
 
     </div>
 

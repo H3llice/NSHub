@@ -31,6 +31,7 @@ import colaboradoresRouter, { converterFuncoesAntigas } from './routes/colaborad
 import embarquesRouter from './routes/embarques.js'
 import folhaPagamentoRouter from './routes/folha-pagamento.js'
 import auditoriaRouter from './routes/auditoria.js'
+import controleImcRouter from './routes/controle-imc.js'
 import { auditoria } from './middleware/auditoria.js'
 import { extensaoDinheiro } from './dinheiro.js'
 import { notificarPagamentoAtrasado, notificarVencimentoContrato } from './email.js'
@@ -123,6 +124,7 @@ app.use('/colaboradores', colaboradoresRouter)
 app.use('/embarques', embarquesRouter)
 app.use('/folha-pagamento', folhaPagamentoRouter)
 app.use('/auditoria', auditoriaRouter)
+app.use('/controle-imc', controleImcRouter)
 
 app.get('/api', (req, res) => {
   res.json({ mensagem: 'API do Portal NS funcionando!' })
