@@ -96,17 +96,24 @@ function cabecalhoEmbarques(abaAtiva) {
     ${podeEditarEmbarques ? `<button class="btn btn-success" onclick="abrirFormularioEmbarque()">+ Novo Embarque</button>` : ''}
     <div style="display:flex; gap:8px; flex-wrap:wrap; margin:16px 0;">
       ${botao('lista', 'Embarques')}
+      ${botao('calendario', 'Calendário')}
       ${botao('folgas', 'Folgas e dobras')}
     </div>
   `
 }
 
-export async function inicializarEmbarques(aba = 'lista') {
+// Última aba aberta — sem argumento (menu, "Voltar"/"Salvar" do formulário)
+// volta pra ela, então quem abriu o formulário pelo calendário volta pro calendário
+let abaAtualEmbarques = 'lista'
+
+export async function inicializarEmbarques(aba = abaAtualEmbarques) {
+  abaAtualEmbarques = aba
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'))
   document.getElementById('embarques').classList.add('active')
 
   await carregarColaboradoresEmb()
   if (aba === 'folgas') renderizarAbaFolgas()
+  else if (aba === 'calendario') renderizarAbaCalendario()
   else renderizarAbaLista()
 }
 window.inicializarEmbarques = inicializarEmbarques
@@ -323,11 +330,235 @@ window.alternarDiasFolgas = function (colaboradorId) {
   linha.style.display = linha.style.display === 'none' ? '' : 'none'
 }
 
+// ─── Aba: calendário ──────────────────────────────────────────────────────────
+// Mês em grade: cada dia mostra os embarques (por embarcação), quem está de
+// folga e quem está de férias. Clicar num dia abre o detalhe dele (editar os
+// embarques do dia, novo embarque a partir dele). Pra criar, o primeiro clique
+// marca o embarque e o segundo o desembarque.
+const CORES_EMBARQUE = ['#0d6efd', '#6f42c1', '#d63384', '#fd7e14', '#198754', '#20c997', '#0dcaf0', '#6c757d']
+const NOMES_MES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
+
+let mesCalendario = null // "AAAA-MM"; mantido ao ir pro formulário e voltar
+let dadosCalendario = null
+let selecaoInicioCalendario = null // "AAAA-MM-DD" do embarque, esperando o clique do desembarque
+let diaAbertoCalendario = null
+
+const chaveHoje = () => {
+  const h = new Date()
+  return `${h.getFullYear()}-${String(h.getMonth() + 1).padStart(2, '0')}-${String(h.getDate()).padStart(2, '0')}`
+}
+const somarDiasChave = (chave, n) => new Date(Date.parse(chave + 'T00:00:00Z') + n * 86400000).toISOString().slice(0, 10)
+
+// Período do colaborador no embarque (o individual, ou o do embarque inteiro), em chaves "AAAA-MM-DD"
+function periodoColaboradorEmb(c, e) {
+  return { inicio: (c.dataInicio || e.dataInicio).slice(0, 10), fim: (c.dataFim || e.dataFim).slice(0, 10) }
+}
+
+function renderizarAbaCalendario() {
+  if (!mesCalendario) mesCalendario = chaveHoje().slice(0, 7)
+  selecaoInicioCalendario = null
+  diaAbertoCalendario = null
+
+  document.getElementById('embarques').innerHTML = `
+    ${cabecalhoEmbarques('calendario')}
+
+    <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:12px;">
+      <button class="btn btn-sm btn-secondary" onclick="navegarCalendarioEmb(-1)">←</button>
+      <input type="month" id="cal-emb-mes" class="form-control form-control-sm" style="width:170px;" value="${mesCalendario}" onchange="mudarMesCalendarioEmb(this.value)">
+      <button class="btn btn-sm btn-secondary" onclick="navegarCalendarioEmb(1)">→</button>
+      <button class="btn btn-sm btn-secondary" onclick="mudarMesCalendarioEmb('${chaveHoje().slice(0, 7)}')">Hoje</button>
+      <span style="font-size:12px; color:#666; display:flex; gap:12px; flex-wrap:wrap; margin-left:8px;">
+        <span><span class="cal-emb-legenda" style="background:#0d6efd;"></span>Embarque</span>
+        <span><span class="cal-emb-legenda" style="background:#d1e7dd; border:1px solid #0f5132;"></span>Folga</span>
+        <span><span class="cal-emb-legenda" style="background:#fff3cd; border:1px solid #997404;"></span>Férias</span>
+      </span>
+    </div>
+
+    <div id="cal-emb-selecao"></div>
+    <div id="cal-emb-grade"><div style="text-align:center; color:#999; padding:30px;">Carregando...</div></div>
+    <div id="cal-emb-dia" style="margin-top:16px;"></div>
+  `
+  carregarCalendarioEmb()
+}
+
+window.navegarCalendarioEmb = function (delta) {
+  const [ano, mes] = mesCalendario.split('-').map(Number)
+  const d = new Date(Date.UTC(ano, mes - 1 + delta, 1))
+  window.mudarMesCalendarioEmb(d.toISOString().slice(0, 7))
+}
+
+window.mudarMesCalendarioEmb = function (valor) {
+  if (!valor) return
+  mesCalendario = valor
+  document.getElementById('cal-emb-mes').value = valor
+  diaAbertoCalendario = null
+  document.getElementById('cal-emb-dia').innerHTML = ''
+  carregarCalendarioEmb()
+}
+
+// A grade sempre começa no domingo e termina no sábado — os dias do mês
+// vizinho aparecem apagados, mas com os dados (embarque que atravessa o mês)
+function diasDaGrade() {
+  const [ano, mes] = mesCalendario.split('-').map(Number)
+  const primeiro = new Date(Date.UTC(ano, mes - 1, 1))
+  const ultimo = new Date(Date.UTC(ano, mes, 0))
+  const inicio = somarDiasChave(primeiro.toISOString().slice(0, 10), -primeiro.getUTCDay())
+  const fim = somarDiasChave(ultimo.toISOString().slice(0, 10), 6 - ultimo.getUTCDay())
+  const dias = []
+  for (let d = inicio; d <= fim; d = somarDiasChave(d, 1)) dias.push(d)
+  return dias
+}
+
+async function carregarCalendarioEmb() {
+  const dias = diasDaGrade()
+  const grade = document.getElementById('cal-emb-grade')
+  try {
+    const params = new URLSearchParams({ de: dias[0], ate: dias[dias.length - 1] })
+    const dados = await apiFetch(`${API}/embarques/calendario?${params}`).then(r => r.json())
+    if (!Array.isArray(dados.embarques)) throw new Error(dados.erro)
+    dadosCalendario = dados
+    renderizarGradeCalendarioEmb()
+    if (diaAbertoCalendario) window.abrirDiaCalendarioEmb(diaAbertoCalendario)
+  } catch {
+    grade.innerHTML = '<div style="text-align:center; color:red; padding:30px;">Erro ao carregar o calendário</div>'
+  }
+}
+
+// Tudo o que acontece num dia: embarques (só com quem estava a bordo naquele
+// dia), folgas e férias
+function situacaoDoDia(dia) {
+  const embarques = dadosCalendario.embarques
+    .map(e => ({
+      e,
+      cor: CORES_EMBARQUE[e.embarcacao.id % CORES_EMBARQUE.length],
+      aBordo: e.colaboradores.filter(c => {
+        const p = periodoColaboradorEmb(c, e)
+        return p.inicio <= dia && p.fim >= dia
+      })
+    }))
+    .filter(({ e }) => e.dataInicio.slice(0, 10) <= dia && e.dataFim.slice(0, 10) >= dia)
+  const folgas = dadosCalendario.folgas.filter(f => f.datas.includes(dia)).map(f => f.colaborador)
+  const ferias = dadosCalendario.ferias.filter(f => f.inicio <= dia && f.fim >= dia).map(f => f.colaborador)
+  return { embarques, folgas, ferias }
+}
+
+function renderizarGradeCalendarioEmb() {
+  const hoje = chaveHoje()
+  const celulas = diasDaGrade().map(dia => {
+    const { embarques, folgas, ferias } = situacaoDoDia(dia)
+    const classes = ['cal-emb-dia']
+    if (dia.slice(0, 7) !== mesCalendario) classes.push('fora-do-mes')
+    if (dia === hoje) classes.push('hoje')
+    if (dia === selecaoInicioCalendario) classes.push('selecionado')
+    if (dia === diaAbertoCalendario) classes.push('aberto')
+
+    const nomes = lista => lista.map(c => esc(c.nome.split(' ')[0])).join(', ')
+    return `
+      <div class="${classes.join(' ')}" onclick="clicarDiaCalendarioEmb('${dia}')">
+        <div class="cal-emb-numero">${Number(dia.slice(8))}</div>
+        ${embarques.map(({ e, cor, aBordo }) => `
+          <div class="cal-emb-chip" style="background:${cor};" title="${esc(e.embarcacao.nome)} — ${esc(aBordo.map(c => c.colaborador.nome).join(', '))}">
+            ${esc(e.embarcacao.nome)}${aBordo.length ? ` (${aBordo.length})` : ''}
+          </div>`).join('')}
+        ${folgas.length ? `<div class="cal-emb-marca folga" title="Folga: ${esc(folgas.map(c => c.nome).join(', '))}">Folga: ${nomes(folgas)}</div>` : ''}
+        ${ferias.length ? `<div class="cal-emb-marca ferias" title="Férias: ${esc(ferias.map(c => c.nome).join(', '))}">Férias: ${nomes(ferias)}</div>` : ''}
+      </div>
+    `
+  }).join('')
+
+  const [ano, mes] = mesCalendario.split('-').map(Number)
+  document.getElementById('cal-emb-grade').innerHTML = `
+    <h4 style="margin:0 0 8px;">${NOMES_MES[mes - 1]} de ${ano}</h4>
+    <div class="cal-emb-grade">
+      ${DIA_SEMANA.map(d => `<div class="cal-emb-semana">${d}</div>`).join('')}
+      ${celulas}
+    </div>
+  `
+  renderizarSelecaoCalendarioEmb()
+}
+
+function renderizarSelecaoCalendarioEmb() {
+  const div = document.getElementById('cal-emb-selecao')
+  if (!div) return
+  div.innerHTML = selecaoInicioCalendario ? `
+    <div class="cal-emb-aviso-selecao">
+      Novo embarque a partir de <strong>${formatarChaveDia(selecaoInicioCalendario)}</strong> — clique no dia do desembarque.
+      <button class="btn btn-sm btn-success" onclick="clicarDiaCalendarioEmb('${selecaoInicioCalendario}')">Só este dia</button>
+      <button class="btn btn-sm btn-secondary" onclick="cancelarSelecaoCalendarioEmb()">Cancelar</button>
+    </div>
+  ` : ''
+}
+
+window.cancelarSelecaoCalendarioEmb = function () {
+  selecaoInicioCalendario = null
+  renderizarGradeCalendarioEmb()
+}
+
+window.clicarDiaCalendarioEmb = function (dia) {
+  // Segundo clique da seleção: fecha o período e abre o formulário já com as datas
+  if (selecaoInicioCalendario) {
+    const [inicio, fim] = [selecaoInicioCalendario, dia].sort()
+    selecaoInicioCalendario = null
+    abrirFormularioEmbarqueBase(null, { dataInicio: inicio, dataFim: fim })
+    return
+  }
+  window.abrirDiaCalendarioEmb(dia)
+}
+
+window.iniciarSelecaoCalendarioEmb = function (dia) {
+  selecaoInicioCalendario = dia
+  renderizarGradeCalendarioEmb()
+  document.getElementById('cal-emb-selecao').scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+}
+
+// Detalhe do dia, abaixo da grade
+window.abrirDiaCalendarioEmb = function (dia) {
+  diaAbertoCalendario = dia
+  renderizarGradeCalendarioEmb()
+  const { embarques, folgas, ferias } = situacaoDoDia(dia)
+  const titulo = `${DIA_SEMANA[new Date(dia + 'T00:00:00Z').getUTCDay()]} ${formatarDataEmb(dia + 'T00:00:00Z')}`
+
+  document.getElementById('cal-emb-dia').innerHTML = `
+    <div class="cal-emb-detalhe">
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:12px;">
+        <h4 style="margin:0;">${titulo}</h4>
+        ${podeEditarEmbarques ? `<button class="btn btn-sm btn-success" onclick="iniciarSelecaoCalendarioEmb('${dia}')">+ Novo embarque a partir deste dia</button>` : ''}
+      </div>
+
+      ${embarques.length === 0 ? '<p style="color:#999; margin:0 0 8px;">Nenhum embarque neste dia.</p>' : embarques.map(({ e, cor, aBordo }) => `
+        <div style="border-left:4px solid ${cor}; padding:6px 10px; margin-bottom:8px; background:#fafafa; border-radius:4px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+            <div>
+              <strong>${esc(e.embarcacao.nome)}</strong>
+              <span style="color:#666; font-size:13px;">— ${esc(e.armador.nome)} · ${formatarDataEmb(e.dataInicio)} a ${formatarDataEmb(e.dataFim)}</span>
+            </div>
+            ${podeEditarEmbarques ? `<button class="btn btn-sm btn-info" onclick="editarEmbarque(${e.id})">Editar</button>` : ''}
+          </div>
+          <div style="font-size:13px; margin-top:4px;">
+            ${aBordo.length ? `A bordo: ${aBordo.map(c => esc(c.colaborador.nome)).join(', ')}` : '<span style="color:#999;">Ninguém a bordo neste dia (períodos individuais)</span>'}
+          </div>
+        </div>
+      `).join('')}
+
+      ${folgas.length ? `
+        <div class="cal-emb-marca folga" style="white-space:normal; padding:6px 10px; font-size:13px; margin-top:8px;">
+          <strong>De folga:</strong> ${folgas.map(c => esc(c.nome)).join(', ')} — embarcar neste dia vira dobra
+        </div>` : ''}
+      ${ferias.length ? `
+        <div class="cal-emb-marca ferias" style="white-space:normal; padding:6px 10px; font-size:13px; margin-top:8px;">
+          <strong>De férias:</strong> ${ferias.map(c => esc(c.nome)).join(', ')}
+        </div>` : ''}
+    </div>
+  `
+}
+
 // ─── Formulário (novo / editar) ───────────────────────────────────────────────
 let embarqueEmEdicaoId = null
 
-async function abrirFormularioEmbarqueBase(e = null) {
+// predefinido: { dataInicio, dataFim } vindos do calendário (só pra embarque novo)
+async function abrirFormularioEmbarqueBase(e = null, predefinido = null) {
   embarqueEmEdicaoId = e?.id || null
+  disponibilidadeEmb = null
   if (colaboradoresEmbCache.length === 0) await carregarColaboradoresEmb()
 
   // Colaborador que já estava no embarque mas hoje está inativo não vem em
@@ -363,8 +594,8 @@ async function abrirFormularioEmbarqueBase(e = null) {
           <input type="text" id="emb-armador-cpfCnpj" class="form-control form-control-sm" style="margin-top:6px;"
             placeholder="CPF/CNPJ — só se o armador for novo">
         </div>
-        <div><label>Data de embarque *</label><input type="date" id="emb-dataInicio" class="form-control" value="${e ? e.dataInicio.slice(0, 10) : ''}" oninput="atualizarDiasEmbarque()"></div>
-        <div><label>Data de desembarque *</label><input type="date" id="emb-dataFim" class="form-control" value="${e ? e.dataFim.slice(0, 10) : ''}" oninput="atualizarDiasEmbarque()"></div>
+        <div><label>Data de embarque *</label><input type="date" id="emb-dataInicio" class="form-control" value="${e ? e.dataInicio.slice(0, 10) : (predefinido?.dataInicio || '')}" oninput="atualizarDiasEmbarque()"></div>
+        <div><label>Data de desembarque *</label><input type="date" id="emb-dataFim" class="form-control" value="${e ? e.dataFim.slice(0, 10) : (predefinido?.dataFim || '')}" oninput="atualizarDiasEmbarque()"></div>
       </div>
       <div id="emb-dias" style="margin-top:8px; font-size:13px; color:#666;"></div>
 
@@ -372,6 +603,7 @@ async function abrirFormularioEmbarqueBase(e = null) {
       <p style="font-size:12px; color:#999; margin:0 0 10px;">
         As datas ao lado do nome são só pra quem subiu depois ou desceu antes dos outros — em branco, vale o período inteiro do embarque. Folga e dobra contam pelo período de cada um.
       </p>
+      <div id="emb-avisos"></div>
       <input type="text" class="form-control form-control-sm" placeholder="Filtrar por nome..." oninput="filtrarColaboradoresEmbarque(this.value)" style="max-width:300px; margin-bottom:8px;">
       <div id="emb-lista-colaboradores" style="background:white; border:1px solid #ddd; border-radius:6px; max-height:320px; overflow-y:auto; padding:8px 12px;">
         ${lista.length === 0
@@ -383,11 +615,12 @@ async function abrirFormularioEmbarqueBase(e = null) {
               <label style="display:flex; align-items:center; gap:8px; flex:1; min-width:220px; margin:0; font-weight:400; cursor:pointer;">
                 <input type="checkbox" class="emb-colaborador-check" value="${c.id}" ${vinculo ? 'checked' : ''} onchange="alternarColaboradorEmbarque(this)">
                 ${esc(c.nome)} <span style="color:#999; font-size:12px;">${esc(labelFuncao(c.funcao))}</span>
+                <span class="emb-colaborador-situacao"></span>
               </label>
               <span class="emb-colaborador-periodo" style="display:${vinculo ? 'flex' : 'none'}; align-items:center; gap:6px; font-size:12px; color:#666;">
-                <input type="date" class="form-control form-control-sm emb-colaborador-inicio" style="width:140px;" title="Embarque deste colaborador (em branco = o do embarque)" value="${vinculo?.dataInicio ? vinculo.dataInicio.slice(0, 10) : ''}">
+                <input type="date" class="form-control form-control-sm emb-colaborador-inicio" style="width:140px;" title="Embarque deste colaborador (em branco = o do embarque)" oninput="atualizarAvisosEmbarque()" value="${vinculo?.dataInicio ? vinculo.dataInicio.slice(0, 10) : ''}">
                 a
-                <input type="date" class="form-control form-control-sm emb-colaborador-fim" style="width:140px;" title="Desembarque deste colaborador (em branco = o do embarque)" value="${vinculo?.dataFim ? vinculo.dataFim.slice(0, 10) : ''}">
+                <input type="date" class="form-control form-control-sm emb-colaborador-fim" style="width:140px;" title="Desembarque deste colaborador (em branco = o do embarque)" oninput="atualizarAvisosEmbarque()" value="${vinculo?.dataFim ? vinculo.dataFim.slice(0, 10) : ''}">
               </span>
             </div>
           `}).join('')}
@@ -416,6 +649,7 @@ window.editarEmbarque = async function (id) {
 }
 
 window.atualizarDiasEmbarque = function () {
+  window.atualizarAvisosEmbarque()
   const inicio = document.getElementById('emb-dataInicio').value
   const fim = document.getElementById('emb-dataFim').value
   const div = document.getElementById('emb-dias')
@@ -431,6 +665,91 @@ window.alternarColaboradorEmbarque = function (check) {
   periodo.style.display = check.checked ? 'flex' : 'none'
   if (!check.checked) periodo.querySelectorAll('input').forEach(input => { input.value = '' })
   window.atualizarContadorColaboradoresEmbarque()
+  window.atualizarAvisosEmbarque()
+}
+
+// ─── Aviso de folga/férias no formulário ──────────────────────────────────────
+// Busca no /embarques/calendario quem está de folga ou de férias no período do
+// embarque (sem contar o próprio embarque, na edição). Na lista, marca o nome
+// de todo mundo que tem folga/férias no período; no quadro de avisos, detalha
+// os selecionados, já pelo período individual de cada um. Ao salvar, os avisos
+// dos selecionados pedem confirmação (ver salvarEmbarque) — não bloqueia:
+// embarcar na folga é dobra, e férias podem ter sido remarcadas.
+let disponibilidadeEmb = null // { chave: 'de|ate|id', folgas: Map id → datas[], ferias: Map id → { inicio, fim } }
+
+async function carregarDisponibilidadeEmb(de, ate) {
+  const chave = `${de}|${ate}|${embarqueEmEdicaoId || ''}`
+  if (disponibilidadeEmb?.chave === chave) return disponibilidadeEmb
+  const params = new URLSearchParams({ de, ate })
+  if (embarqueEmEdicaoId) params.append('ignorarEmbarqueId', embarqueEmEdicaoId)
+  const dados = await apiFetch(`${API}/embarques/calendario?${params}`).then(r => r.json())
+  if (!Array.isArray(dados.folgas)) throw new Error(dados.erro)
+  disponibilidadeEmb = {
+    chave,
+    folgas: new Map(dados.folgas.map(f => [f.colaborador.id, f.datas])),
+    ferias: new Map(dados.ferias.map(f => [f.colaborador.id, f]))
+  }
+  return disponibilidadeEmb
+}
+
+const dataCompleta = chave => formatarDataEmb(chave + 'T00:00:00Z')
+
+// Devolve os avisos (texto puro) dos colaboradores selecionados e redesenha a tela
+window.atualizarAvisosEmbarque = async function () {
+  const div = document.getElementById('emb-avisos')
+  if (!div) return []
+  const de = document.getElementById('emb-dataInicio').value
+  const ate = document.getElementById('emb-dataFim').value
+  const itens = [...document.querySelectorAll('.emb-colaborador-item')]
+  const limpar = () => {
+    div.innerHTML = ''
+    itens.forEach(el => { el.querySelector('.emb-colaborador-situacao').innerHTML = '' })
+  }
+  if (!de || !ate || ate < de) { limpar(); return [] }
+
+  let disp
+  try {
+    disp = await carregarDisponibilidadeEmb(de, ate)
+  } catch {
+    limpar()
+    div.innerHTML = '<div style="color:#dc3545; font-size:13px; margin-bottom:8px;">Não deu pra verificar folgas e férias no período</div>'
+    return []
+  }
+  // As datas podem ter mudado enquanto a busca rodava — a chamada mais nova redesenha
+  if (document.getElementById('emb-dataInicio').value !== de || document.getElementById('emb-dataFim').value !== ate) return []
+
+  const avisos = []
+  for (const el of itens) {
+    const id = Number(el.querySelector('.emb-colaborador-check').value)
+    const nome = el.dataset.nomeExibicao
+    const folgas = disp.folgas.get(id) || []
+    const ferias = disp.ferias.get(id)
+
+    el.querySelector('.emb-colaborador-situacao').innerHTML = [
+      folgas.length ? '<span class="emb-badge-folga">folga no período</span>' : '',
+      ferias ? '<span class="emb-badge-ferias">férias no período</span>' : ''
+    ].join('')
+
+    if (!el.querySelector('.emb-colaborador-check').checked) continue
+    // Período individual dele (em branco = o do embarque)
+    const inicio = el.querySelector('.emb-colaborador-inicio').value || de
+    const fim = el.querySelector('.emb-colaborador-fim').value || ate
+    const folgasNoPeriodo = folgas.filter(d => d >= inicio && d <= fim)
+    if (folgasNoPeriodo.length) {
+      avisos.push(`${nome} está de FOLGA em ${folgasNoPeriodo.map(formatarChaveDia).join(', ')} — embarcar nesses dias vira dobra`)
+    }
+    if (ferias && ferias.inicio <= fim && ferias.fim >= inicio) {
+      avisos.push(`${nome} está de FÉRIAS de ${dataCompleta(ferias.inicio)} a ${dataCompleta(ferias.fim)}`)
+    }
+  }
+
+  div.innerHTML = avisos.length ? `
+    <div class="emb-avisos-quadro">
+      <strong>Atenção</strong>
+      <ul style="margin:4px 0 0; padding-left:20px;">${avisos.map(a => `<li>${esc(a)}</li>`).join('')}</ul>
+    </div>
+  ` : ''
+  return avisos
 }
 
 window.atualizarContadorColaboradoresEmbarque = function () {
@@ -595,6 +914,14 @@ window.salvarEmbarque = async function () {
       return
     }
   }
+
+  const avisos = await window.atualizarAvisosEmbarque()
+  if (avisos.length && !confirm(`Atenção:
+
+${avisos.map(a => '• ' + a).join('
+')}
+
+Salvar mesmo assim?`)) return
 
   // Só cadastra armador/embarcação novos depois das validações acima, pra um
   // erro de data/colaborador não deixar cadastro criado à toa

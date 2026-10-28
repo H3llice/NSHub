@@ -277,6 +277,56 @@ router.get('/resumo', autenticar, async (req, res) => {
   res.json(resumo)
 })
 
+// ─── Calendário: embarques, folgas e férias de um período ──────────────────────
+// Usado pela aba Calendário e pelo aviso de folga/férias do formulário.
+// ignorarEmbarqueId (edição): calcula as folgas como se esse embarque não
+// existisse — senão a folga que ele mesmo transforma em dobra some do aviso.
+// Férias = o período cadastrado no colaborador (feriasInicio/feriasFim).
+router.get('/calendario', autenticar, async (req, res) => {
+  const de = lerData(req.query.de)
+  const ate = lerData(req.query.ate)
+  if (!de || !ate) return res.status(400).json({ erro: 'Informe o período (de e ate, AAAA-MM-DD)' })
+  if (ate < de) return res.status(400).json({ erro: 'Período inválido' })
+  const ignorarEmbarqueId = Number(req.query.ignorarEmbarqueId) || null
+  const deChave = chaveDia(de)
+  const ateChave = chaveDia(ate)
+
+  const [embarques, grupos, emFerias] = await Promise.all([
+    prisma.embarque.findMany({
+      where: { dataInicio: { lte: ate }, dataFim: { gte: de }, ...(ignorarEmbarqueId ? { id: { not: ignorarEmbarqueId } } : {}) },
+      include: INCLUDE_PADRAO,
+      orderBy: { dataInicio: 'asc' }
+    }),
+    embarquesPorColaborador(null),
+    prisma.colaborador.findMany({
+      where: { ativo: true, feriasInicio: { lte: ate }, feriasFim: { gte: de } },
+      select: { id: true, nome: true, feriasInicio: true, feriasFim: true },
+      orderBy: { nome: 'asc' }
+    })
+  ])
+
+  const folgas = []
+  for (const { colaborador, embarques: doColaborador } of grupos.values()) {
+    const considerados = doColaborador.filter(e => e.id !== ignorarEmbarqueId)
+    const datas = [...calcularDiasColaborador(considerados).entries()]
+      .filter(([data, info]) => info.tipo === 'folga' && data >= deChave && data <= ateChave)
+      .map(([data]) => data)
+      .sort()
+    if (datas.length > 0) folgas.push({ colaborador: { id: colaborador.id, nome: colaborador.nome }, datas })
+  }
+  folgas.sort((a, b) => a.colaborador.nome.localeCompare(b.colaborador.nome))
+
+  res.json({
+    embarques,
+    folgas,
+    ferias: emFerias.map(c => ({
+      colaborador: { id: c.id, nome: c.nome },
+      inicio: chaveDia(c.feriasInicio),
+      fim: chaveDia(c.feriasFim)
+    }))
+  })
+})
+
 // ─── Buscar um embarque pelo ID ────────────────────────────────────────────────
 router.get('/:id', autenticar, async (req, res) => {
   const embarque = await prisma.embarque.findUnique({ where: { id: Number(req.params.id) }, include: INCLUDE_PADRAO })

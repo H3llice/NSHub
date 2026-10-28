@@ -817,3 +817,114 @@ empilha em vez de espremer quando não cabem os dois lado a lado. */
         flex-direction: column;
     }
 }
+/* ─── Embarques: calendário (js/modules/embarques.js) ─── */
+.cal-emb-grade {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 4px;
+}
+
+.cal-emb-semana {
+    text-align: center;
+    font-size: 12px;
+    font-weight: 600;
+    color: #666;
+    padding: 4px 0;
+}
+
+.cal-emb-dia {
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    min-height: 96px;
+    padding: 4px;
+    cursor: pointer;
+    overflow: hidden;
+    min-width: 0;
+}
+
+.cal-emb-dia:hover { border-color: var(--acento); }
+.cal-emb-dia.fora-do-mes { opacity: 0.45; }
+.cal-emb-dia.hoje .cal-emb-numero { background: var(--acento); color: white; }
+.cal-emb-dia.aberto { border: 2px solid var(--acento); }
+.cal-emb-dia.selecionado { border: 2px solid var(--laranja); background: #fff4ea; }
+
+.cal-emb-numero {
+    display: inline-block;
+    font-size: 12px;
+    font-weight: 600;
+    min-width: 20px;
+    text-align: center;
+    border-radius: 10px;
+    margin-bottom: 2px;
+}
+
+.cal-emb-chip,
+.cal-emb-marca {
+    font-size: 11px;
+    border-radius: 4px;
+    padding: 1px 4px;
+    margin-bottom: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.cal-emb-chip { color: white; }
+.cal-emb-marca.folga { background: #d1e7dd; color: #0f5132; }
+.cal-emb-marca.ferias { background: #fff3cd; color: #664d03; }
+
+.cal-emb-legenda {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border-radius: 3px;
+    vertical-align: middle;
+    margin-right: 4px;
+}
+
+.cal-emb-aviso-selecao {
+    background: #fff4ea;
+    border: 1px solid var(--laranja);
+    border-radius: 6px;
+    padding: 8px 12px;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.cal-emb-detalhe {
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 16px;
+}
+
+/* Aviso de folga/férias no formulário de embarque */
+.emb-avisos-quadro {
+    background: #fff3cd;
+    border: 1px solid #ffc107;
+    color: #664d03;
+    border-radius: 6px;
+    padding: 10px 14px;
+    margin-bottom: 10px;
+    font-size: 13px;
+}
+
+.emb-badge-folga,
+.emb-badge-ferias {
+    font-size: 11px;
+    padding: 1px 8px;
+    border-radius: 10px;
+    margin-left: 4px;
+}
+
+.emb-badge-folga { background: #d1e7dd; color: #0f5132; }
+.emb-badge-ferias { background: #fff3cd; color: #664d03; border: 1px solid #ffc107; }
+
+@media (max-width: 768px) {
+    .cal-emb-dia { min-height: 64px; padding: 2px; }
+    .cal-emb-chip, .cal-emb-marca { font-size: 9px; padding: 0 2px; }
+}
