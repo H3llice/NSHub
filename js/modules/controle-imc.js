@@ -1,6 +1,6 @@
-import { labelFuncao } from './funcoes-colaborador.js'
+import { labelFuncao, FUNCOES_TECNICO } from './funcoes-colaborador.js'
 import { esc } from './html.js'
-import { svgGraficoImc, legendaImcHtml, numerarTecnicosImc, faixaImc, formatarImc, baixarGraficoPng } from './grafico-imc.mjs'
+import { svgGraficoImc, legendaImcHtml, numerarColaboradoresImc, calcularImc, faixaImc, formatarImc, baixarGraficoPng } from './grafico-imc.mjs'
 
 const API = 'https://override-steerable-professed.ngrok-free.dev'
 
@@ -35,12 +35,25 @@ const MESES_CURTOS = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 's
 
 // ══════════════════════════════════════════════════════════════════════════
 // CONTROLE DE IMC (Conformidade → Controle de IMC) — admin/gerente
-// Uma pesagem por técnico por mês, todos na mesma tela. O gráfico (e o PDF pra
-// auditoria) mostra cada técnico só pelo número — ver js/modules/grafico-imc.mjs
+// Uma pesagem por colaborador ativo por mês, todos na mesma tela. O relatório
+// (gráfico, PNG e PDF pra auditoria) sai só com quem estiver marcado e mostra
+// cada um só pelo número — ver js/modules/grafico-imc.mjs
 // ══════════════════════════════════════════════════════════════════════════
 
-let imcAtual = null // { mes, ano, tecnicos, ... } como veio do GET /controle-imc
+let imcAtual = null // { mes, ano, colaboradores, ... } como veio do GET /controle-imc
 let empresasImc = []
+
+// Quem foi DESMARCADO pro relatório (ids). Guardado no navegador pra escolha
+// valer de um mês pro outro; colaborador novo entra marcado. É só conveniência
+// de quem usa a tela — o PDF recebe a lista explícita na URL.
+const CHAVE_FORA_RELATORIO = 'imc_fora_relatorio'
+function lerForaRelatorio() {
+  try { return new Set(JSON.parse(localStorage.getItem(CHAVE_FORA_RELATORIO) || '[]')) } catch { return new Set() }
+}
+function gravarForaRelatorio(ids) {
+  try { localStorage.setItem(CHAVE_FORA_RELATORIO, JSON.stringify([...ids])) } catch { }
+}
+let foraRelatorio = lerForaRelatorio()
 
 export async function inicializarControleImc() {
   const hoje = new Date()
@@ -78,7 +91,7 @@ function renderizarControleImc() {
   const valorMes = `${d.ano}-${String(d.mes).padStart(2, '0')}`
 
   // Quem ainda não tem pesagem no mês vem com a altura da última pesagem
-  const alturaInicial = t => t.altura ?? t.anterior?.altura ?? ''
+  const alturaInicial = c => c.altura ?? c.anterior?.altura ?? ''
 
   document.getElementById('controleImc').innerHTML = `
     <div class="tab">Controle de IMC</div>
@@ -102,39 +115,49 @@ function renderizarControleImc() {
       <button class="btn btn-success" onclick="salvarControleImc()">Salvar</button>
       <button class="btn btn-secondary" onclick="abrirPdfControleImc()">📄 PDF para auditoria</button>
     </div>
-    <p style="font-size:12px; color:#999; margin:8px 0 16px;">
-      ${MESES[d.mes - 1]}/${d.ano}${d.salvo ? '' : ' — ainda não salvo'}. Uma pesagem por técnico no mês; quem ficar sem peso fica fora do gráfico.
-      A altura vem da última pesagem do técnico. O Nº é o que aparece no gráfico e no PDF, que não mostram nomes.
+    <p style="font-size:12px; color:#999; margin:8px 0;">
+      ${MESES[d.mes - 1]}/${d.ano}${d.salvo ? '' : ' — ainda não salvo'}. Uma pesagem por colaborador no mês; a altura vem da última pesagem dele.
+      A caixa da 1ª coluna escolhe quem sai no relatório (gráfico, PNG e PDF) — quem fica sem peso não sai de qualquer jeito.
+      O Nº é o que aparece no relatório, que não mostra nomes.
     </p>
+    <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap; margin-bottom:8px; font-size:13px;">
+      <span style="color:#666;">Marcar no relatório:</span>
+      <button class="btn btn-sm btn-outline-secondary" onclick="marcarRelatorioImc('todos')">Todos</button>
+      <button class="btn btn-sm btn-outline-secondary" onclick="marcarRelatorioImc('tecnicos')">Só técnicos</button>
+      <button class="btn btn-sm btn-outline-secondary" onclick="marcarRelatorioImc('nenhum')">Nenhum</button>
+      <span id="imc-contagem-relatorio" style="color:#666; margin-left:6px;"></span>
+    </div>
 
     <div class="table-scroll">
       <table class="table-certificados" style="font-size:13px;">
         <thead>
           <tr>
-            <th title="Número do técnico no gráfico">Nº</th>
-            <th>Técnico</th>
+            <th title="Sai no relatório (gráfico, PNG e PDF)">Relatório</th>
+            <th title="Número do colaborador no relatório">Nº</th>
+            <th>Colaborador</th>
             <th>Altura (m)</th>
             <th>Peso (kg)</th>
             <th>IMC</th>
-            <th title="Diferença para a última pesagem do técnico">Variação</th>
+            <th title="Diferença para a última pesagem do colaborador">Variação</th>
             <th>Observações</th>
           </tr>
         </thead>
         <tbody>
-          ${d.tecnicos.length === 0
-            ? '<tr><td colspan="7" style="text-align:center; color:#999; padding:30px;">Nenhum técnico ativo cadastrado</td></tr>'
-            : d.tecnicos.map(t => `
-              <tr class="imc-linha" data-colaborador="${t.colaboradorId}">
+          ${d.colaboradores.length === 0
+            ? '<tr><td colspan="8" style="text-align:center; color:#999; padding:30px;">Nenhum colaborador ativo cadastrado</td></tr>'
+            : d.colaboradores.map(c => `
+              <tr class="imc-linha" data-colaborador="${c.colaboradorId}" data-funcao="${esc(c.funcao)}">
+                <td style="text-align:center;"><input type="checkbox" class="imc-relatorio" ${foraRelatorio.has(c.colaboradorId) ? '' : 'checked'} onchange="alterarRelatorioImc(this)"></td>
                 <td class="imc-numero" style="text-align:center; font-weight:600;"></td>
                 <td style="white-space:nowrap;">
-                  <strong>${esc(t.nome)}</strong><br>
-                  <small style="color:#999;">${esc(labelFuncao(t.funcao))}${t.ativo ? '' : ' · inativo'}</small>
+                  <strong>${esc(c.nome)}</strong><br>
+                  <small style="color:#999;">${esc(labelFuncao(c.funcao))}${c.ativo ? '' : ' · inativo'}</small>
                 </td>
-                <td><input type="number" class="form-control form-control-sm imc-altura" min="1" max="2.5" step="0.01" value="${alturaInicial(t)}" style="width:90px;" oninput="atualizarTelaImc()"></td>
-                <td><input type="number" class="form-control form-control-sm imc-peso" min="30" max="300" step="0.1" value="${t.peso ?? ''}" style="width:90px;" oninput="atualizarTelaImc()"></td>
+                <td><input type="number" class="form-control form-control-sm imc-altura" min="1" max="2.5" step="0.01" value="${alturaInicial(c)}" style="width:90px;" oninput="atualizarTelaImc()"></td>
+                <td><input type="number" class="form-control form-control-sm imc-peso" min="30" max="300" step="0.1" value="${c.peso ?? ''}" style="width:90px;" oninput="atualizarTelaImc()"></td>
                 <td class="imc-valor" style="text-align:center;"></td>
                 <td class="imc-variacao" style="text-align:center; white-space:nowrap;"></td>
-                <td><input type="text" class="form-control form-control-sm imc-obs" value="${esc(t.observacoes)}" style="min-width:160px;"></td>
+                <td><input type="text" class="form-control form-control-sm imc-obs" value="${esc(c.observacoes)}" style="min-width:160px;"></td>
               </tr>
             `).join('')}
         </tbody>
@@ -156,26 +179,53 @@ function lerLinhasImc() {
   return [...document.querySelectorAll('.imc-linha')].map(tr => ({
     tr,
     colaboradorId: Number(tr.dataset.colaborador),
+    noRelatorio: tr.querySelector('.imc-relatorio').checked,
     altura: parseFloat(tr.querySelector('.imc-altura').value),
     peso: parseFloat(tr.querySelector('.imc-peso').value),
     observacoes: tr.querySelector('.imc-obs').value
   }))
 }
 
+window.alterarRelatorioImc = function (check) {
+  const id = Number(check.closest('.imc-linha').dataset.colaborador)
+  if (check.checked) foraRelatorio.delete(id)
+  else foraRelatorio.add(id)
+  gravarForaRelatorio(foraRelatorio)
+  window.atualizarTelaImc()
+}
+
+// Atalhos: todos | tecnicos (só técnicos N1/N2/N3) | nenhum
+window.marcarRelatorioImc = function (quais) {
+  document.querySelectorAll('.imc-linha').forEach(tr => {
+    const marcar = quais === 'todos' || (quais === 'tecnicos' && FUNCOES_TECNICO.includes(tr.dataset.funcao))
+    tr.querySelector('.imc-relatorio').checked = marcar
+    const id = Number(tr.dataset.colaborador)
+    if (marcar) foraRelatorio.delete(id)
+    else foraRelatorio.add(id)
+  })
+  gravarForaRelatorio(foraRelatorio)
+  window.atualizarTelaImc()
+}
+
+// Números do relatório: só entre os marcados (com peso)
+const numerosDoRelatorio = (linhas = lerLinhasImc()) => numerarColaboradoresImc(linhas.filter(l => l.noRelatorio))
+
 // IMC, variação, Nº e gráfico recalculados a cada digitação
 window.atualizarTelaImc = function () {
   const linhas = lerLinhasImc()
-  const numeros = numerarTecnicosImc(linhas)
-  const anteriorDe = new Map(imcAtual.tecnicos.map(t => [t.colaboradorId, t.anterior]))
+  const numeros = numerosDoRelatorio(linhas)
+  const anteriorDe = new Map(imcAtual.colaboradores.map(c => [c.colaboradorId, c.anterior]))
 
   for (const l of linhas) {
     const n = numeros.get(l.colaboradorId)
     l.tr.querySelector('.imc-numero').textContent = n ? n.numero : '-'
+    l.tr.style.opacity = l.noRelatorio ? '' : '0.6'
 
+    const imc = calcularImc(l.peso, l.altura)
     const celulaImc = l.tr.querySelector('.imc-valor')
-    if (n) {
-      const faixa = faixaImc(n.imc)
-      celulaImc.innerHTML = `<span style="display:inline-block; min-width:44px; padding:2px 6px; border-radius:10px; background:${faixa.cor}; color:${faixa.cor === '#2b5797' || faixa.cor === '#e00000' ? '#fff' : '#000'}; font-weight:600;" title="${faixa.texto}">${formatarImc(n.imc)}</span>`
+    if (imc !== null) {
+      const faixa = faixaImc(imc)
+      celulaImc.innerHTML = `<span style="display:inline-block; min-width:44px; padding:2px 6px; border-radius:10px; background:${faixa.cor}; color:${faixa.corTexto}; font-weight:600;" title="${faixa.texto}">${formatarImc(imc)}</span>`
     } else {
       celulaImc.innerHTML = '<span style="color:#999;">-</span>'
     }
@@ -191,23 +241,25 @@ window.atualizarTelaImc = function () {
     }
   }
 
-  document.getElementById('imc-grafico').innerHTML = svgGraficoImc(barrasDaTelaImc(numeros), tituloGraficoImc())
+  const pesados = linhas.filter(l => calcularImc(l.peso, l.altura) !== null).length
+  document.getElementById('imc-contagem-relatorio').textContent = `${numeros.size} de ${pesados} pesados no relatório`
+  document.getElementById('imc-grafico').innerHTML = svgGraficoImc(barrasDoRelatorio(numeros), tituloGraficoImc(), { vazio: 'Ninguém marcado com pesagem no mês' })
 }
 
 const tituloGraficoImc = () => `CONTROLE DE ÍNDICES DE IMC - ${MESES[imcAtual.mes - 1].toUpperCase()}/${imcAtual.ano}`
-const barrasDaTelaImc = (numeros = numerarTecnicosImc(lerLinhasImc())) => [...numeros.values()].sort((a, b) => a.numero - b.numero)
+const barrasDoRelatorio = (numeros = numerosDoRelatorio()) => [...numeros.values()].sort((a, b) => a.numero - b.numero)
 
 // Só o gráfico, como imagem (pra colar num documento) — com a legenda dentro.
-// Sai do que está digitado na tela, mesmo antes de salvar.
+// Sai do que está digitado e marcado na tela, mesmo antes de salvar.
 window.baixarGraficoImcMes = function () {
-  const barras = barrasDaTelaImc()
-  if (barras.length === 0) { alert('Lance ao menos uma pesagem!'); return }
+  const barras = barrasDoRelatorio()
+  if (barras.length === 0) { alert('Marque ao menos um colaborador com pesagem!'); return }
   baixarGraficoPng(svgGraficoImc(barras, tituloGraficoImc(), { legenda: true }), `Grafico IMC ${String(imcAtual.mes).padStart(2, '0')}-${imcAtual.ano}.png`)
 }
 
-// Salva a tela inteira; retorna true/false (já avisando o erro)
+// Salva a tela inteira (todas as pesagens, marcadas ou não); retorna true/false (já avisando o erro)
 async function salvarImc() {
-  const nomeDe = new Map(imcAtual.tecnicos.map(t => [t.colaboradorId, t.nome]))
+  const nomeDe = new Map(imcAtual.colaboradores.map(c => [c.colaboradorId, c.nome]))
   const medicoes = lerLinhasImc().map(l => ({
     colaboradorId: l.colaboradorId,
     nome: nomeDe.get(l.colaboradorId),
@@ -237,17 +289,19 @@ window.salvarControleImc = async function () {
   alert('Controle de IMC salvo!')
 }
 
-// O PDF sai do que está gravado — salva antes pra não perder o que foi digitado agora
+// O PDF sai do que está gravado — salva antes pra não perder o que foi digitado
+// agora. Vai só quem está marcado (lista de ids na URL).
 window.abrirPdfControleImc = async function () {
   if (!document.getElementById('imc-empresa').value) { alert('Escolha a empresa (sai no cabeçalho do PDF)!'); return }
-  if (!lerLinhasImc().some(l => l.peso > 0)) { alert('Lance ao menos uma pesagem!'); return }
+  const marcados = [...numerosDoRelatorio().keys()]
+  if (marcados.length === 0) { alert('Marque ao menos um colaborador com pesagem!'); return }
 
   // A aba é aberta já no clique: aberta depois do await, o navegador bloquearia como pop-up
   const aba = window.open('', '_blank')
   if (!(await salvarImc())) { aba?.close(); return }
   imcAtual.salvo = true
 
-  const params = new URLSearchParams({ mes: imcAtual.mes, ano: imcAtual.ano, token: localStorage.getItem('ns_token') || '' })
+  const params = new URLSearchParams({ mes: imcAtual.mes, ano: imcAtual.ano, colaboradores: marcados.join(','), token: localStorage.getItem('ns_token') || '' })
   const url = `${API}/controle-imc/pdf?${params}`
   if (aba) aba.location = url
   else window.location.href = url

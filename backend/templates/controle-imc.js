@@ -3,9 +3,9 @@
 // Margens iguais às do relatório técnico, pra não escrever em cima da faixa azul
 // do topo nem dos endereços do rodapé.
 //
-// Anônimo de propósito: o técnico aparece só como número (ver numerarTecnicosImc).
+// Anônimo de propósito: o colaborador aparece só como número (ver numerarColaboradoresImc).
 
-import { svgGraficoImc, legendaImcHtml, numerarTecnicosImc, FAIXAS_IMC, faixaImc, formatarImc } from '../../js/modules/grafico-imc.mjs'
+import { svgGraficoImc, legendaImcHtml, numerarColaboradoresImc, FAIXAS_IMC, faixaImc, formatarImc } from '../../js/modules/grafico-imc.mjs'
 
 const MESES = ['JANEIRO', 'FEVEREIRO', 'MARÇO', 'ABRIL', 'MAIO', 'JUNHO', 'JULHO', 'AGOSTO', 'SETEMBRO', 'OUTUBRO', 'NOVEMBRO', 'DEZEMBRO']
 
@@ -26,7 +26,7 @@ export const nomeArquivoControleImc = c => `Controle de IMC ${String(c.mes).padS
 
 // controle: ControleImc com `medicoes` e `empresa`
 export function htmlControleImc(controle) {
-  const numeros = numerarTecnicosImc(controle.medicoes)
+  const numeros = numerarColaboradoresImc(controle.medicoes)
   const barras = [...numeros.values()].sort((a, b) => a.numero - b.numero)
   const titulo = `CONTROLE DE ÍNDICES DE IMC - ${MESES[controle.mes - 1]}/${controle.ano}`
 
@@ -72,8 +72,8 @@ export function htmlControleImc(controle) {
   <table class="resumo">
     <thead>
       <tr>
-        <th>Técnicos avaliados</th>
-        ${porFaixa.map(f => `<th><span class="cor" style="background:${f.cor};"></span>${f.texto}</th>`).join('')}
+        <th>Colaboradores avaliados</th>
+        ${porFaixa.map(f => `<th><span class="cor" style="background:${f.cor};"></span>${f.nome}<br><small>${f.intervalo}</small></th>`).join('')}
         <th>IMC médio</th>
       </tr>
     </thead>
@@ -86,7 +86,7 @@ export function htmlControleImc(controle) {
     </tbody>
   </table>
 
-  <p class="nota">IMC = peso (kg) ÷ altura² (m). Uma pesagem por técnico no mês. Técnicos identificados apenas por número, para preservar o anonimato.</p>
+  <p class="nota">IMC = peso (kg) ÷ altura² (m). Uma pesagem por colaborador no mês. Colaboradores identificados apenas por número, para preservar o anonimato.</p>
 </body>
 </html>
   `

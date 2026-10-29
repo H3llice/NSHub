@@ -644,8 +644,8 @@ window.editarColaborador = async function (id) {
 // ─── Controle de IMC do colaborador (só leitura) ──────────────────────────────
 // As pesagens são lançadas em Conformidade → Controle de IMC (uma por mês); aqui
 // é o histórico dele com o gráfico pessoal. Só admin/gerente (é a tela de
-// edição, e o backend também barra). Aparece pra técnico ou pra quem já tem
-// pesagem (técnico que mudou de função).
+// edição, e o backend também barra). Aparece pra qualquer colaborador ativo e pra
+// inativo que tenha pesagem (o histórico fica).
 const MESES_CURTOS_IMC = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez']
 // O gráfico pessoal mostra só os últimos 12 meses pesados; a tabela mostra tudo
 const MESES_GRAFICO_IMC = 12
@@ -656,7 +656,7 @@ async function carregarImcColaborador(c) {
   const res = await apiFetch(`${API}/controle-imc/colaborador/${c.id}`).catch(() => null)
   if (!alvo || !res?.ok) return
   const pesagens = await res.json()
-  if (pesagens.length === 0 && !FUNCOES_TECNICO.includes(c.funcao)) return
+  if (pesagens.length === 0 && !c.ativo) return
 
   const rotulo = p => `${MESES_CURTOS_IMC[p.mes - 1]}/${String(p.ano).slice(-2)}`
   const linhas = pesagens.map((p, i) => ({
@@ -669,8 +669,7 @@ async function carregarImcColaborador(c) {
 
   const badgeImc = imc => {
     const f = faixaImc(imc)
-    const corTexto = f.cor === '#2b5797' || f.cor === '#e00000' ? '#fff' : '#000'
-    return `<span style="display:inline-block; min-width:44px; padding:2px 6px; border-radius:10px; background:${f.cor}; color:${corTexto}; font-weight:600;" title="${f.texto}">${formatarImc(imc)}</span>`
+    return `<span style="display:inline-block; min-width:44px; padding:2px 6px; border-radius:10px; background:${f.cor}; color:${f.corTexto}; font-weight:600;" title="${f.texto}">${formatarImc(imc)}</span>`
   }
 
   alvo.innerHTML = `

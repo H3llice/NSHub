@@ -4,18 +4,21 @@
 // (js/modules/colaboradores.js). Gera só texto (SVG) — a única função que usa
 // DOM é baixarGraficoPng, que o backend nunca chama.
 //
-// No gráfico do mês cada barra é um técnico, identificado só pelo número
+// No gráfico do mês cada barra é um colaborador, identificado só pelo número
 // (anonimato do documento); no pessoal, cada barra é um mês.
 
-// Faixas do PCMSO (legenda do documento de auditoria). O IMC é classificado já
-// arredondado a 1 casa, igual ao que aparece no rótulo — senão 34,996 sairia
-// escrito "35,0" e pintado de azul.
+// Faixas do PCMSO (classificação da OMS — legenda do documento de auditoria).
+// O IMC é classificado já arredondado a 1 casa, igual ao que aparece no
+// rótulo — senão 24,96 sairia escrito "25,0" e pintado como peso normal.
+// corTexto: cor da letra por cima da cor da faixa (badge do IMC nas tabelas).
 export const FAIXAS_IMC = [
-  { ate: 34.9, cor: '#2b5797', texto: 'Até 34,9' },
-  { ate: 37.4, cor: '#f5d800', texto: '35,0 a 37,4' },
-  { ate: 39.9, cor: '#ffa500', texto: '37,5 a 39,9' },
-  { ate: Infinity, cor: '#e00000', texto: '40,0 ou mais' }
-]
+  { ate: 18.4, cor: '#5b9bd5', corTexto: '#fff', nome: 'Baixo peso', intervalo: 'abaixo de 18,5' },
+  { ate: 24.9, cor: '#70ad47', corTexto: '#fff', nome: 'Peso normal', intervalo: '18,5 a 24,9' },
+  { ate: 29.9, cor: '#f5d800', corTexto: '#000', nome: 'Excesso de peso', intervalo: '25,0 a 29,9' },
+  { ate: 34.9, cor: '#ffa500', corTexto: '#000', nome: 'Obesidade classe 1', intervalo: '30,0 a 34,9' },
+  { ate: 39.9, cor: '#e00000', corTexto: '#fff', nome: 'Obesidade classe 2', intervalo: '35,0 a 39,9' },
+  { ate: Infinity, cor: '#7b0000', corTexto: '#fff', nome: 'Obesidade classe 3', intervalo: '40,0 ou mais' }
+].map(f => ({ ...f, texto: `${f.nome} (${f.intervalo})` }))
 
 export const calcularImc = (peso, altura) => (peso > 0 && altura > 0 ? Math.round((peso / (altura * altura)) * 10) / 10 : null)
 
@@ -23,11 +26,11 @@ export const faixaImc = imc => FAIXAS_IMC.find(f => imc <= f.ate)
 
 export const formatarImc = imc => imc.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })
 
-// Número de cada técnico no gráfico: ordem de cadastro (colaboradorId) entre os
+// Número de cada colaborador no gráfico: ordem de cadastro (colaboradorId) entre os
 // que foram pesados no mês — não a ordem alfabética, que entregaria quem é quem
 // pra quem conhece a equipe. Recebe [{ colaboradorId, peso, altura }] e devolve
 // Map colaboradorId → { numero, rotulo, imc } (rotulo = número, pro svgGraficoImc).
-export function numerarTecnicosImc(medicoes) {
+export function numerarColaboradoresImc(medicoes) {
   const numeros = new Map()
   medicoes
     .filter(m => calcularImc(m.peso, m.altura) !== null)
@@ -45,9 +48,9 @@ const escaparSvg = texto => String(texto).replaceAll('&', '&amp;').replaceAll('<
 export function svgGraficoImc(barras, titulo, opcoes = {}) {
   const { legenda = false, vazio = 'Nenhuma pesagem lançada no mês' } = opcoes
   const largura = 900
-  const altura = legenda ? 430 : 400
+  const altura = legenda ? 450 : 400
   const esq = 48, dir = 16, base = 36
-  const topo = legenda ? 82 : 52
+  const topo = legenda ? 102 : 52
   const areaL = largura - esq - dir
   const areaA = altura - topo - base
 
@@ -75,14 +78,19 @@ export function svgGraficoImc(barras, titulo, opcoes = {}) {
     `
   })
 
-  // Legenda numa linha, centralizada embaixo do título
-  const larguraItem = 130
-  const inicioLegenda = (largura - FAIXAS_IMC.length * larguraItem) / 2
+  // Legenda em 2 linhas de 3, centralizada embaixo do título (6 faixas com
+  // nome não cabem numa linha só)
+  const larguraItem = 270, porLinha = 3
+  const inicioLegenda = (largura - porLinha * larguraItem) / 2
   const itensLegenda = legenda
-    ? FAIXAS_IMC.map((f, i) => `
-        <rect x="${inicioLegenda + i * larguraItem}" y="42" width="20" height="12" fill="${f.cor}"/>
-        <text x="${inicioLegenda + i * larguraItem + 26}" y="52" font-size="12" fill="#404040">${f.texto}</text>
-      `).join('')
+    ? FAIXAS_IMC.map((f, i) => {
+        const x = inicioLegenda + (i % porLinha) * larguraItem
+        const yItem = 42 + Math.floor(i / porLinha) * 22
+        return `
+          <rect x="${x}" y="${yItem}" width="20" height="12" fill="${f.cor}"/>
+          <text x="${x + 26}" y="${yItem + 10}" font-size="12" fill="#404040">${f.texto}</text>
+        `
+      }).join('')
     : ''
 
   return `

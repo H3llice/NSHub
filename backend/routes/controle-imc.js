@@ -1,7 +1,6 @@
 import { Router } from 'express'
 import { prisma } from '../server.js'
 import { autenticar, exigirPerfil } from '../middleware/auth.js'
-import { FUNCOES_TECNICO } from './colaboradores.js'
 import { htmlControleImc, nomeArquivoControleImc } from '../templates/controle-imc.js'
 import { aplicarTimbrado } from '../templates/relatorio-tecnico.js'
 import { gerarPdf } from '../pdf-browser.js'
@@ -44,8 +43,8 @@ async function pesagensAnteriores(colaboradorIds, { mes, ano }) {
 }
 
 // ─── Tela do mês ──────────────────────────────────────────────────────────────
-// Técnicos ativos + quem já tem pesagem no mês (técnico que saiu ou mudou de
-// função continua no mês em que foi pesado). Mês sem nada gravado ainda vem
+// Colaboradores ativos (qualquer função) + quem já tem pesagem no mês (quem foi
+// inativado continua no mês em que foi pesado). Mês sem nada gravado ainda vem
 // com empresa/PCMSO do último mês registrado.
 router.get('/', autenticar, exigirPerfil(...PERFIS_IMC), async (req, res) => {
   const periodo = lerMesAno(req.query)
@@ -61,7 +60,7 @@ router.get('/', autenticar, exigirPerfil(...PERFIS_IMC), async (req, res) => {
   const colaboradores = await prisma.colaborador.findMany({
     where: {
       OR: [
-        { ativo: true, funcao: { in: FUNCOES_TECNICO } },
+        { ativo: true },
         { id: { in: medicoes.map(m => m.colaboradorId) } }
       ]
     },
@@ -77,7 +76,7 @@ router.get('/', autenticar, exigirPerfil(...PERFIS_IMC), async (req, res) => {
     salvo: !!controle,
     empresaId: ultimo?.empresaId ?? null,
     pcmso: ultimo?.pcmso ?? '',
-    tecnicos: colaboradores.map(c => {
+    colaboradores: colaboradores.map(c => {
       const m = medicaoDe.get(c.id)
       return {
         colaboradorId: c.id,
@@ -160,7 +159,8 @@ router.get('/colaborador/:id', autenticar, exigirPerfil(...PERFIS_IMC), async (r
 
 // ─── PDF do mês (link em nova aba, token via ?token=) ─────────────────────────
 // Documento de auditoria: cabeçalho (empresa/período/PCMSO) + gráfico, no papel
-// timbrado. Sem nomes — só o número de cada técnico.
+// timbrado. Sem nomes — só o número de cada colaborador. ?colaboradores=1,2,3
+// (ids de Colaborador): só os marcados na tela; sem ele, todos os pesados.
 router.get('/pdf', autenticar, exigirPerfil(...PERFIS_IMC), async (req, res) => {
   const periodo = lerMesAno(req.query)
   if (!periodo) return res.status(400).json({ erro: 'Mês/ano inválido' })
@@ -169,8 +169,10 @@ router.get('/pdf', autenticar, exigirPerfil(...PERFIS_IMC), async (req, res) => 
     where: { ano_mes: periodo },
     include: { medicoes: true, empresa: true }
   })
+  const selecionados = String(req.query.colaboradores || '').split(',').map(Number).filter(n => Number.isInteger(n) && n > 0)
+  if (controle && selecionados.length > 0) controle.medicoes = controle.medicoes.filter(m => selecionados.includes(m.colaboradorId))
   if (!controle || controle.medicoes.length === 0) {
-    return res.status(404).json({ erro: 'Nenhuma pesagem salva neste mês' })
+    return res.status(404).json({ erro: 'Nenhuma pesagem salva neste mês' + (selecionados.length ? ' para os colaboradores escolhidos' : '') })
   }
 
   const conteudo = await gerarPdf(htmlControleImc(controle), { preferCSSPageSize: true })
