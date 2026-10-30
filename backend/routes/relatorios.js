@@ -7,7 +7,7 @@ import crypto from 'crypto'
 import multer from 'multer'
 import { prisma } from '../server.js'
 import { autenticar, exigirPerfil } from '../middleware/auth.js'
-import { MODELOS_RELATORIO_TECNICO, conteudoInicial, conteudoModeloSalvo, nomeModeloSalvo, normalizarConteudo, gerarPdfRelatorioTecnico, pastaFotosRelatorio, fotosUsadas } from '../templates/relatorio-tecnico.js'
+import { MODELOS_RELATORIO_TECNICO, conteudoInicial, conteudoModeloSalvo, nomeModeloSalvo, normalizarConteudo, gerarPdfRelatorioTecnico, nomeArquivoRelatorioTecnico, pastaFotosRelatorio, fotosUsadas } from '../templates/relatorio-tecnico.js'
 
 const router = Router()
 
@@ -1214,7 +1214,7 @@ router.get('/:id/pdf', autenticar, async (req, res) => {
 
   if (relatorio.modelo) {
     const pdfBytes = await gerarPdfRelatorioTecnico(relatorio)
-    const nomeArquivo = `Relatorio ${relatorio.numero}.${relatorio.ano}${relatorio.navio ? ` ${relatorio.navio}` : ''}.pdf`
+    const nomeArquivo = nomeArquivoRelatorioTecnico(relatorio)
     res.setHeader('Content-Type', 'application/pdf')
     res.setHeader('Content-Disposition', `inline; filename*=UTF-8''${encodeURIComponent(nomeArquivo)}`)
     return res.send(Buffer.from(pdfBytes))

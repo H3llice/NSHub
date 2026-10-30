@@ -289,6 +289,18 @@ function formatarCnpj(cnpj) {
   return digitos.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5')
 }
 
+// "1320 - TÍTULO - P-77.pdf". Sem nº de certificado (é opcional) sai só título
+// e embarcação. Barra e afins viram hífen: o Windows não aceita no nome do
+// arquivo, e o nº pode vir como "1320/26".
+export function nomeArquivoRelatorioTecnico(relatorio) {
+  const { certificadoNumero, titulo } = normalizarConteudo(relatorio.conteudo)
+  const nome = [certificadoNumero, titulo, relatorio.navio]
+    .map(parte => (parte || '').replace(/[\\/:*?"<>|]/g, '-').replace(/\s+/g, ' ').trim())
+    .filter(Boolean)
+    .join(' - ')
+  return `${nome.slice(0, 180).trim()}.pdf`
+}
+
 function comQuebras(valor) {
   return escapeHtml(valor).replaceAll('\n', '<br>')
 }
