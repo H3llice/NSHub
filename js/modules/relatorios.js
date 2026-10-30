@@ -211,14 +211,7 @@ export function inicializarRelatorios() {
     <div class="table-scroll">
       <table class="table-certificados" style="margin-top:16px; table-layout:fixed;">
         <thead>
-          <tr>
-            <th style="width:90px;">Nº</th>
-            <th style="width:180px;">Navio</th>
-            <th style="width:160px;">Armador</th>
-            <th style="width:100px;">Data</th>
-            <th style="width:110px;">Status</th>
-            <th class="col-acoes" style="width:260px;">Ações</th>
-          </tr>
+          <tr id="cabecalho-relatorios">${cabecalhoRelatorios('balsa')}</tr>
         </thead>
         <tbody id="tabela-relatorios">
           <tr><td colspan="6" style="text-align:center; color:#999; padding:30px;">Carregando...</td></tr>
@@ -234,6 +227,36 @@ export function inicializarRelatorios() {
 let paginaAtualRelatorios = 1
 
 const LABEL_TIPO_RELATORIO = { balsa: 'balsa', baleeira: 'baleeira', turco: 'turco', colete: 'colete', tecnico: 'relatório técnico' }
+
+// Relatório timbrado não tem armador, e vários saem pra mesma plataforma — o
+// que diferencia um do outro é o nº do certificado e o título.
+function cabecalhoRelatorios(tipo) {
+  const colunas = tipo === 'tecnico'
+    ? [['Certificado Nº', 110], ['Plataforma', 120], ['Título', 300]]
+    : [['Nº', 90], ['Navio', 180], ['Armador', 160]]
+  return `
+    ${colunas.map(([nome, largura]) => `<th style="width:${largura}px;">${nome}</th>`).join('')}
+    <th style="width:100px;">Data</th>
+    <th style="width:110px;">Status</th>
+    <th class="col-acoes" style="width:260px;">Ações</th>
+  `
+}
+
+function colunasIdentificacaoRelatorio(r, tipo) {
+  const abrir = `style="cursor:pointer;" onclick="editarRelatorio(${r.id})"`
+  if (tipo === 'tecnico') {
+    return `
+      <td ${abrir}>${esc(r.conteudo?.certificadoNumero || '-')}</td>
+      <td ${abrir}>${esc(r.navio || '-')}</td>
+      <td ${abrir}>${esc((r.conteudo?.titulo || '-').replace(/\s+/g, ' '))}</td>
+    `
+  }
+  return `
+    <td ${abrir}>${r.numero}/${r.ano}</td>
+    <td ${abrir}>${esc(r.navio || r.embarcacao?.nome || '-')}</td>
+    <td>${esc(r.armador || r.embarcacao?.armador?.nome || r.embarcacao?.armadorNome || '-')}</td>
+  `
+}
 
 // Cada tipo de equipamento (Balsa/Baleeira/Turco/Colete) tem sua própria
 // tabela — o select #rel-tipo-ativo escolhe qual, igual à tela de Certificados.
@@ -264,6 +287,7 @@ window.novoRelatorioTipoAtivo = async function () {
 window.carregarRelatorios = async function (pagina = 1) {
   paginaAtualRelatorios = pagina
   const tipo = document.getElementById('rel-tipo-ativo')?.value || 'balsa'
+  document.getElementById('cabecalho-relatorios').innerHTML = cabecalhoRelatorios(tipo)
   try {
     const resp = await apiFetch(`${API}/relatorios?pagina=${pagina}&tipo=${tipo}`).then(r => r.json())
     const tabela = document.getElementById('tabela-relatorios')
@@ -289,9 +313,7 @@ window.carregarRelatorios = async function (pagina = 1) {
 
     tabela.innerHTML = resp.relatorios.map(r => `
       <tr>
-        <td style="cursor:pointer;" onclick="editarRelatorio(${r.id})">${r.numero}/${r.ano}</td>
-        <td style="cursor:pointer;" onclick="editarRelatorio(${r.id})">${esc(r.navio || r.embarcacao?.nome || '-')}</td>
-        <td>${esc(r.armador || r.embarcacao?.armador?.nome || r.embarcacao?.armadorNome || '-')}</td>
+        ${colunasIdentificacaoRelatorio(r, tipo)}
         <td>${new Date(r.data).toLocaleDateString('pt-BR', { timeZone: 'UTC' })}</td>
         <td>${badgeStatus(r.status)}</td>
         <td class="col-acoes">
@@ -1061,6 +1083,8 @@ async function carregarModelosTecnico() {
 
 async function novoRelatorioTecnico() {
   let modelos, empresas
+  // Sempre busca de novo: pode ter nascido modelo de um relatório concluído
+  modelosTecnico = null
   try {
     [modelos, empresas] = await Promise.all([
       carregarModelosTecnico(),

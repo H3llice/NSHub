@@ -186,6 +186,31 @@ export function conteudoInicial(chave) {
   })
 }
 
+// Título padrão do "Em branco": relatório que ficou com ele não tem nome
+// próprio, então não vira modelo.
+export const nomeModeloSalvo = conteudo => {
+  const nome = normalizarConteudo(conteudo).titulo.trim().replace(/\s+/g, ' ')
+  return nome === MODELOS_RELATORIO_TECNICO.branco.titulo ? '' : nome
+}
+
+// O que um relatório concluído deixa pro próximo: títulos, textos e assinaturas.
+// Valores dos campos saem junto com fotos, IMO e nº do certificado — série e tag
+// de um equipamento repetidos por engano no próximo documento seriam piores do
+// que digitar de novo.
+export function conteudoModeloSalvo(conteudo) {
+  const c = normalizarConteudo(conteudo)
+  return {
+    ...c,
+    imo: '',
+    certificadoNumero: '',
+    secoes: c.secoes.map(s => s.tipo === 'fotos'
+      ? { ...s, fotos: [] }
+      : s.tipo === 'campos'
+      ? { ...s, grupos: s.grupos.map(g => g.map(f => ({ ...f, valor: '' }))) }
+      : s)
+  }
+}
+
 // O conteúdo chega do navegador como JSON livre — aqui ele é reduzido ao
 // formato que o template sabe imprimir (só strings, só os tipos de seção
 // conhecidos), pra não gravar lixo no banco nem quebrar o PDF depois.

@@ -1067,6 +1067,19 @@ model Relatorio {
   @@index([ano, numero])
 }
 
+// Modelo de relatório técnico criado a partir de um "Em branco" concluído —
+// aparece na lista de modelos ao lado dos fixos de
+// backend/templates/relatorio-tecnico.js. nome é o título do relatório: concluir
+// outro com o mesmo título sobrescreve. conteudo vem sem o que é de um relatório
+// só (ver conteudoModeloSalvo).
+model ModeloRelatorioTecnico {
+  id           Int      @id @default(autoincrement())
+  nome         String   @unique
+  conteudo     Json
+  criadoEm     DateTime @default(now())
+  atualizadoEm DateTime @updatedAt
+}
+
 model CilindroRelatorio {
   id          Int       @id @default(autoincrement())
   relatorio   Relatorio @relation(fields: [relatorioId], references: [id])

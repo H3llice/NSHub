@@ -7,7 +7,7 @@ import crypto from 'crypto'
 import multer from 'multer'
 import { prisma } from '../server.js'
 import { autenticar, exigirPerfil } from '../middleware/auth.js'
-import { MODELOS_RELATORIO_TECNICO, conteudoInicial, normalizarConteudo, gerarPdfRelatorioTecnico, pastaFotosRelatorio, fotosUsadas } from '../templates/relatorio-tecnico.js'
+import { MODELOS_RELATORIO_TECNICO, conteudoInicial, conteudoModeloSalvo, nomeModeloSalvo, normalizarConteudo, gerarPdfRelatorioTecnico, pastaFotosRelatorio, fotosUsadas } from '../templates/relatorio-tecnico.js'
 
 const router = Router()
 
@@ -168,12 +168,17 @@ router.get('/', autenticar, async (req, res) => {
 
 // ─── Modelos de relatório técnico (timbrado) ───────────────────────────────────
 // A tela monta o "+ Novo" a partir daqui — conteúdo inicial já pronto pra
-// editar. Precisa vir antes de /:id.
-router.get('/modelos', autenticar, (req, res) => {
+// editar. Precisa vir antes de /:id. Modelos salvos (ModeloRelatorioTecnico) vêm
+// depois dos fixos, com chave "salvo-<id>".
+router.get('/modelos', autenticar, async (req, res) => {
   const modelos = {}
   for (const chave of Object.keys(MODELOS_RELATORIO_TECNICO)) {
     const { nome, certificado } = MODELOS_RELATORIO_TECNICO[chave]
     modelos[chave] = { nome, certificado, conteudo: conteudoInicial(chave) }
+  }
+  const salvos = await prisma.modeloRelatorioTecnico.findMany({ orderBy: { nome: 'asc' } })
+  for (const m of salvos) {
+    modelos[`salvo-${m.id}`] = { nome: m.nome, certificado: null, conteudo: m.conteudo }
   }
   res.json(modelos)
 })
@@ -209,8 +214,14 @@ router.post('/', autenticar, exigirPerfil('usuario', 'gerente', 'admin', 'tecnic
     return res.status(400).json({ erro: 'Empresa e embarcação (navio) são obrigatórias' })
   }
 
-  const { modelo } = req.body
-  if (modelo && !MODELOS_RELATORIO_TECNICO[modelo]) {
+  // Relatório de modelo salvo é gravado como "branco": o modelo salvo só deu o
+  // ponto de partida, e concluir esse relatório atualiza o modelo pelo título.
+  const salvo = /^salvo-(\d+)$/.exec(req.body.modelo || '')
+  const modelo = salvo ? 'branco' : req.body.modelo
+  const modeloExiste = salvo
+    ? await prisma.modeloRelatorioTecnico.findUnique({ where: { id: Number(salvo[1]) } })
+    : MODELOS_RELATORIO_TECNICO[modelo]
+  if (modelo && !modeloExiste) {
     return res.status(400).json({ erro: 'Modelo de relatório inválido' })
   }
 
@@ -307,6 +318,18 @@ router.put('/:id', autenticar, exigirPerfil('usuario', 'gerente', 'admin', 'tecn
   res.json(completo)
 })
 
+// "Em branco" concluído vira modelo com o título dele; mesmo título sobrescreve.
+async function salvarComoModelo(relatorio) {
+  const nome = nomeModeloSalvo(relatorio.conteudo)
+  if (!nome) return
+  const conteudo = conteudoModeloSalvo(relatorio.conteudo)
+  await prisma.modeloRelatorioTecnico.upsert({
+    where: { nome },
+    update: { conteudo },
+    create: { nome, conteudo }
+  })
+}
+
 // ─── Concluir relatório (assinatura do técnico) ────────────────────────────────
 router.post('/:id/concluir', autenticar, exigirPerfil('usuario', 'gerente', 'admin', 'tecnico'), async (req, res) => {
   const id = Number(req.params.id)
@@ -330,6 +353,15 @@ router.post('/:id/concluir', autenticar, exigirPerfil('usuario', 'gerente', 'adm
     }),
     prisma.relatorio.update({ where: { id }, data: { status: 'concluido' } })
   ])
+
+  if (relatorio.modelo === 'branco') {
+    // O relatório já está concluído: falhar aqui só deixa de criar o modelo.
+    try {
+      await salvarComoModelo(relatorio)
+    } catch (err) {
+      console.error('Erro ao salvar modelo de relatório técnico:', err)
+    }
+  }
 
   res.json(atualizado)
 })
