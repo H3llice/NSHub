@@ -21,6 +21,7 @@ const CAMPOS_VALOR = ['descontoPlanoSaude', 'coparticipacaoPlanoSaude', 'auxilio
 // Alterado à mão → entra em ItemFolhaPagamento.camposEditados e a atualização
 // automática passa a pular ele (até alguém clicar no ↺ do campo).
 const CAMPOS_AUTO_EDITAVEIS = ['descontoPlanoSaude', 'auxilioMoradia', 'comissao', 'diasTrabalhados']
+const CAMPOS_AUTO_VALOR = CAMPOS_AUTO_EDITAVEIS.filter(campo => campo !== 'diasTrabalhados')
 
 const INCLUDE_ITENS = { itens: { orderBy: [{ grupo: 'asc' }, { nome: 'asc' }] } }
 
@@ -220,13 +221,17 @@ router.post('/', autenticar, exigirPerfil(...PERFIS_FOLHA), async (req, res) => 
 // Dias trabalhados (intermitente) também fica como está se for diferente dos
 // dias embarcados de antes — regra de antes do camposEditados existir, mantida
 // pros itens editados antes dele.
+// Automático vazio nunca apaga valor em R$ já gravado: o valor fica e passa a
+// contar como editado (amarelo na tela). Protege o que foi digitado antes do
+// camposEditados existir; venda cancelada, por exemplo, também cai aqui, e aí
+// quem decide é o ↺ do campo.
 router.post('/:id/atualizar', autenticar, exigirPerfil(...PERFIS_FOLHA), async (req, res) => {
   const folha = await buscarFolhaAberta(Number(req.params.id), res)
   if (!folha) return
 
   const itensAtuais = await prisma.itemFolhaPagamento.findMany({
     where: { folhaId: folha.id },
-    select: { colaboradorId: true, diasTrabalhados: true, diasEmbarcados: true, camposEditados: true }
+    select: { colaboradorId: true, diasTrabalhados: true, diasEmbarcados: true, camposEditados: true, descontoPlanoSaude: true, auxilioMoradia: true, comissao: true }
   })
   const itemAtual = new Map(itensAtuais.map(i => [i.colaboradorId, i]))
   const colaboradores = await prisma.colaborador.findMany({
@@ -238,7 +243,10 @@ router.post('/:id/atualizar', autenticar, exigirPerfil(...PERFIS_FOLHA), async (
     const novo = { ...dados.get(c.id) }
     const sugerido = diasTrabalhadosSugeridos(novo)
     const antes = itemAtual.get(c.id)
-    const editados = antes?.camposEditados || []
+    const preservados = antes
+      ? CAMPOS_AUTO_VALOR.filter(campo => !antes.camposEditados.includes(campo) && antes[campo] !== null && novo[campo] === null)
+      : []
+    const editados = [...(antes?.camposEditados || []), ...preservados]
     for (const campo of editados) delete novo[campo]
 
     const diasNaoEditados = antes && !editados.includes('diasTrabalhados') &&
@@ -246,7 +254,11 @@ router.post('/:id/atualizar', autenticar, exigirPerfil(...PERFIS_FOLHA), async (
 
     return prisma.itemFolhaPagamento.upsert({
       where: { folhaId_colaboradorId: { folhaId: folha.id, colaboradorId: c.id } },
-      update: { ...novo, ...(diasNaoEditados && novo.tipoContrato === 'intermitente' ? { diasTrabalhados: sugerido } : {}) },
+      update: {
+        ...novo,
+        ...(diasNaoEditados && novo.tipoContrato === 'intermitente' ? { diasTrabalhados: sugerido } : {}),
+        ...(preservados.length ? { camposEditados: editados } : {})
+      },
       create: { folhaId: folha.id, colaboradorId: c.id, ...novo, diasTrabalhados: sugerido }
     })
   }))
