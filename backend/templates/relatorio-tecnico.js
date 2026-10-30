@@ -183,6 +183,7 @@ export function conteudoInicial(chave) {
     titulo: m.titulo,
     imo: '',
     certificadoNumero: '',
+    numeroRastreio: '',
     local: m.local,
     secoes: m.secoes,
     assinaturas: m.assinaturas
@@ -197,7 +198,7 @@ export const nomeModeloSalvo = conteudo => {
 }
 
 // O que um relatório concluído deixa pro próximo: títulos, textos e assinaturas.
-// Valores dos campos saem junto com fotos, anexos, IMO e nº do certificado — série e tag
+// Valores dos campos saem junto com fotos, anexos, IMO e nºs do certificado e de rastreio — série e tag
 // de um equipamento repetidos por engano no próximo documento seriam piores do
 // que digitar de novo.
 export function conteudoModeloSalvo(conteudo) {
@@ -206,6 +207,7 @@ export function conteudoModeloSalvo(conteudo) {
     ...c,
     imo: '',
     certificadoNumero: '',
+    numeroRastreio: '',
     anexos: [],
     secoes: c.secoes.map(s => s.tipo === 'fotos'
       ? { ...s, fotos: [] }
@@ -227,6 +229,7 @@ export function normalizarConteudo(bruto) {
     titulo: txt(c.titulo),
     imo: txt(c.imo),
     certificadoNumero: txt(c.certificadoNumero),
+    numeroRastreio: txt(c.numeroRastreio),
     local: txt(c.local),
     secoes: lista(c.secoes).map(s => s?.tipo === 'fotos'
       ? {
@@ -378,6 +381,7 @@ export function htmlRelatorioTecnico(relatorio, paginas = {}) {
 
   .capa { height: 205mm; position: relative; text-align: center; page-break-after: always; }
   .capa .titulo { position: absolute; top: 72mm; left: 0; right: 0; font-size: 12pt; }
+  .capa .rastreio { position: absolute; top: 106mm; left: 0; right: 0; font-size: 13pt; font-weight: bold; }
   .capa .ident { position: absolute; top: 120mm; left: 0; right: 0; font-size: 11pt; }
   .capa .data { position: absolute; bottom: 4mm; left: 0; right: 0; font-size: 11pt; }
 
@@ -418,6 +422,7 @@ export function htmlRelatorioTecnico(relatorio, paginas = {}) {
 <body>
   <div class="capa">
     <div class="titulo">${comQuebras(c.titulo)}</div>
+    ${c.numeroRastreio ? `<div class="rastreio">${escapeHtml(c.numeroRastreio)}</div>` : ''}
     <div class="ident">
       ${relatorio.navio ? `<div>Unidade Marítima: ${escapeHtml(relatorio.navio)}</div>` : ''}
       ${c.imo ? `<div>IMO: ${escapeHtml(c.imo)}</div>` : ''}

@@ -1160,6 +1160,7 @@ function renderFormularioRelatorioTecnico(r, empresas, modelos) {
           <div><label>Unidade marítima / Embarcação *</label><input type="text" id="rel-tec-navio" class="form-control" placeholder="Ex: P-77" value="${esc(r.navio || '')}" ${dis}></div>
           <div><label>IMO</label><input type="text" id="rel-tec-imo" class="form-control" value="${esc(c.imo || '')}" ${dis}></div>
           <div><label>Certificado Nº</label><input type="text" id="rel-tec-certificadoNumero" class="form-control" placeholder="Ex: 1320" value="${esc(c.certificadoNumero || '')}" ${dis}></div>
+          <div><label>Nº de rastreio</label><input type="text" id="rel-tec-numeroRastreio" class="form-control" placeholder="Ex: R261007" value="${esc(c.numeroRastreio || '')}" ${dis}></div>
           <div><label>Local</label><input type="text" id="rel-tec-local" class="form-control" placeholder="Ex: RIO DE JANEIRO-RJ" value="${esc(c.local || '')}" ${dis}></div>
         </div>
       `)}
@@ -1514,6 +1515,7 @@ function sincronizarTecnicoDoForm() {
   tecnicoEstado.titulo = valor('rel-tec-titulo')
   tecnicoEstado.imo = valor('rel-tec-imo')
   tecnicoEstado.certificadoNumero = valor('rel-tec-certificadoNumero')
+  tecnicoEstado.numeroRastreio = valor('rel-tec-numeroRastreio')
   tecnicoEstado.local = valor('rel-tec-local')
   tecnicoEstado.secoes = tecnicoEstado.secoes.map((s, i) => s.tipo === 'fotos'
     ? {
@@ -1634,11 +1636,11 @@ window.trocarModeloRelatorioTecnico = async function () {
     return
   }
   select.dataset.atual = select.value
-  // Mantém o que é da identificação (empresa, data, unidade, IMO, certificado);
+  // Mantém o que é da identificação (empresa, data, unidade, IMO, certificado, rastreio);
   // o resto vem do modelo novo.
   sincronizarTecnicoDoForm()
   const novo = structuredClone(modelosTecnico[select.value].conteudo)
-  tecnicoEstado = { ...novo, imo: tecnicoEstado.imo, certificadoNumero: tecnicoEstado.certificadoNumero }
+  tecnicoEstado = { ...novo, imo: tecnicoEstado.imo, certificadoNumero: tecnicoEstado.certificadoNumero, numeroRastreio: tecnicoEstado.numeroRastreio }
   document.getElementById('rel-tec-titulo').value = novo.titulo
   document.getElementById('rel-tec-local').value = novo.local
   renderizarSecoesTecnico()
