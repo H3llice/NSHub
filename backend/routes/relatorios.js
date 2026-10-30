@@ -575,8 +575,10 @@ const RESPONSAVEL_POS = { xCentro: 84.0, y: 261.0 }
 // da caixa certa.
 const TECNICO_POS = { x: 120.5, y: 250.5 }
 
+// Só as casas digitadas: 776 sai 776, 6.7 sai 6,7. O limite de 3 casas segura os
+// valores da migração com o número repetido na caixa do Word (3.4703 era 3.470).
 function formatarKg(v) {
-  return v === null || v === undefined ? '' : v.toFixed(3).replace('.', ',')
+  return v === null || v === undefined ? '' : String(Number(v.toFixed(3))).replace('.', ',')
 }
 
 // Junta o mesmo campo de todos os cilindros numa única string ("A / B / C") —
