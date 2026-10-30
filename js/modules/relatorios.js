@@ -1055,8 +1055,8 @@ let tecnicosCadastrados = []
 // Id do relatório aberto (null enquanto não foi salvo — foto só sobe depois
 // do primeiro Salvar, porque a pasta das fotos é por relatório).
 let tecnicoRelatorioId = null
-// Envios de foto em andamento — Salvar espera, senão a limpeza de fotos não
-// usadas do backend apagaria a foto que ainda está chegando.
+// Envios de foto ou anexo em andamento — Salvar espera, senão a limpeza de
+// arquivos não usados do backend apagaria o que ainda está chegando.
 let fotosEnviando = 0
 // Miniaturas já baixadas (arquivo → blob URL). A foto vem por apiFetch (com
 // token e o header do ngrok) em vez de <img src> direto.
@@ -1112,10 +1112,12 @@ async function abrirFormularioRelatorioTecnico(r, empresas, modelos) {
   tecnicoEstado = structuredClone(r.conteudo || {})
   tecnicoEstado.secoes = tecnicoEstado.secoes || []
   tecnicoEstado.assinaturas = tecnicoEstado.assinaturas || []
+  tecnicoEstado.anexos = tecnicoEstado.anexos || []
 
   document.getElementById('relatorios').innerHTML = renderFormularioRelatorioTecnico(r, empresas, modelos)
   renderizarSecoesTecnico()
   renderizarAssinaturasTecnico()
+  renderizarAnexosTecnico()
 }
 
 function renderFormularioRelatorioTecnico(r, empresas, modelos) {
@@ -1183,6 +1185,8 @@ function renderFormularioRelatorioTecnico(r, empresas, modelos) {
         ${tecnicoSomenteLeitura ? '' : '<button type="button" class="btn btn-secondary btn-sm" style="margin-top:8px;" onclick="tecAdicionarAssinatura()">+ Assinatura</button>'}
       `)}
 
+      ${secao('Anexos', '<div id="rel-tec-anexos"></div>')}
+
       ${tecnicoSomenteLeitura ? '' : `
         <div style="margin-bottom:16px; display:flex; justify-content:space-between; align-items:center; gap:12px;">
           <div style="display:flex; gap:12px;">
@@ -1227,12 +1231,22 @@ function renderFormularioRelatorioTecnico(r, empresas, modelos) {
 function numerosSecoesTecnico() {
   let principal = 0
   let sub = 0
-  return tecnicoEstado.secoes.map(s => {
-    if (!(s.titulo || '').trim()) return null
-    if (s.sub && principal) return `${principal}.${++sub}`
-    sub = 0
-    return `${++principal}.`
-  })
+  const secoes = tecnicoEstado.secoes
+  const aposAssinaturas = i => secoes[i].tipo === 'fotos' && secoes[i].aposAssinaturas
+  // Mesma ordem do PDF: fotos depois das assinaturas numeram por último
+  const indices = [...secoes.keys()]
+  const ordem = [...indices.filter(i => !aposAssinaturas(i)), ...indices.filter(aposAssinaturas)]
+  const numeros = []
+  for (const i of ordem) {
+    if (!(secoes[i].titulo || '').trim()) continue
+    if (secoes[i].sub && principal) {
+      numeros[i] = `${principal}.${++sub}`
+    } else {
+      sub = 0
+      numeros[i] = `${++principal}.`
+    }
+  }
+  return numeros
 }
 
 function renderizarSecoesTecnico() {
@@ -1293,6 +1307,9 @@ function renderCorpoFotos(s, i) {
   const lista = s.fotos || []
   return `
     <input type="text" class="form-control form-control-sm" style="margin-bottom:10px;" id="tec-s${i}-descricao" placeholder="Texto acima das fotos (ex: FOTOS DE ANTES DO REPARO)" value="${esc(s.descricao || '')}" ${dis}>
+    <label style="display:flex; align-items:center; gap:4px; font-size:12px; margin-bottom:10px;">
+      <input type="checkbox" id="tec-s${i}-apos" ${s.aposAssinaturas ? 'checked' : ''} onchange="tecAtualizarNumeracao()" ${dis}> Colocar depois das assinaturas
+    </label>
     <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(200px, 1fr)); gap:12px;">
       ${lista.map((f, k) => `
         <div style="border:1px solid #ddd; border-radius:6px; padding:8px; display:flex; flex-direction:column; gap:6px;">
@@ -1400,6 +1417,79 @@ window.tecRemoverFoto = function (i, k) {
   alterarSecoesTecnico(secoes => secoes[i].fotos.splice(k, 1))
 }
 
+function renderizarAnexosTecnico() {
+  const div = document.getElementById('rel-tec-anexos')
+  if (!div) return
+  const ro = tecnicoSomenteLeitura
+  const lista = tecnicoEstado.anexos
+  const url = a => `${API}/uploads/relatorios/${tecnicoRelatorioId}/${encodeURIComponent(a.arquivo)}?token=${encodeURIComponent(tokenAtual)}`
+  div.innerHTML = `
+    ${lista.length ? '<p style="color:#999; font-size:12px; margin:0 0 8px;">Entram no fim do PDF, nesta ordem, sem o papel timbrado.</p>' : ''}
+    ${lista.map((a, i) => `
+      <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
+        <a href="${esc(url(a))}" target="_blank" style="flex:1; overflow-wrap:anywhere;">${esc(a.nome || 'anexo.pdf')}</a>
+        ${ro ? '' : `
+          <button type="button" class="btn btn-sm btn-secondary" title="Subir" onclick="tecMoverAnexo(${i}, -1)" ${i === 0 ? 'disabled' : ''}>↑</button>
+          <button type="button" class="btn btn-sm btn-secondary" title="Descer" onclick="tecMoverAnexo(${i}, 1)" ${i === lista.length - 1 ? 'disabled' : ''}>↓</button>
+          <button type="button" class="btn btn-sm btn-danger" title="Remover anexo" onclick="tecRemoverAnexo(${i})">✕</button>
+        `}
+      </div>
+    `).join('')}
+    ${!lista.length && ro ? '<p style="color:#999; font-size:13px; margin:0;">Nenhum anexo.</p>' : ''}
+    ${ro ? '' : tecnicoRelatorioId ? `
+      <label class="btn btn-sm btn-secondary" style="margin-top:8px; margin-bottom:0;">
+        + Adicionar PDF
+        <input type="file" accept="application/pdf" multiple style="display:none;" onchange="tecEnviarAnexos(this)">
+      </label>
+      <span id="tec-anexos-envio" style="margin-left:8px; font-size:12px; color:#999;"></span>
+    ` : '<p style="color:#999; font-size:12px; margin:0;">Salve o relatório uma vez para poder adicionar anexos.</p>'}
+  `
+}
+
+window.tecEnviarAnexos = async function (input) {
+  const arquivos = [...input.files]
+  input.value = ''
+  if (!arquivos.length) return
+  const falhas = []
+  let enviados = 0
+  fotosEnviando++
+  try {
+    for (const [n, arquivo] of arquivos.entries()) {
+      const status = document.getElementById('tec-anexos-envio')
+      if (status) status.textContent = `Enviando ${n + 1} de ${arquivos.length}...`
+      try {
+        const corpo = new FormData()
+        corpo.append('anexo', arquivo)
+        const res = await apiFetch(`${API}/relatorios/${tecnicoRelatorioId}/anexos`, { method: 'POST', body: corpo })
+        const dados = await res.json()
+        if (!res.ok) throw new Error(dados.erro || 'falha no envio')
+        tecnicoEstado.anexos.push({ arquivo: dados.arquivo, nome: dados.nome })
+        enviados++
+        renderizarAnexosTecnico()
+      } catch (e) {
+        falhas.push(`${arquivo.name}: ${e.message}`)
+      }
+    }
+  } finally {
+    fotosEnviando--
+  }
+  const status = document.getElementById('tec-anexos-envio')
+  if (status) status.textContent = enviados ? 'Anexos adicionados — clique em Salvar para guardar.' : ''
+  if (falhas.length) alert('Alguns anexos não foram enviados:\n' + falhas.join('\n'))
+}
+
+window.tecMoverAnexo = function (i, direcao) {
+  const [a] = tecnicoEstado.anexos.splice(i, 1)
+  tecnicoEstado.anexos.splice(i + direcao, 0, a)
+  renderizarAnexosTecnico()
+}
+
+window.tecRemoverAnexo = function (i) {
+  if (!confirm('Remover este anexo do relatório?')) return
+  tecnicoEstado.anexos.splice(i, 1)
+  renderizarAnexosTecnico()
+}
+
 function renderizarAssinaturasTecnico() {
   const div = document.getElementById('rel-tec-assinaturas')
   if (!div) return
@@ -1430,6 +1520,7 @@ function sincronizarTecnicoDoForm() {
         tipo: 'fotos',
         titulo: valor(`tec-s${i}-titulo`),
         sub: marcado(`tec-s${i}-sub`),
+        aposAssinaturas: marcado(`tec-s${i}-apos`),
         descricao: valor(`tec-s${i}-descricao`),
         fotos: (s.fotos || []).map((f, k) => ({ arquivo: f.arquivo, legenda: valor(`tec-s${i}-f${k}-legenda`) }))
       }
@@ -1556,7 +1647,7 @@ window.trocarModeloRelatorioTecnico = async function () {
 
 window.salvarRelatorioTecnico = async function (id) {
   if (fotosEnviando) {
-    alert('Ainda tem foto sendo enviada — espere terminar e clique em Salvar de novo.')
+    alert('Ainda tem foto ou anexo sendo enviado — espere terminar e clique em Salvar de novo.')
     return
   }
   sincronizarTecnicoDoForm()

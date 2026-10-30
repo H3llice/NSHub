@@ -463,6 +463,39 @@ router.post('/:id/fotos', autenticar, exigirPerfil('usuario', 'gerente', 'admin'
   res.json({ arquivo })
 })
 
+// ─── Anexos do Relatório técnico (outros PDFs, entram no fim do PDF) ───────────
+const TAMANHO_MAXIMO_ANEXO_MB = 30
+const uploadAnexo = multer({ storage: multer.memoryStorage(), limits: { fileSize: TAMANHO_MAXIMO_ANEXO_MB * 1024 * 1024 } })
+
+router.post('/:id/anexos', autenticar, exigirPerfil('usuario', 'gerente', 'admin', 'tecnico'), (req, res, next) => {
+  uploadAnexo.single('anexo')(req, res, err => {
+    if (err?.code === 'LIMIT_FILE_SIZE') return res.status(400).json({ erro: `PDF maior que ${TAMANHO_MAXIMO_ANEXO_MB} MB` })
+    if (err) return next(err)
+    next()
+  })
+}, async (req, res) => {
+  const id = Number(req.params.id)
+  const relatorio = await prisma.relatorio.findUnique({ where: { id } })
+  if (!relatorio) return res.status(404).json({ erro: 'Relatório não encontrado' })
+  if (!relatorio.modelo) return res.status(400).json({ erro: 'Este tipo de relatório não tem anexos' })
+  if (relatorio.status !== 'preenchendo') return res.status(400).json({ erro: 'Relatório não pode ser editado neste status' })
+  if (!req.file) return res.status(400).json({ erro: 'Nenhum PDF enviado' })
+
+  // Abrir aqui em vez de na geração: PDF com senha ou corrompido é recusado na
+  // hora, e não quebra o PDF do relatório depois.
+  try {
+    await PDFDocument.load(req.file.buffer)
+  } catch {
+    return res.status(400).json({ erro: 'Arquivo não é um PDF válido ou está protegido por senha. Se estiver protegido, abra e use "Imprimir > Salvar como PDF" antes de anexar.' })
+  }
+
+  const arquivo = crypto.randomUUID() + '.pdf'
+  await fs.promises.mkdir(pastaFotosRelatorio(id), { recursive: true })
+  await fs.promises.writeFile(path.join(pastaFotosRelatorio(id), arquivo), req.file.buffer)
+  // multer entrega o nome em latin1
+  res.json({ arquivo, nome: Buffer.from(req.file.originalname, 'latin1').toString('utf8') })
+})
+
 // ─── Geração do PDF do Relatório (Lista de Verificação e Reparos de Balsa) ─────
 // Mesma técnica do Certificado: imagem de fundo real do modelo em papel
 // (assets/relatorio-balsa-fundo.jpeg, extraída do .docm) + valores desenhados

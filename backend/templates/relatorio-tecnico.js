@@ -33,6 +33,7 @@ const campos = (titulo, rotulos, valores = {}, sub = false) => ({
 // Seção 'fotos': título opcional + texto acima das fotos ("FOTOS DE ANTES
 // DO REPARO") + fotos com legenda, em grade de 2 colunas. Sem título ela não
 // ganha número — é como os originais agrupam as fotos dentro de uma seção.
+// aposAssinaturas (marcado na tela) leva a seção pra depois das assinaturas.
 const fotos = (descricao, titulo = '', sub = false) => ({ tipo: 'fotos', titulo, sub, descricao, fotos: [] })
 
 const EMPRESA_SOLICITANTE = ['EMPRESA', 'PLATAFORMA DE ORIGEM', 'GERÊNCIA SOLICITANTE']
@@ -157,16 +158,18 @@ export const MODELOS_RELATORIO_TECNICO = {
 }
 
 export const NOME_FOTO = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(jpg|png)$/
+export const NOME_ANEXO = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.pdf$/
 
-// Fotos ficam em uploads/relatorios/<id>/ (servido só com login, ver server.js).
+// Fotos e anexos ficam em uploads/relatorios/<id>/ (servido só com login, ver server.js).
 export function pastaFotosRelatorio(id) {
   return path.resolve('uploads', 'relatorios', String(id))
 }
 
-// Nomes de foto citados no conteúdo — o que não estiver aqui é lixo na pasta.
+// Nomes de foto e anexo citados no conteúdo — o que não estiver aqui é lixo na pasta.
 export function fotosUsadas(conteudo) {
-  const usadas = new Set()
-  for (const s of normalizarConteudo(conteudo).secoes) {
+  const c = normalizarConteudo(conteudo)
+  const usadas = new Set(c.anexos.map(a => a.arquivo))
+  for (const s of c.secoes) {
     if (s.tipo === 'fotos') s.fotos.forEach(f => usadas.add(f.arquivo))
   }
   return usadas
@@ -194,7 +197,7 @@ export const nomeModeloSalvo = conteudo => {
 }
 
 // O que um relatório concluído deixa pro próximo: títulos, textos e assinaturas.
-// Valores dos campos saem junto com fotos, IMO e nº do certificado — série e tag
+// Valores dos campos saem junto com fotos, anexos, IMO e nº do certificado — série e tag
 // de um equipamento repetidos por engano no próximo documento seriam piores do
 // que digitar de novo.
 export function conteudoModeloSalvo(conteudo) {
@@ -203,6 +206,7 @@ export function conteudoModeloSalvo(conteudo) {
     ...c,
     imo: '',
     certificadoNumero: '',
+    anexos: [],
     secoes: c.secoes.map(s => s.tipo === 'fotos'
       ? { ...s, fotos: [] }
       : s.tipo === 'campos'
@@ -229,6 +233,7 @@ export function normalizarConteudo(bruto) {
           tipo: 'fotos',
           titulo: txt(s.titulo),
           sub: !!s.sub,
+          aposAssinaturas: !!s.aposAssinaturas,
           descricao: txt(s.descricao),
           // Só nome gerado pelo upload (uuid.jpg/png) — o nome vira caminho
           // de arquivo no PDF, então nada de "../" vindo do navegador.
@@ -244,7 +249,11 @@ export function normalizarConteudo(bruto) {
           grupos: lista(s.grupos).map(g => lista(g).map(f => ({ rotulo: txt(f?.rotulo), valor: txt(f?.valor) })))
         }
       : { tipo: 'texto', titulo: txt(s?.titulo), texto: txt(s?.texto), sub: !!s?.sub }),
-    assinaturas: lista(c.assinaturas).map(a => ({ empresa: txt(a?.empresa), nome: txt(a?.nome), cargo: txt(a?.cargo), registro: txt(a?.registro) }))
+    assinaturas: lista(c.assinaturas).map(a => ({ empresa: txt(a?.empresa), nome: txt(a?.nome), cargo: txt(a?.cargo), registro: txt(a?.registro) })),
+    // Mesmo cuidado das fotos: o nome vira caminho de arquivo no PDF.
+    anexos: lista(c.anexos)
+      .filter(a => NOME_ANEXO.test(a?.arquivo || ''))
+      .map(a => ({ arquivo: a.arquivo, nome: txt(a.nome) }))
   }
 }
 
@@ -295,7 +304,11 @@ export function htmlRelatorioTecnico(relatorio, paginas = {}) {
   const empresaNome = (relatorio.empresa?.nome || '').toUpperCase()
   const cnpj = formatarCnpj(relatorio.empresa?.cnpj)
 
-  const secoes = numerarSecoes(c.secoes)
+  // Numeração e sumário seguem a ordem do papel: fotos marcadas pra depois das
+  // assinaturas ficam no fim, onde quer que estejam na tela.
+  const aposAssinaturas = s => s.tipo === 'fotos' && s.aposAssinaturas
+  const secoes = numerarSecoes([...c.secoes.filter(s => !aposAssinaturas(s)), ...c.secoes.filter(aposAssinaturas)])
+  const qtdAntes = c.secoes.filter(s => !aposAssinaturas(s)).length
 
   const pastaFotos = relatorio.id ? pastaFotosRelatorio(relatorio.id) : null
   // A foto entra no HTML como data URI — o Chromium do PDF não tem login pra
@@ -332,6 +345,13 @@ export function htmlRelatorioTecnico(relatorio, paginas = {}) {
   }
 
   const assinaturas = c.assinaturas.filter(a => a.empresa.trim() || a.nome.trim() || a.cargo.trim() || a.registro.trim())
+
+  const secaoHtml = (s, i) => `
+    <div class="secao ${s.sub ? 'sub' : ''}" id="secao-${i}">
+      ${s.numero ? `<h3>${s.numero} – ${escapeHtml(s.titulo)}</h3>` : ''}
+      ${corpoSecao(s)}
+    </div>
+  `
 
   return `<!DOCTYPE html>
 <html lang="pt-BR">
@@ -376,6 +396,7 @@ export function htmlRelatorioTecnico(relatorio, paginas = {}) {
   /* Última seção (a conclusão) + assinaturas não se separam: sem isso as
      assinaturas podiam ir sozinhas pra uma página nova. */
   .fecho { page-break-inside: avoid; }
+  .apos-assinaturas { margin-top: 12mm; }
   .assinaturas { display: flex; justify-content: space-around; gap: 6mm; margin-top: 22mm; page-break-inside: avoid; text-align: center; font-size: 9pt; line-height: 1.3; }
   .assinatura { flex: 1; max-width: 60mm; }
   .assinatura .linha { border-top: 1px solid #333; margin-bottom: 2mm; }
@@ -407,12 +428,9 @@ export function htmlRelatorioTecnico(relatorio, paginas = {}) {
     `).join('')}
   </div>
 
-  ${secoes.map((s, i) => `
-    ${i === secoes.length - 1 ? '<div class="fecho">' : ''}
-    <div class="secao ${s.sub ? 'sub' : ''}" id="secao-${i}">
-      ${s.numero ? `<h3>${s.numero} – ${escapeHtml(s.titulo)}</h3>` : ''}
-      ${corpoSecao(s)}
-    </div>
+  ${secoes.slice(0, qtdAntes).map((s, i) => `
+    ${i === qtdAntes - 1 ? '<div class="fecho">' : ''}
+    ${secaoHtml(s, i)}
   `).join('')}
 
   ${assinaturas.length ? `
@@ -431,7 +449,13 @@ export function htmlRelatorioTecnico(relatorio, paginas = {}) {
       `).join('')}
     </div>
   ` : ''}
-  ${secoes.length ? '</div>' : ''}
+  ${qtdAntes ? '</div>' : ''}
+
+  ${secoes.length > qtdAntes ? `
+    <div class="apos-assinaturas">
+      ${secoes.slice(qtdAntes).map((s, i) => secaoHtml(s, qtdAntes + i)).join('')}
+    </div>
+  ` : ''}
 </body>
 </html>`
 }
@@ -465,7 +489,25 @@ export async function gerarPdfRelatorioTecnico(relatorio) {
   const rascunho = await gerarPdf(htmlRelatorioTecnico(relatorio), { preferCSSPageSize: true })
   const paginas = paginasDasSecoes(await PDFDocument.load(rascunho))
   const conteudo = await gerarPdf(htmlRelatorioTecnico(relatorio, paginas), { preferCSSPageSize: true })
-  return aplicarTimbrado(conteudo, relatorio.empresa?.cnpj)
+  return juntarAnexos(await aplicarTimbrado(conteudo, relatorio.empresa?.cnpj), relatorio)
+}
+
+// PDFs anexados entram no fim, sem timbrado e sem número no sumário. A validade
+// de cada um é conferida no upload; anexo que sumiu do disco simplesmente não
+// sai, como as fotos.
+async function juntarAnexos(pdfBytes, relatorio) {
+  const { anexos } = normalizarConteudo(relatorio.conteudo)
+  if (!anexos.length) return pdfBytes
+
+  const pdfDoc = await PDFDocument.load(pdfBytes)
+  for (const anexo of anexos) {
+    const caminho = path.join(pastaFotosRelatorio(relatorio.id), anexo.arquivo)
+    if (!fs.existsSync(caminho)) continue
+    const origem = await PDFDocument.load(fs.readFileSync(caminho))
+    const paginas = await pdfDoc.copyPages(origem, origem.getPageIndices())
+    paginas.forEach(p => pdfDoc.addPage(p))
+  }
+  return pdfDoc.save()
 }
 
 const mm = valor => valor * 72 / 25.4
