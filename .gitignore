@@ -10,3 +10,5 @@ backend/scripts/relatorio-*.json
 Thumbs.db
 CLAUDE.md
 .claude/settings.local.json
+
+backend/backups

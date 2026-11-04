@@ -34,7 +34,7 @@ import auditoriaRouter from './routes/auditoria.js'
 import controleImcRouter from './routes/controle-imc.js'
 import { auditoria } from './middleware/auditoria.js'
 import { extensaoDinheiro } from './dinheiro.js'
-import { notificarPagamentoAtrasado, notificarVencimentoContrato } from './email.js'
+import { notificarPagamentoAtrasado, notificarVencimentoContrato, notificarProblemaBackup } from './email.js'
 import fs from 'fs'
 
 const __filename = fileURLToPath(import.meta.url)
@@ -280,7 +280,51 @@ async function avisarContratosVencendo() {
   }
 }
 
-const JOBS = [limparOcsCanceladas, marcarPagamentosAtrasados, gerarParcelasMensais, avisarContratosVencendo]
+// Lê o resultado do último backup (gravado por scripts/backup.ps1, tarefa noturna
+// do Agendador) e avisa por email se ele falhou em algum destino ou se parou de
+// rodar — sem isso, um HD externo desconectado passaria meses sem ninguém notar.
+// Só roda onde o backup está configurado (BACKUP_DESTINOS no .env), não em dev.
+const PASTA_BACKUPS = path.join(__dirname, 'backups')
+const HORAS_BACKUP_ATRASADO = 36
+
+async function verificarBackup() {
+  if (!process.env.BACKUP_DESTINOS) return
+
+  let status = null
+  try {
+    status = JSON.parse(fs.readFileSync(path.join(PASTA_BACKUPS, 'ultimo-backup.json'), 'utf8'))
+  } catch { }
+
+  const problemas = []
+  if (!status) {
+    problemas.push('Nenhum backup registrado ainda — a tarefa NSHubBackup nunca rodou (ver scripts/registrar-backup.ps1).')
+  } else {
+    const horas = (Date.now() - new Date(status.fim || status.inicio)) / (60 * 60 * 1000)
+    if (horas > HORAS_BACKUP_ATRASADO) {
+      problemas.push(`O último backup foi há ${Math.floor(horas / 24)} dia(s) — a tarefa agendada pode ter parado ou o PC ficou desligado.`)
+    }
+    if (status.erroBanco) problemas.push(`Cópia do banco: ${status.erroBanco}`)
+    for (const d of status.destinos || []) {
+      if (!d.ok) problemas.push(`Destino ${d.caminho}: ${d.erro}`)
+    }
+  }
+  if (problemas.length === 0) return
+
+  // Um email por situação, não um a cada 6h: a chave muda quando roda um backup
+  // novo ou quando muda o texto (o "há N dias" muda uma vez por dia)
+  const arquivoAviso = path.join(PASTA_BACKUPS, 'aviso-enviado.txt')
+  const chave = `${status?.inicio || 'nenhum'}|${problemas.join('|')}`
+  let ultimoAviso = null
+  try { ultimoAviso = fs.readFileSync(arquivoAviso, 'utf8') } catch { }
+  if (ultimoAviso === chave) return
+
+  if (await notificarProblemaBackup(problemas)) {
+    fs.mkdirSync(PASTA_BACKUPS, { recursive: true })
+    fs.writeFileSync(arquivoAviso, chave)
+  }
+}
+
+const JOBS = [limparOcsCanceladas, marcarPagamentosAtrasados, gerarParcelasMensais, avisarContratosVencendo, verificarBackup]
 
 // Um job que falha não pode impedir os outros nem derrubar o processo (promise
 // rejeitada sem catch dentro de timer encerra o Node)

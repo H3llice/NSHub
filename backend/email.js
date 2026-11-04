@@ -178,6 +178,28 @@ export async function notificarVencimentoContrato(contrato, vencido) {
   return true
 }
 
+// ─── Aviso de problema no backup ──────────────────────────────────────────────
+// Vai pra EMAIL_BACKUP (quem cuida do servidor) — não pros gerentes, que não
+// têm o que fazer com "HD externo desconectado". Devolve false sem destinatário,
+// pra que o job não marque o aviso como enviado.
+const RESPONSAVEIS_BACKUP = listaEmails(process.env.EMAIL_BACKUP)
+
+export async function notificarProblemaBackup(problemas) {
+  if (RESPONSAVEIS_BACKUP.length === 0) return false
+
+  await enviar({
+    para: RESPONSAVEIS_BACKUP,
+    assunto: '[Backup NSHub] Problema no backup do sistema',
+    corpo: `O backup automático do NSHub teve problema:\n\n` +
+      problemas.map(p => `  - ${p}`).join('\n') +
+      `\n\nDetalhes em backend\\backup.log no servidor. Enquanto não for resolvido, ` +
+      `os dados mais recentes podem existir só no próprio servidor.`
+  })
+
+  console.log('📧 Aviso de problema no backup enviado')
+  return true
+}
+
 // ─── Aviso de pagamento atrasado (contas a receber) ───────────────────────────
 // Pagamento pode ser de contrato, de venda de balsa, de venda de orçamento ou
 // avulso — mesma ordem de prioridade da tela de Contas a Receber
