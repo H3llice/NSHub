@@ -204,44 +204,68 @@ async function marcarPagamentosAtrasados() {
   }
 }
 
-// Gera a próxima parcela dos contratos mensais ativos
+// Vencimento de parcela é data pura (meia-noite UTC, como vem do <input type="date">)
+// — toda a conta abaixo é em UTC pra o fuso de Brasília não jogar pro dia anterior.
+const DIA_MS = 24 * 60 * 60 * 1000
+
+function hojeDataPura() {
+  const agora = new Date()
+  return new Date(Date.UTC(agora.getFullYear(), agora.getMonth(), agora.getDate()))
+}
+
+// `meses` depois de `data`, no dia `dia` do mês — ou no último dia, se o mês for
+// mais curto (vence dia 31 → 28/02 → 31/03, sem ir escorregando pro dia 28)
+function mesSeguinteNoDia(data, meses, dia) {
+  const ano = data.getUTCFullYear()
+  const mes = data.getUTCMonth() + meses
+  const ultimoDia = new Date(Date.UTC(ano, mes + 1, 0)).getUTCDate()
+  return new Date(Date.UTC(ano, mes, Math.min(dia, ultimoDia)))
+}
+
+// Gera a próxima parcela dos contratos mensais ativos, 5 dias antes do vencimento.
+// Mês que passou sem parcela (contrato antigo, de quando este job não funcionava)
+// NÃO é gerado retroativamente: o vencimento pula pro primeiro que ainda não passou.
+// Decisão do usuário — cobrança atrasada, se houver, é lançada à mão.
 async function gerarParcelasMensais() {
-  const hoje = inicioDeHoje()
+  const hoje = hojeDataPura()
 
   const contratosMensais = await prisma.contrato.findMany({
     where: { status: 'ativo', periodicidadePagamento: 'mensal' },
-    include: { pagamentos: { orderBy: { dataVencimento: 'desc' }, take: 1 } }
+    include: { pagamentos: { select: { dataVencimento: true }, orderBy: { dataVencimento: 'asc' } } }
   })
 
   for (const c of contratosMensais) {
-    const ultimaParcela = c.pagamentos[0]
-    if (!ultimaParcela) continue
+    if (c.pagamentos.length === 0) continue
 
-    const proximoVencimento = new Date(ultimaParcela.dataVencimento)
-    proximoVencimento.setMonth(proximoVencimento.getMonth() + 1)
+    // O dia de vencimento é o da 1ª parcela; a contagem segue da última
+    const dia = c.pagamentos[0].dataVencimento.getUTCDate()
+    const ultima = c.pagamentos[c.pagamentos.length - 1].dataVencimento
 
-    // Só cria a próxima parcela quando estiver a 5 dias ou menos do vencimento
-    const antecedencia = new Date(proximoVencimento)
-    antecedencia.setDate(antecedencia.getDate() - 5)
+    let meses = 1
+    let vencimento = mesSeguinteNoDia(ultima, meses, dia)
+    while (vencimento < hoje) vencimento = mesSeguinteNoDia(ultima, ++meses, dia)
 
-    if (hoje >= antecedencia) {
-      const jaExiste = await prisma.pagamento.findFirst({
-        where: { contratoId: c.id, dataVencimento: proximoVencimento.toISOString().split('T')[0] }
-      })
-      if (jaExiste) continue
+    if (hoje < new Date(vencimento.getTime() - 5 * DIA_MS)) continue
 
-      // Frete só entra na 1ª fatura (criada junto com o contrato) — as parcelas
-      // seguintes cobram só o valor recorrente (balsas - desconto), sem o frete.
-      await prisma.pagamento.create({
-        data: {
-          contratoId: c.id,
-          valor: (c.valor || 0) - (c.frete || 0),
-          dataVencimento: proximoVencimento.toISOString(),
-          referencia: `${String(proximoVencimento.getMonth() + 1).padStart(2, '0')}/${proximoVencimento.getFullYear()}`
-        }
-      })
-      console.log(`💰 Nova parcela gerada — Contrato ${c.numero}.${c.ano}`)
-    }
+    // Já tem parcela neste mês (gerada antes ou lançada à mão com outro dia)? Não duplica
+    const inicioMes = new Date(Date.UTC(vencimento.getUTCFullYear(), vencimento.getUTCMonth(), 1))
+    const inicioMesSeguinte = new Date(Date.UTC(vencimento.getUTCFullYear(), vencimento.getUTCMonth() + 1, 1))
+    const jaExiste = await prisma.pagamento.findFirst({
+      where: { contratoId: c.id, dataVencimento: { gte: inicioMes, lt: inicioMesSeguinte } }
+    })
+    if (jaExiste) continue
+
+    // Frete só entra na 1ª fatura (criada junto com o contrato) — as parcelas
+    // seguintes cobram só o valor recorrente (balsas - desconto), sem o frete.
+    await prisma.pagamento.create({
+      data: {
+        contratoId: c.id,
+        valor: (c.valor || 0) - (c.frete || 0),
+        dataVencimento: vencimento,
+        referencia: `${String(vencimento.getUTCMonth() + 1).padStart(2, '0')}/${vencimento.getUTCFullYear()}`
+      }
+    })
+    console.log(`💰 Nova parcela gerada — Contrato ${c.numero}.${c.ano} (vence ${vencimento.toISOString().slice(0, 10)})`)
   }
 }
 
