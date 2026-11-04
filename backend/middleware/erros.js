@@ -48,8 +48,14 @@ export function tratarErros(err, req, res, next) {
   // Sem a query string: PDF e anexo mandam o token de login em ?token=
   const rota = `${req.method} ${req.originalUrl.split('?')[0]}`
   const usuario = req.usuario ? ` (usuário ${req.usuario.id})` : ''
-  if (status >= 500) console.error(`❌ ${rota}${usuario}:`, err)
-  else console.warn(`⚠️  ${rota}${usuario} → ${status}: ${err.message}`)
+  if (status >= 500) {
+    console.error(`❌ ${rota}${usuario}:`, err)
+  } else {
+    // Erro do pedido: uma linha basta. A mensagem do Prisma traz a consulta
+    // inteira antes — a última linha é a que diz o que houve ("Argument `id` is missing.")
+    const resumo = String(err.message || '').trim().split('\n').filter(l => l.trim()).pop() || ''
+    console.warn(`⚠️  ${rota}${usuario} → ${status}: ${resumo.trim()}`)
+  }
 
   // Resposta já começou a sair (ex.: erro no meio de um sendFile) — não dá mais
   // pra mandar JSON; repassa pro Express, que só encerra a conexão
