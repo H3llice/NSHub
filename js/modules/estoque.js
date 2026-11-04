@@ -118,9 +118,10 @@ export function inicializarEstoque(finalidade) {
         <label style="font-size:12px;">Capacidade</label>
         <input type="number" id="filtro-capacidade-${finalidade}" class="form-control form-control-sm" oninput="aplicarFiltrosBalsa('${finalidade}')">
       </div>
-      <div style="display:flex; gap:6px; align-items:flex-end;">
-        <button class="btn btn-sm btn-outline-secondary" onclick="limparFiltrosBalsa('${finalidade}')">Limpar filtros</button>
-        <button class="btn btn-sm btn-outline-primary" onclick="exportarPdfEstoque('${finalidade}')">Exportar PDF</button>
+      <!-- Duas colunas do grid: numa só os botões quebravam o texto e ficavam mais altos que os campos -->
+      <div style="grid-column: span 2; display:flex; gap:8px;">
+        <button class="btn btn-sm btn-outline-secondary" style="flex:1; white-space:nowrap;" onclick="limparFiltrosBalsa('${finalidade}')">Limpar filtros</button>
+        <button class="btn btn-sm btn-outline-primary" style="flex:1; white-space:nowrap;" onclick="exportarPdfEstoque('${finalidade}')">Exportar PDF</button>
       </div>
     </div>
 
