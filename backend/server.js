@@ -33,6 +33,7 @@ import folhaPagamentoRouter from './routes/folha-pagamento.js'
 import auditoriaRouter from './routes/auditoria.js'
 import controleImcRouter from './routes/controle-imc.js'
 import { auditoria } from './middleware/auditoria.js'
+import { tratarErros } from './middleware/erros.js'
 import { extensaoDinheiro } from './dinheiro.js'
 import { notificarPagamentoAtrasado, notificarVencimentoContrato, notificarProblemaBackup } from './email.js'
 import fs from 'fs'
@@ -55,8 +56,7 @@ app.use(cors({
   origin(origin, callback) {
     // Sem header Origin = requisição same-origin, server-to-server ou via curl — libera.
     // Origem não permitida: `false` (não `Error`) faz o cors só omitir o header de liberação
-    // em vez de derrubar a request com exceção — sem handler de erro global ainda, um
-    // Error aqui vazaria stack trace com caminho do servidor pra quem tentasse.
+    // em vez de derrubar a request com exceção.
     if (!origin) return callback(null, true)
     const permitida = origin === origemProducao || origemLocalRegex.test(origin)
     callback(null, permitida)
@@ -129,6 +129,9 @@ app.use('/controle-imc', controleImcRouter)
 app.get('/api', (req, res) => {
   res.json({ mensagem: 'API do Portal NS funcionando!' })
 })
+
+// Tratamento de erro global — tem que ser o último app.use (ver middleware/erros.js)
+app.use(tratarErros)
 
 // ═══════════════════════════════ JOBS AUTOMÁTICOS ═══════════════════════════════
 // Todos são idempotentes (rodar duas vezes no mesmo dia não duplica nada), então
