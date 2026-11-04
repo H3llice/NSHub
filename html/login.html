@@ -73,7 +73,10 @@
   </div>
 
   <script>
-    const API = 'https://override-steerable-professed.ngrok-free.dev'
+    // Mesma regra de js/modules/api.js (este script não é módulo, então não importa
+    // de lá): mesma origem da página, exceto num servidor de dev local que não é o backend
+    const devLocal = ['localhost', '127.0.0.1'].includes(location.hostname) && location.port !== '3000'
+    const API = devLocal ? 'https://override-steerable-professed.ngrok-free.dev' : ''
 
     // Se já tiver token válido, vai direto pro sistema
     const token = localStorage.getItem('ns_token')

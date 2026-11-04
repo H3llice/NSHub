@@ -1,44 +1,5 @@
 import { esc } from './html.js'
-const API = 'https://override-steerable-professed.ngrok-free.dev'
-
-// ─── Auth helper (mesmo padrão dos outros módulos) ────────────────────────────
-function tratarSessaoExpirada(res) {
-  if (res.status === 401) {
-    localStorage.removeItem('ns_token')
-    localStorage.removeItem('ns_usuario')
-    alert('Sua sessão expirou. Faça login novamente.')
-    window.location.href = './login.html'
-    throw new Error('Sessão expirada')
-  }
-  return res
-}
-
-async function apiFetch(url, options = {}) {
-  const token = localStorage.getItem('ns_token')
-  const res = await fetch(url, {
-    ...options,
-    headers: {
-      ...(options.headers || {}),
-      'Authorization': `Bearer ${token}`,
-      'ngrok-skip-browser-warning': 'true'
-    }
-  })
-  return tratarSessaoExpirada(res)
-}
-
-async function apiJson(url, options = {}) {
-  const token = localStorage.getItem('ns_token')
-  const res = await fetch(url, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`,
-      'ngrok-skip-browser-warning': 'true',
-      ...(options.headers || {})
-    }
-  })
-  return tratarSessaoExpirada(res)
-}
+import { API, apiFetch, apiJson, apiDados } from './api.js'
 
 const usuarioAtual = JSON.parse(localStorage.getItem('ns_usuario') || 'null')
 const perfil = usuarioAtual?.perfil || 'usuario'
@@ -121,7 +82,7 @@ window.carregarClientes = async function (pagina = 1) {
   params.append('pagina', pagina)
 
   try {
-    const dados = await apiFetch(`${API}/clientes?${params}`).then(r => r.json())
+    const dados = await apiDados(`${API}/clientes?${params}`)
     renderizarTabelaClientes(dados.clientes || [])
 
     const contador = document.getElementById('contador-clientes')
@@ -232,7 +193,7 @@ window.salvarCliente = async function () {
 }
 
 window.editarCliente = async function (id) {
-  const c = await apiFetch(`${API}/clientes/${id}`).then(r => r.json())
+  const c = await apiDados(`${API}/clientes/${id}`)
 
   document.getElementById('pessoas').innerHTML = `
     <div style="margin-top:20px; max-width:600px;">
@@ -327,7 +288,7 @@ window.carregarContratos = async function (pagina = 1) {
   params.append('pagina', pagina)
 
   try {
-    const dados = await apiFetch(`${API}/contratos?${params}`).then(r => r.json())
+    const dados = await apiDados(`${API}/contratos?${params}`)
     renderizarTabelaContratos(dados.contratos || [])
 
     const contador = document.getElementById('contador-contratos')
@@ -526,13 +487,13 @@ window.removerDocumentoContrato = async function (id, btn) {
 
 // ===== VISUALIZAÇÃO DO CONTRATO ==============================================
 window.verContrato = async function (id) {
-  const c = await apiFetch(`${API}/contratos/${id}`).then(r => r.json())
+  const c = await apiDados(`${API}/contratos/${id}`)
 
   const podeAlterar = podeGerenciarContratos && c.status === 'ativo'
   const noContrato = c.balsas.filter(cb => !cb.devolvidaEm)
   // Balsas disponíveis pra entrar por aditivo — só busca quando dá pra incluir
   const disponiveis = podeAlterar
-    ? await apiFetch(`${API}/estoque?finalidade=locacao`).then(r => r.json()).catch(() => [])
+    ? await apiDados(`${API}/estoque?finalidade=locacao`, { semAviso: true }).catch(() => [])
     : []
   const tokenLink = encodeURIComponent(localStorage.getItem('ns_token') || '')
 
@@ -774,7 +735,7 @@ window.filtrarBalsasContrato = function () {
 window.abrirFormularioContrato = async function () {
   clienteSelecionadoId = null
   balsaValoresSelecionados = new Map()
-  balsasDisponiveisCache = await apiFetch(`${API}/estoque?finalidade=locacao`).then(r => r.json())
+  balsasDisponiveisCache = await apiDados(`${API}/estoque?finalidade=locacao`)
 
   document.getElementById('contratos').innerHTML = `
     <div style="margin-top:20px;">
@@ -870,7 +831,7 @@ window.buscarClienteContrato = async function (q) {
     return
   }
 
-  const results = await apiFetch(`${API}/clientes/buscar?q=${encodeURIComponent(q)}`).then(r => r.json())
+  const results = await apiDados(`${API}/clientes/buscar?q=${encodeURIComponent(q)}`)
 
   if (results.length === 0) {
     div.style.display = 'none'
@@ -1017,7 +978,7 @@ export async function renderizarDashboardContratos() {
   painel.innerHTML = `<div style="color:#999; padding:12px;">Carregando resumo de contratos...</div>`
 
   try {
-    const d = await apiFetch(`${API}/contratos/dashboard`).then(r => r.json())
+    const d = await apiDados(`${API}/contratos/dashboard`, { semAviso: true })
 
     painel.innerHTML = `
       <h5 style="margin-bottom:12px;">Contratos</h5>

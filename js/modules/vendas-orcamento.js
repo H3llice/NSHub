@@ -1,44 +1,5 @@
 import { esc } from './html.js'
-const API = 'https://override-steerable-professed.ngrok-free.dev'
-
-// ─── Auth helper (mesmo padrão dos outros módulos) ────────────────────────────
-function tratarSessaoExpirada(res) {
-  if (res.status === 401) {
-    localStorage.removeItem('ns_token')
-    localStorage.removeItem('ns_usuario')
-    alert('Sua sessão expirou. Faça login novamente.')
-    window.location.href = './login.html'
-    throw new Error('Sessão expirada')
-  }
-  return res
-}
-
-async function apiFetch(url, options = {}) {
-  const token = localStorage.getItem('ns_token')
-  const res = await fetch(url, {
-    ...options,
-    headers: {
-      ...(options.headers || {}),
-      'Authorization': `Bearer ${token}`,
-      'ngrok-skip-browser-warning': 'true'
-    }
-  })
-  return tratarSessaoExpirada(res)
-}
-
-async function apiJson(url, options = {}) {
-  const token = localStorage.getItem('ns_token')
-  const res = await fetch(url, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`,
-      'ngrok-skip-browser-warning': 'true',
-      ...(options.headers || {})
-    }
-  })
-  return tratarSessaoExpirada(res)
-}
+import { API, apiJson, apiDados } from './api.js'
 
 const usuarioAtual = JSON.parse(localStorage.getItem('ns_usuario') || 'null')
 const perfil = usuarioAtual?.perfil || 'usuario'
@@ -139,7 +100,7 @@ window.carregarVendasOrcamento = async function (pagina = 1) {
   params.append('pagina', pagina)
 
   try {
-    const dados = await apiFetch(`${API}/vendas-orcamento?${params}`).then(r => r.json())
+    const dados = await apiDados(`${API}/vendas-orcamento?${params}`)
     renderizarTabelaVendasOrcamento(dados.vendas || [])
 
     const contador = document.getElementById('contador-vendas-orc')
@@ -186,7 +147,7 @@ function renderizarTabelaVendasOrcamento(vendas) {
 
 // ===== VISUALIZAÇÃO DA VENDA =====================================================
 window.verVendaOrcamento = async function (id) {
-  const v = await apiFetch(`${API}/vendas-orcamento/${id}`).then(r => r.json())
+  const v = await apiDados(`${API}/vendas-orcamento/${id}`)
 
   document.getElementById('vendasOrcamento').innerHTML = `
     <div style="margin-top:20px; max-width:900px;">
@@ -300,7 +261,7 @@ let voModoAvulsa = false
 
 // Chamada pelo botão "Criar Venda" na tela de detalhe do Orçamento (aprovado).
 export async function abrirCriarVendaOrcamento(orcamentoId) {
-  const o = await apiFetch(`${API}/orcamentos/${orcamentoId}`).then(r => r.json())
+  const o = await apiDados(`${API}/orcamentos/${orcamentoId}`)
   voOrcamentoAtual = o
   voModoAvulsa = false
 
@@ -422,9 +383,9 @@ window.abrirVendaAvulsa = async function () {
   vaItensContador = 0
 
   const [usuarios, produtos, servicos] = await Promise.all([
-    apiFetch(`${API}/colaboradores/vendedores`).then(r => r.json()),
-    apiFetch(`${API}/almoxarifado/produtos?todas=1`).then(r => r.json()),
-    apiFetch(`${API}/servicos?todas=1`).then(r => r.json()),
+    apiDados(`${API}/colaboradores/vendedores`),
+    apiDados(`${API}/almoxarifado/produtos?todas=1`),
+    apiDados(`${API}/servicos?todas=1`),
   ])
   vaCatalogoProdutos = produtos
   vaCatalogoServicos = servicos
@@ -694,7 +655,7 @@ window.buscarClienteVendaAvulsa = async function (q) {
 
   if (q.length < 2) { div.style.display = 'none'; return }
 
-  vaClientesBusca = await apiFetch(`${API}/clientes/buscar?q=${encodeURIComponent(q)}`).then(r => r.json())
+  vaClientesBusca = await apiDados(`${API}/clientes/buscar?q=${encodeURIComponent(q)}`)
   if (vaClientesBusca.length === 0) { div.style.display = 'none'; return }
 
   div.style.display = 'block'

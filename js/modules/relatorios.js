@@ -1,44 +1,5 @@
 import { esc } from './html.js'
-const API = 'https://override-steerable-professed.ngrok-free.dev'
-
-// ─── Auth helper (mesmo padrão dos outros módulos) ────────────────────────────
-function tratarSessaoExpirada(res) {
-  if (res.status === 401) {
-    localStorage.removeItem('ns_token')
-    localStorage.removeItem('ns_usuario')
-    alert('Sua sessão expirou. Faça login novamente.')
-    window.location.href = './login.html'
-    throw new Error('Sessão expirada')
-  }
-  return res
-}
-
-async function apiFetch(url, options = {}) {
-  const token = localStorage.getItem('ns_token')
-  const res = await fetch(url, {
-    ...options,
-    headers: {
-      ...(options.headers || {}),
-      'Authorization': `Bearer ${token}`,
-      'ngrok-skip-browser-warning': 'true'
-    }
-  })
-  return tratarSessaoExpirada(res)
-}
-
-async function apiJson(url, options = {}) {
-  const token = localStorage.getItem('ns_token')
-  const res = await fetch(url, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`,
-      'ngrok-skip-browser-warning': 'true',
-      ...(options.headers || {})
-    }
-  })
-  return tratarSessaoExpirada(res)
-}
+import { API, apiFetch, apiJson, apiDados } from './api.js'
 
 // ══════════════════════════════════════════════════════════════════════════
 // RELATÓRIOS DE SERVIÇO DE BALSAS (Serviços → Relatórios)
@@ -277,7 +238,7 @@ window.novoRelatorioTipoAtivo = async function () {
 
   cilindrosEstado = [{}]
   cilindrosSomenteLeitura = false
-  const empresas = await apiFetch(`${API}/empresas`).then(r => r.json())
+  const empresas = await apiDados(`${API}/empresas`)
 
   document.getElementById('relatorios').innerHTML = renderFormularioRelatorio(null, empresas)
   renderizarCilindros()
@@ -289,7 +250,7 @@ window.carregarRelatorios = async function (pagina = 1) {
   const tipo = document.getElementById('rel-tipo-ativo')?.value || 'balsa'
   document.getElementById('cabecalho-relatorios').innerHTML = cabecalhoRelatorios(tipo)
   try {
-    const resp = await apiFetch(`${API}/relatorios?pagina=${pagina}&tipo=${tipo}`).then(r => r.json())
+    const resp = await apiDados(`${API}/relatorios?pagina=${pagina}&tipo=${tipo}`)
     const tabela = document.getElementById('tabela-relatorios')
 
     const contador = document.getElementById('contador-relatorios')
@@ -349,8 +310,8 @@ window.gerarRelatorioDeOS = async function (ordemServicoId) {
   cilindrosEstado = [{}]
   cilindrosSomenteLeitura = false
   const [os, empresas] = await Promise.all([
-    apiFetch(`${API}/ordens-servico/${ordemServicoId}`).then(r => r.json()),
-    apiFetch(`${API}/empresas`).then(r => r.json())
+    apiDados(`${API}/ordens-servico/${ordemServicoId}`),
+    apiDados(`${API}/empresas`)
   ])
 
   if (os.relatorio) {
@@ -746,7 +707,7 @@ window.buscarEmbarcacaoRelatorio = async function (q) {
     return
   }
 
-  const results = await apiFetch(`${API}/embarcacoes/buscar?q=${encodeURIComponent(q)}`).then(r => r.json())
+  const results = await apiDados(`${API}/embarcacoes/buscar?q=${encodeURIComponent(q)}`)
 
   if (results.length === 0) {
     div.innerHTML = `<div style="padding:8px 12px; color:#999;">Nenhuma embarcação encontrada — pode digitar livremente (armador e porto ficam como texto do relatório)</div>`
@@ -1088,7 +1049,7 @@ async function novoRelatorioTecnico() {
   try {
     [modelos, empresas] = await Promise.all([
       carregarModelosTecnico(),
-      apiFetch(`${API}/empresas`).then(r => r.json())
+      apiDados(`${API}/empresas`)
     ])
   } catch (e) {
     // Chamado de onclick — sem isso a falha some no console e o botão

@@ -1,44 +1,5 @@
 import { esc } from './html.js'
-const API = 'https://override-steerable-professed.ngrok-free.dev'
-
-// ─── Auth helper (mesmo padrão dos outros módulos) ────────────────────────────
-function tratarSessaoExpirada(res) {
-  if (res.status === 401) {
-    localStorage.removeItem('ns_token')
-    localStorage.removeItem('ns_usuario')
-    alert('Sua sessão expirou. Faça login novamente.')
-    window.location.href = './login.html'
-    throw new Error('Sessão expirada')
-  }
-  return res
-}
-
-async function apiFetch(url, options = {}) {
-  const token = localStorage.getItem('ns_token')
-  const res = await fetch(url, {
-    ...options,
-    headers: {
-      ...(options.headers || {}),
-      'Authorization': `Bearer ${token}`,
-      'ngrok-skip-browser-warning': 'true'
-    }
-  })
-  return tratarSessaoExpirada(res)
-}
-
-async function apiJson(url, options = {}) {
-  const token = localStorage.getItem('ns_token')
-  const res = await fetch(url, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`,
-      'ngrok-skip-browser-warning': 'true',
-      ...(options.headers || {})
-    }
-  })
-  return tratarSessaoExpirada(res)
-}
+import { API, apiJson, apiDados } from './api.js'
 
 const usuarioAtual = JSON.parse(localStorage.getItem('ns_usuario') || 'null')
 const perfil = usuarioAtual?.perfil || 'usuario'
@@ -103,7 +64,7 @@ window.carregarProdutosAlmox = async function (pagina = 1) {
   paginaAtualProdutosAlmox = pagina
   const container = document.getElementById('conteudo-almox')
   try {
-    const dados = await apiFetch(`${API}/almoxarifado/produtos?pagina=${pagina}`).then(r => r.json())
+    const dados = await apiDados(`${API}/almoxarifado/produtos?pagina=${pagina}`)
     produtosCacheAlmox = dados.produtos || []
     renderizarTabelaProdutosAlmox(produtosCacheAlmox, dados)
   } catch (err) {
@@ -235,7 +196,7 @@ window.salvarProdutoAlmox = async function () {
 
 // ===== FORMULÁRIO — EDITAR PRODUTO =============================================
 window.editarProdutoAlmox = async function (id) {
-  const p = await apiFetch(`${API}/almoxarifado/produtos/${id}`).then(r => r.json())
+  const p = await apiDados(`${API}/almoxarifado/produtos/${id}`)
 
   document.getElementById('almoxarifado').innerHTML = `
     <div style="margin-top:20px; max-width:600px;">
@@ -306,7 +267,7 @@ window.carregarPedidosAlmox = async function (pagina = 1) {
   paginaAtualPedidosAlmox = pagina
   const container = document.getElementById('conteudo-almox')
   try {
-    const dados = await apiFetch(`${API}/almoxarifado/pedidos?pagina=${pagina}`).then(r => r.json())
+    const dados = await apiDados(`${API}/almoxarifado/pedidos?pagina=${pagina}`)
     renderizarTabelaPedidosAlmox(dados.pedidos || [], dados)
   } catch (err) {
     container.innerHTML = '<p style="text-align:center; color:red; padding:30px;">Erro ao conectar com o servidor</p>'
@@ -399,7 +360,7 @@ window.removerItemPedidoAlmox = function (i) {
 }
 
 window.abrirFormularioPedidoAlmox = async function () {
-  produtosCacheAlmox = await apiFetch(`${API}/almoxarifado/produtos?todas=1`).then(r => r.json())
+  produtosCacheAlmox = await apiDados(`${API}/almoxarifado/produtos?todas=1`)
 
   window.almoxPedidoEstado = { itens: [] }
   novoItemPedidoAlmox()
@@ -459,7 +420,7 @@ window.salvarPedidoAlmox = async function () {
 
 // ===== VER DETALHES DE UM PEDIDO ================================================
 window.verPedidoAlmox = async function (id) {
-  const p = await apiFetch(`${API}/almoxarifado/pedidos/${id}`).then(r => r.json())
+  const p = await apiDados(`${API}/almoxarifado/pedidos/${id}`)
 
   const total = p.itens.reduce((acc, i) => acc + (i.valorUni || 0) * i.quantidade, 0)
 
@@ -545,7 +506,7 @@ export async function renderizarDashboardAlmoxarifado() {
   }
 
   try {
-    const criticos = await apiFetch(`${API}/almoxarifado/alertas`).then(r => r.json())
+    const criticos = await apiDados(`${API}/almoxarifado/alertas`, { semAviso: true })
 
     if (!criticos?.length) {
       painel.innerHTML = ''

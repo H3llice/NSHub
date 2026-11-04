@@ -1,44 +1,5 @@
 import { esc } from './html.js'
-const API = 'https://override-steerable-professed.ngrok-free.dev'
-
-// ─── Auth helper (mesmo padrão dos outros módulos) ────────────────────────────
-function tratarSessaoExpirada(res) {
-  if (res.status === 401) {
-    localStorage.removeItem('ns_token')
-    localStorage.removeItem('ns_usuario')
-    alert('Sua sessão expirou. Faça login novamente.')
-    window.location.href = './login.html'
-    throw new Error('Sessão expirada')
-  }
-  return res
-}
-
-async function apiFetch(url, options = {}) {
-  const token = localStorage.getItem('ns_token')
-  const res = await fetch(url, {
-    ...options,
-    headers: {
-      ...(options.headers || {}),
-      'Authorization': `Bearer ${token}`,
-      'ngrok-skip-browser-warning': 'true'
-    }
-  })
-  return tratarSessaoExpirada(res)
-}
-
-async function apiJson(url, options = {}) {
-  const token = localStorage.getItem('ns_token')
-  const res = await fetch(url, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`,
-      'ngrok-skip-browser-warning': 'true',
-      ...(options.headers || {})
-    }
-  })
-  return tratarSessaoExpirada(res)
-}
+import { API, apiFetch, apiJson, apiDados } from './api.js'
 
 // ══════════════════════════════════════════════════════════════════════════
 // ORDENS DE SERVIÇO (Serviços → Ordens de serviço) — precede o Relatório
@@ -100,7 +61,7 @@ let paginaAtualOS = 1
 window.carregarOrdensServico = async function (pagina = 1) {
   paginaAtualOS = pagina
   try {
-    const resp = await apiFetch(`${API}/ordens-servico?pagina=${pagina}`).then(r => r.json())
+    const resp = await apiDados(`${API}/ordens-servico?pagina=${pagina}`)
     const tabela = document.getElementById('tabela-os')
 
     const contador = document.getElementById('contador-os')
@@ -151,7 +112,7 @@ window.carregarOrdensServico = async function (pagina = 1) {
 // ─── Formulário (criar / editar) ────────────────────────────────────────────────
 
 window.abrirFormularioOS = async function () {
-  const empresas = await apiFetch(`${API}/empresas`).then(r => r.json())
+  const empresas = await apiDados(`${API}/empresas`)
   document.getElementById('os').innerHTML = renderFormularioOS(null, empresas)
 }
 
@@ -280,7 +241,7 @@ window.buscarEmbarcacaoOS = async function (q) {
     return
   }
 
-  const results = await apiFetch(`${API}/embarcacoes/buscar?q=${encodeURIComponent(q)}`).then(r => r.json())
+  const results = await apiDados(`${API}/embarcacoes/buscar?q=${encodeURIComponent(q)}`)
 
   if (results.length === 0) {
     div.innerHTML = `<div style="padding:8px 12px; color:#999;">Nenhuma embarcação encontrada — será cadastrada automaticamente ao salvar a OS</div>`
@@ -343,7 +304,7 @@ window.buscarClienteOS = async function (q) {
     return
   }
 
-  const results = await apiFetch(`${API}/clientes/buscar?q=${encodeURIComponent(q)}`).then(r => r.json())
+  const results = await apiDados(`${API}/clientes/buscar?q=${encodeURIComponent(q)}`)
 
   if (results.length === 0) {
     div.innerHTML = `<div style="padding:8px 12px; color:#999;">Nenhum cliente encontrado — será cadastrado automaticamente ao salvar a OS (informe o CPF/CNPJ ao lado)</div>`

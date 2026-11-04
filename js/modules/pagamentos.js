@@ -1,44 +1,5 @@
 import { esc } from './html.js'
-const API = 'https://override-steerable-professed.ngrok-free.dev'
-
-// ─── Auth helper (mesmo padrão dos outros módulos) ────────────────────────────
-function tratarSessaoExpirada(res) {
-  if (res.status === 401) {
-    localStorage.removeItem('ns_token')
-    localStorage.removeItem('ns_usuario')
-    alert('Sua sessão expirou. Faça login novamente.')
-    window.location.href = './login.html'
-    throw new Error('Sessão expirada')
-  }
-  return res
-}
-
-async function apiFetch(url, options = {}) {
-  const token = localStorage.getItem('ns_token')
-  const res = await fetch(url, {
-    ...options,
-    headers: {
-      ...(options.headers || {}),
-      'Authorization': `Bearer ${token}`,
-      'ngrok-skip-browser-warning': 'true'
-    }
-  })
-  return tratarSessaoExpirada(res)
-}
-
-async function apiJson(url, options = {}) {
-  const token = localStorage.getItem('ns_token')
-  const res = await fetch(url, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`,
-      'ngrok-skip-browser-warning': 'true',
-      ...(options.headers || {})
-    }
-  })
-  return tratarSessaoExpirada(res)
-}
+import { API, apiJson, apiDados } from './api.js'
 
 const usuarioAtual = JSON.parse(localStorage.getItem('ns_usuario') || 'null')
 const perfil = usuarioAtual?.perfil || 'usuario'
@@ -139,7 +100,7 @@ export function inicializarContasReceber() {
 
 async function carregarResumoContasReceber() {
   try {
-    const d = await apiFetch(`${API}/pagamentos/dashboard`).then(r => r.json())
+    const d = await apiDados(`${API}/pagamentos/dashboard`)
     document.getElementById('resumo-total-receber').textContent = formatarMoeda(d.totalAReceber)
     document.getElementById('resumo-total-atrasado').textContent = formatarMoeda(d.totalAtrasado)
     document.getElementById('resumo-total-recebido').textContent = formatarMoeda(d.totalRecebido30dias)
@@ -165,7 +126,7 @@ window.carregarPagamentos = async function (pagina = 1) {
   params.append('pagina', pagina)
 
   try {
-    const dados = await apiFetch(`${API}/pagamentos?${params}`).then(r => r.json())
+    const dados = await apiDados(`${API}/pagamentos?${params}`)
     renderizarTabelaPagamentos(dados.pagamentos || [])
 
     const contador = document.getElementById('contador-pagamentos')
@@ -318,7 +279,7 @@ export async function renderizarDashboardInicio() {
   painel.innerHTML = `<div style="color:#999; padding:12px;">Carregando resumo financeiro...</div>`
 
   try {
-    const d = await apiFetch(`${API}/pagamentos/dashboard`).then(r => r.json())
+    const d = await apiDados(`${API}/pagamentos/dashboard`, { semAviso: true })
 
     painel.innerHTML = `
       <h5 style="margin-bottom:12px;">Resumo Financeiro</h5>

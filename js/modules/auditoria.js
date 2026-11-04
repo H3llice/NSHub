@@ -1,30 +1,5 @@
 import { esc } from './html.js'
-const API = 'https://override-steerable-professed.ngrok-free.dev'
-
-// ─── Auth helper (mesmo padrão dos outros módulos) ────────────────────────────
-function tratarSessaoExpirada(res) {
-  if (res.status === 401) {
-    localStorage.removeItem('ns_token')
-    localStorage.removeItem('ns_usuario')
-    alert('Sua sessão expirou. Faça login novamente.')
-    window.location.href = './login.html'
-    throw new Error('Sessão expirada')
-  }
-  return res
-}
-
-async function apiFetch(url, options = {}) {
-  const token = localStorage.getItem('ns_token')
-  const res = await fetch(url, {
-    ...options,
-    headers: {
-      ...(options.headers || {}),
-      'Authorization': `Bearer ${token}`,
-      'ngrok-skip-browser-warning': 'true'
-    }
-  })
-  return tratarSessaoExpirada(res)
-}
+import { API, apiFetch, apiDados } from './api.js'
 
 // O log guarda método + rota (ver backend/middleware/auditoria.js) — aqui vira
 // um verbo legível. O último trecho da rota costuma dizer a ação específica
@@ -94,7 +69,7 @@ export function inicializarAuditoria() {
 
 async function carregarUsuariosFiltro() {
   try {
-    const usuarios = await apiFetch(`${API}/auth/simples`).then(r => r.json())
+    const usuarios = await apiDados(`${API}/auth/simples`)
     const select = document.getElementById('filtro-auditoria-usuario')
     if (!select) return
     select.innerHTML = '<option value="">Todos</option>' +

@@ -1,44 +1,5 @@
 import { esc } from './html.js'
-const API = 'https://override-steerable-professed.ngrok-free.dev'
-
-// ─── Auth helper (mesmo padrão dos outros módulos) ────────────────────────────
-function tratarSessaoExpirada(res) {
-  if (res.status === 401) {
-    localStorage.removeItem('ns_token')
-    localStorage.removeItem('ns_usuario')
-    alert('Sua sessão expirou. Faça login novamente.')
-    window.location.href = './login.html'
-    throw new Error('Sessão expirada')
-  }
-  return res
-}
-
-async function apiFetch(url, options = {}) {
-  const token = localStorage.getItem('ns_token')
-  const res = await fetch(url, {
-    ...options,
-    headers: {
-      ...(options.headers || {}),
-      'Authorization': `Bearer ${token}`,
-      'ngrok-skip-browser-warning': 'true'
-    }
-  })
-  return tratarSessaoExpirada(res)
-}
-
-async function apiJson(url, options = {}) {
-  const token = localStorage.getItem('ns_token')
-  const res = await fetch(url, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`,
-      'ngrok-skip-browser-warning': 'true',
-      ...(options.headers || {})
-    }
-  })
-  return tratarSessaoExpirada(res)
-}
+import { API, apiFetch, apiJson, apiDados } from './api.js'
 
 const usuarioAtual = JSON.parse(localStorage.getItem('ns_usuario') || 'null')
 const perfil = usuarioAtual?.perfil || 'usuario'
@@ -112,7 +73,7 @@ export function inicializarSolicitacoes() {
     </div>
   `
 
-  apiFetch(`${API}/empresas`).then(r => r.json()).then(empresas => {
+  apiDados(`${API}/empresas`).then(empresas => {
     const select = document.getElementById('filtro-sc-empresa')
     empresas.forEach(e => {
       select.innerHTML += `<option value="${e.id}">${esc(e.sigla)}</option>`
@@ -243,7 +204,7 @@ function novoFornecedorSC() {
 }
 
 window.abrirFormularioSolicitacao = async function (dadosExistentes = null) {
-  const empresas = await apiFetch(`${API}/empresas`).then(r => r.json())
+  const empresas = await apiDados(`${API}/empresas`)
   const opcoesEmpresas = empresas.map(e =>
     `<option value="${e.id}" ${dadosExistentes?.empresaId === e.id ? 'selected' : ''}>${esc(e.nome)} (${esc(e.sigla)})</option>`
   ).join('')
@@ -522,7 +483,7 @@ window.salvarSolicitacao = async function (id) {
 }
 
 window.editarSolicitacao = async function (id) {
-  const sc = await apiFetch(`${API}/solicitacoes/${id}`).then(r => r.json())
+  const sc = await apiDados(`${API}/solicitacoes/${id}`)
   abrirFormularioSolicitacao(sc)
 }
 
@@ -531,7 +492,7 @@ window.editarSolicitacao = async function (id) {
 // ══════════════════════════════════════════════════════════════════════════
 
 window.verSolicitacao = async function (id) {
-  const sc = await apiFetch(`${API}/solicitacoes/${id}`).then(r => r.json())
+  const sc = await apiDados(`${API}/solicitacoes/${id}`)
 
   const numero = `SC ${sc.numero}.${sc.ano}-${sc.empresa?.sigla || ''}`
   const asSolicitante = sc.assinaturas?.find(a => a.etapa === 'solicitante')

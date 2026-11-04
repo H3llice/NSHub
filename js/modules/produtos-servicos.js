@@ -1,44 +1,5 @@
 import { esc } from './html.js'
-const API = 'https://override-steerable-professed.ngrok-free.dev'
-
-// ─── Auth helper (mesmo padrão dos outros módulos) ────────────────────────────
-function tratarSessaoExpirada(res) {
-  if (res.status === 401) {
-    localStorage.removeItem('ns_token')
-    localStorage.removeItem('ns_usuario')
-    alert('Sua sessão expirou. Faça login novamente.')
-    window.location.href = './login.html'
-    throw new Error('Sessão expirada')
-  }
-  return res
-}
-
-async function apiFetch(url, options = {}) {
-  const token = localStorage.getItem('ns_token')
-  const res = await fetch(url, {
-    ...options,
-    headers: {
-      ...(options.headers || {}),
-      'Authorization': `Bearer ${token}`,
-      'ngrok-skip-browser-warning': 'true'
-    }
-  })
-  return tratarSessaoExpirada(res)
-}
-
-async function apiJson(url, options = {}) {
-  const token = localStorage.getItem('ns_token')
-  const res = await fetch(url, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`,
-      'ngrok-skip-browser-warning': 'true',
-      ...(options.headers || {})
-    }
-  })
-  return tratarSessaoExpirada(res)
-}
+import { API, apiJson, apiDados } from './api.js'
 
 const usuarioAtual = JSON.parse(localStorage.getItem('ns_usuario') || 'null')
 const perfil = usuarioAtual?.perfil || 'usuario'
@@ -116,7 +77,7 @@ window.carregarProdutosCatalogo = async function (pagina = 1) {
   const tabela = document.getElementById('tabela-produtos-catalogo')
   const colspan = isAdminProdServ ? 5 : 4
   try {
-    const dados = await apiFetch(`${API}/almoxarifado/produtos?pagina=${pagina}`).then(r => r.json())
+    const dados = await apiDados(`${API}/almoxarifado/produtos?pagina=${pagina}`)
     const produtos = dados.produtos || []
 
     const contador = document.getElementById('contador-produtos-catalogo')
@@ -221,7 +182,7 @@ window.carregarServicosCatalogo = async function (pagina = 1) {
   paginaAtualServicosCatalogo = pagina
   const tabela = document.getElementById('tabela-servicos-catalogo')
   try {
-    const dados = await apiFetch(`${API}/servicos?pagina=${pagina}`).then(r => r.json())
+    const dados = await apiDados(`${API}/servicos?pagina=${pagina}`)
     servicosCache = dados.servicos || []
     renderizarTabelaServicos(servicosCache, dados)
   } catch {
@@ -307,7 +268,7 @@ window.salvarServico = async function () {
 }
 
 window.editarServico = async function (id) {
-  const s = await apiFetch(`${API}/servicos/${id}`).then(r => r.json())
+  const s = await apiDados(`${API}/servicos/${id}`)
 
   document.getElementById('produtosServicos').innerHTML = `
     <div style="margin-top:20px; max-width:600px;">

@@ -1,44 +1,5 @@
 import { esc } from './html.js'
-const API = 'https://override-steerable-professed.ngrok-free.dev'
-
-// ─── Auth helper (mesmo padrão dos outros módulos) ────────────────────────────
-function tratarSessaoExpirada(res) {
-  if (res.status === 401) {
-    localStorage.removeItem('ns_token')
-    localStorage.removeItem('ns_usuario')
-    alert('Sua sessão expirou. Faça login novamente.')
-    window.location.href = './login.html'
-    throw new Error('Sessão expirada')
-  }
-  return res
-}
-
-async function apiFetch(url, options = {}) {
-  const token = localStorage.getItem('ns_token')
-  const res = await fetch(url, {
-    ...options,
-    headers: {
-      ...(options.headers || {}),
-      'Authorization': `Bearer ${token}`,
-      'ngrok-skip-browser-warning': 'true'
-    }
-  })
-  return tratarSessaoExpirada(res)
-}
-
-async function apiJson(url, options = {}) {
-  const token = localStorage.getItem('ns_token')
-  const res = await fetch(url, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`,
-      'ngrok-skip-browser-warning': 'true',
-      ...(options.headers || {})
-    }
-  })
-  return tratarSessaoExpirada(res)
-}
+import { API, apiJson, apiDados } from './api.js'
 
 const usuarioAtual = JSON.parse(localStorage.getItem('ns_usuario') || 'null')
 const perfil = usuarioAtual?.perfil || 'usuario'
@@ -135,7 +96,7 @@ window.carregarOrcamentos = async function (pagina = 1) {
   params.append('pagina', pagina)
 
   try {
-    const dados = await apiFetch(`${API}/orcamentos?${params}`).then(r => r.json())
+    const dados = await apiDados(`${API}/orcamentos?${params}`)
     renderizarTabelaOrcamentos(dados.orcamentos || [])
 
     const contador = document.getElementById('contador-orcamentos')
@@ -186,7 +147,7 @@ function renderizarTabelaOrcamentos(orcamentos) {
 
 // ===== VISUALIZAÇÃO DO ORÇAMENTO ================================================
 window.verOrcamento = async function (id) {
-  const o = await apiFetch(`${API}/orcamentos/${id}`).then(r => r.json())
+  const o = await apiDados(`${API}/orcamentos/${id}`)
 
   const tipoLabel = { produto: 'Produto', servico: 'Serviço' }
 
@@ -568,9 +529,9 @@ async function abrirFormularioOrcamentoBase(o = null) {
   orcItensContador = 0
 
   const [usuarios, produtos, servicos] = await Promise.all([
-    apiFetch(`${API}/colaboradores/vendedores`).then(r => r.json()),
-    apiFetch(`${API}/almoxarifado/produtos?todas=1`).then(r => r.json()),
-    apiFetch(`${API}/servicos?todas=1`).then(r => r.json()),
+    apiDados(`${API}/colaboradores/vendedores`),
+    apiDados(`${API}/almoxarifado/produtos?todas=1`),
+    apiDados(`${API}/servicos?todas=1`),
   ])
   usuariosCacheOrc = usuarios
   // Só vêm colaboradores que hoje são vendedores — se o vendedor deste orçamento
@@ -712,7 +673,7 @@ window.abrirFormularioOrcamento = function () {
 }
 
 window.editarOrcamento = async function (id) {
-  const o = await apiFetch(`${API}/orcamentos/${id}`).then(r => r.json())
+  const o = await apiDados(`${API}/orcamentos/${id}`)
   abrirFormularioOrcamentoBase(o)
 }
 
@@ -725,7 +686,7 @@ window.buscarClienteOrcamento = async function (q) {
     return
   }
 
-  const results = await apiFetch(`${API}/clientes/buscar?q=${encodeURIComponent(q)}`).then(r => r.json())
+  const results = await apiDados(`${API}/clientes/buscar?q=${encodeURIComponent(q)}`)
 
   if (results.length === 0) {
     div.style.display = 'none'

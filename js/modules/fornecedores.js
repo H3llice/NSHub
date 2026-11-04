@@ -1,44 +1,5 @@
 import { esc } from './html.js'
-const API = 'https://override-steerable-professed.ngrok-free.dev'
-
-// ─── Auth helper (mesmo padrão dos outros módulos) ────────────────────────────
-function tratarSessaoExpirada(res) {
-  if (res.status === 401) {
-    localStorage.removeItem('ns_token')
-    localStorage.removeItem('ns_usuario')
-    alert('Sua sessão expirou. Faça login novamente.')
-    window.location.href = './login.html'
-    throw new Error('Sessão expirada')
-  }
-  return res
-}
-
-async function apiFetch(url, options = {}) {
-  const token = localStorage.getItem('ns_token')
-  const res = await fetch(url, {
-    ...options,
-    headers: {
-      ...(options.headers || {}),
-      'Authorization': `Bearer ${token}`,
-      'ngrok-skip-browser-warning': 'true'
-    }
-  })
-  return tratarSessaoExpirada(res)
-}
-
-async function apiJson(url, options = {}) {
-  const token = localStorage.getItem('ns_token')
-  const res = await fetch(url, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`,
-      'ngrok-skip-browser-warning': 'true',
-      ...(options.headers || {})
-    }
-  })
-  return tratarSessaoExpirada(res)
-}
+import { API, apiJson, apiDados } from './api.js'
 
 function formatarDocumento(doc) {
   if (!doc) return '-'
@@ -117,7 +78,7 @@ window.carregarFornecedores = async function (pagina = 1) {
   params.append('pagina', pagina)
 
   try {
-    const dados = await apiFetch(`${API}/fornecedores?${params}`).then(r => r.json())
+    const dados = await apiDados(`${API}/fornecedores?${params}`)
     fornecedoresCache = dados.fornecedores || []
     renderizarTabelaFornecedores(fornecedoresCache)
 
@@ -238,7 +199,7 @@ window.salvarFornecedor = async function () {
 }
 
 window.editarFornecedor = async function (id) {
-  const f = await apiFetch(`${API}/fornecedores/${id}`).then(r => r.json()).catch(() => fornecedoresCache.find(x => x.id === id))
+  const f = await apiDados(`${API}/fornecedores/${id}`, { semAviso: true }).catch(() => fornecedoresCache.find(x => x.id === id))
 
   document.getElementById('fornecedores').innerHTML = `
     <div style="margin-top:20px; max-width:700px;">
@@ -285,7 +246,7 @@ export async function verificarFornecedorNovo(nome, documento) {
   let semelhantes
   try {
     const params = new URLSearchParams({ nome: nome || '', documento: documento || '' })
-    semelhantes = await apiFetch(`${API}/fornecedores/semelhantes?${params}`).then(r => r.json())
+    semelhantes = await apiDados(`${API}/fornecedores/semelhantes?${params}`)
   } catch {
     return {}
   }
@@ -357,7 +318,7 @@ window.buscarCandidatosMesclar = function () {
       return
     }
     try {
-      mesclarResultados = await apiFetch(`${API}/fornecedores/mesclar/candidatos?q=${encodeURIComponent(q)}`).then(r => r.json())
+      mesclarResultados = await apiDados(`${API}/fornecedores/mesclar/candidatos?q=${encodeURIComponent(q)}`)
     } catch {
       tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:red; padding:20px;">Erro ao buscar</td></tr>`
       return

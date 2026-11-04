@@ -1,44 +1,5 @@
 import { esc } from './html.js'
-const API = 'https://override-steerable-professed.ngrok-free.dev'
-
-// ─── Auth helper (mesmo padrão do ocs.js) ─────────────────────────────────────
-function tratarSessaoExpirada(res) {
-  if (res.status === 401) {
-    localStorage.removeItem('ns_token')
-    localStorage.removeItem('ns_usuario')
-    alert('Sua sessão expirou. Faça login novamente.')
-    window.location.href = './login.html'
-    throw new Error('Sessão expirada')
-  }
-  return res
-}
-
-async function apiFetch(url, options = {}) {
-  const token = localStorage.getItem('ns_token')
-  const res = await fetch(url, {
-    ...options,
-    headers: {
-      ...(options.headers || {}),
-      'Authorization': `Bearer ${token}`,
-      'ngrok-skip-browser-warning': 'true'
-    }
-  })
-  return tratarSessaoExpirada(res)
-}
-
-async function apiJson(url, options = {}) {
-  const token = localStorage.getItem('ns_token')
-  const res = await fetch(url, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`,
-      'ngrok-skip-browser-warning': 'true',
-      ...(options.headers || {})
-    }
-  })
-  return tratarSessaoExpirada(res)
-}
+import { API, apiFetch, apiJson, apiDados } from './api.js'
 
 const usuarioAtual = JSON.parse(localStorage.getItem('ns_usuario') || 'null')
 const perfil = usuarioAtual?.perfil || 'usuario'
@@ -413,7 +374,7 @@ window.abrirFormularioLoteBalsas = async function (finalidade) {
   // Venda exige vendedor responsável (é dele a comissão na folha) — vem marcado quem está logado, se for vendedor
   let vendedores = []
   if (!locacao) {
-    vendedores = await apiFetch(`${API}/colaboradores/vendedores`).then(r => r.json()).catch(() => [])
+    vendedores = await apiDados(`${API}/colaboradores/vendedores`, { semAviso: true }).catch(() => [])
   }
 
   document.getElementById(containerId).innerHTML = `
@@ -519,7 +480,7 @@ window.buscarClienteLote = async function (q) {
 
   if (q.trim().length < 2) { div.style.display = 'none'; return }
 
-  const clientes = await apiFetch(`${API}/clientes/buscar?q=${encodeURIComponent(q.trim())}`).then(r => r.json()).catch(() => [])
+  const clientes = await apiDados(`${API}/clientes/buscar?q=${encodeURIComponent(q.trim())}`, { semAviso: true }).catch(() => [])
   if (!Array.isArray(clientes) || clientes.length === 0) { div.style.display = 'none'; return }
 
   div.style.display = 'block'
@@ -857,7 +818,7 @@ window.salvarBalsa = async function (finalidade) {
 window.editarBalsa = async function (id, finalidade) {
   const containerId = finalidade === 'locacao' ? 'estoqueLocacao' : 'estoqueVendas'
   documentosBalsaPendentes = []
-  const b = await apiFetch(`${API}/estoque/${id}`).then(r => r.json())
+  const b = await apiDados(`${API}/estoque/${id}`)
 
   document.getElementById(containerId).innerHTML = `
     <div style="margin-top:20px; max-width:700px;">
@@ -970,8 +931,8 @@ export async function renderizarDashboardEstoque() {
 
   try {
     const [locacao, venda] = await Promise.all([
-      apiFetch(`${API}/estoque?finalidade=locacao`).then(r => r.json()),
-      apiFetch(`${API}/estoque?finalidade=venda`).then(r => r.json())
+      apiDados(`${API}/estoque?finalidade=locacao`, { semAviso: true }),
+      apiDados(`${API}/estoque?finalidade=venda`, { semAviso: true })
     ])
 
     painel.innerHTML = `

@@ -1,47 +1,6 @@
 import { labelFuncao } from './funcoes-colaborador.js'
 import { esc } from './html.js'
-
-const API = 'https://override-steerable-professed.ngrok-free.dev'
-
-// ─── Auth helper (mesmo padrão dos outros módulos) ────────────────────────────
-function tratarSessaoExpirada(res) {
-  if (res.status === 401) {
-    localStorage.removeItem('ns_token')
-    localStorage.removeItem('ns_usuario')
-    alert('Sua sessão expirou. Faça login novamente.')
-    window.location.href = './login.html'
-    throw new Error('Sessão expirada')
-  }
-  return res
-}
-
-async function apiFetch(url, options = {}) {
-  const token = localStorage.getItem('ns_token')
-  const res = await fetch(url, {
-    ...options,
-    headers: {
-      ...(options.headers || {}),
-      'Authorization': `Bearer ${token}`,
-      'ngrok-skip-browser-warning': 'true'
-    }
-  })
-  return tratarSessaoExpirada(res)
-}
-
-async function apiJson(url, options = {}) {
-  const token = localStorage.getItem('ns_token')
-  const res = await fetch(url, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`,
-      'ngrok-skip-browser-warning': 'true',
-      ...(options.headers || {})
-    }
-  })
-  return tratarSessaoExpirada(res)
-}
-
+import { API, apiFetch, apiJson, apiDados } from './api.js'
 
 const usuarioAtual = JSON.parse(localStorage.getItem('ns_usuario') || 'null')
 // Todos veem; só admin/gerente — ou quem tem a permissão extra "embarques",
@@ -80,7 +39,7 @@ let colaboradoresEmbCache = []
 let paginaAtualEmbarques = 1
 
 async function carregarColaboradoresEmb() {
-  colaboradoresEmbCache = await apiFetch(`${API}/colaboradores/simples`).then(r => r.json()).catch(() => [])
+  colaboradoresEmbCache = await apiDados(`${API}/colaboradores/simples`, { semAviso: true }).catch(() => [])
 }
 
 function opcoesColaboradoresEmb() {
@@ -177,7 +136,7 @@ window.carregarEmbarques = async function (pagina = 1) {
 
   const tabela = document.getElementById('tabela-embarques')
   try {
-    const dados = await apiFetch(`${API}/embarques?${params}`).then(r => r.json())
+    const dados = await apiDados(`${API}/embarques?${params}`)
     const embarques = dados.embarques || []
 
     tabela.innerHTML = embarques.length === 0
@@ -279,7 +238,7 @@ window.carregarResumoFolgas = async function () {
   if (colaboradorId) params.append('colaboradorId', colaboradorId)
 
   try {
-    const resumo = await apiFetch(`${API}/embarques/resumo?${params}`).then(r => r.json())
+    const resumo = await apiDados(`${API}/embarques/resumo?${params}`)
     if (!Array.isArray(resumo)) throw new Error(resumo.erro)
 
     tabela.innerHTML = resumo.length === 0
@@ -414,7 +373,7 @@ async function carregarCalendarioEmb() {
   const grade = document.getElementById('cal-emb-grade')
   try {
     const params = new URLSearchParams({ de: dias[0], ate: dias[dias.length - 1] })
-    const dados = await apiFetch(`${API}/embarques/calendario?${params}`).then(r => r.json())
+    const dados = await apiDados(`${API}/embarques/calendario?${params}`)
     if (!Array.isArray(dados.embarques)) throw new Error(dados.erro)
     dadosCalendario = dados
     renderizarGradeCalendarioEmb()
@@ -644,7 +603,7 @@ window.abrirFormularioEmbarque = function () {
 }
 
 window.editarEmbarque = async function (id) {
-  const e = await apiFetch(`${API}/embarques/${id}`).then(r => r.json())
+  const e = await apiDados(`${API}/embarques/${id}`)
   abrirFormularioEmbarqueBase(e)
 }
 
@@ -682,7 +641,7 @@ async function carregarDisponibilidadeEmb(de, ate) {
   if (disponibilidadeEmb?.chave === chave) return disponibilidadeEmb
   const params = new URLSearchParams({ de, ate })
   if (embarqueEmEdicaoId) params.append('ignorarEmbarqueId', embarqueEmEdicaoId)
-  const dados = await apiFetch(`${API}/embarques/calendario?${params}`).then(r => r.json())
+  const dados = await apiDados(`${API}/embarques/calendario?${params}`)
   if (!Array.isArray(dados.folgas)) throw new Error(dados.erro)
   disponibilidadeEmb = {
     chave,
@@ -783,7 +742,7 @@ window.buscarEmbarcacaoEmbarque = async function (q) {
   document.getElementById('emb-embarcacaoId').value = ''
   if (q.length < 2) { div.style.display = 'none'; return }
 
-  embEmbarcacoesBusca = await apiFetch(`${API}/embarcacoes/buscar?q=${encodeURIComponent(q)}`).then(r => r.json())
+  embEmbarcacoesBusca = await apiDados(`${API}/embarcacoes/buscar?q=${encodeURIComponent(q)}`)
   div.style.display = 'block'
   div.innerHTML = embEmbarcacoesBusca.length === 0
     ? `<div style="padding:8px 12px; color:#999;">Nenhuma embarcação encontrada — será cadastrada ao salvar o embarque</div>`
@@ -815,7 +774,7 @@ window.buscarArmadorEmbarque = async function (q) {
   document.getElementById('emb-armadorId').value = ''
   if (q.length < 2) { div.style.display = 'none'; return }
 
-  embArmadoresBusca = await apiFetch(`${API}/clientes/buscar?q=${encodeURIComponent(q)}`).then(r => r.json())
+  embArmadoresBusca = await apiDados(`${API}/clientes/buscar?q=${encodeURIComponent(q)}`)
   div.style.display = 'block'
   div.innerHTML = embArmadoresBusca.length === 0
     ? `<div style="padding:8px 12px; color:#999;">Nenhum cliente encontrado — informe o CPF/CNPJ abaixo pra cadastrar ao salvar</div>`

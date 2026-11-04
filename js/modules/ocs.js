@@ -1,45 +1,6 @@
 import { esc } from './html.js'
 import { verificarFornecedorNovo } from './fornecedores.js'
-const API = 'https://override-steerable-professed.ngrok-free.dev'
-
-// ─── Auth helper ──────────────────────────────────────────────────────────────
-function tratarSessaoExpirada(res) {
-  if (res.status === 401) {
-    localStorage.removeItem('ns_token')
-    localStorage.removeItem('ns_usuario')
-    alert('Sua sessão expirou. Faça login novamente.')
-    window.location.href = './login.html'
-    throw new Error('Sessão expirada')
-  }
-  return res
-}
-
-async function apiFetch(url, options = {}) {
-  const token = localStorage.getItem('ns_token')
-  const res = await fetch(url, {
-    ...options,
-    headers: {
-      ...(options.headers || {}),
-      'Authorization': `Bearer ${token}`,
-      'ngrok-skip-browser-warning': 'true'
-    }
-  })
-  return tratarSessaoExpirada(res)
-}
-
-async function apiJson(url, options = {}) {
-  const token = localStorage.getItem('ns_token')
-  const res = await fetch(url, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`,
-      'ngrok-skip-browser-warning': 'true',
-      ...(options.headers || {})
-    }
-  })
-  return tratarSessaoExpirada(res)
-}
+import { API, apiFetch, apiJson, apiDados } from './api.js'
 
 const usuarioAtual = JSON.parse(localStorage.getItem('ns_usuario') || 'null')
 const perfil = usuarioAtual?.perfil || 'usuario'
@@ -132,7 +93,7 @@ export function inicializarOCs() {
     </div>
   `
 
-  apiFetch(`${API}/empresas`).then(r => r.json()).then(empresas => {
+  apiDados(`${API}/empresas`).then(empresas => {
     const select = document.getElementById('filtro-empresa')
     empresas.forEach(e => {
       select.innerHTML += `<option value="${e.id}">${esc(e.sigla)}</option>`
@@ -259,7 +220,7 @@ function botoesParaPerfil(oc, numero) {
 }
 
 window.verOC = async function (id) {
-  const oc = await apiFetch(`${API}/ocs/${id}`).then(r => r.json())
+  const oc = await apiDados(`${API}/ocs/${id}`)
 
   const total = oc.itens.reduce((acc, item) => acc + (item.valorTotal || 0), 0)
   const numero = `OC ${oc.numero}.${oc.ano}-${oc.empresa?.sigla || ''}`
@@ -629,7 +590,7 @@ window.confirmarRecusa = async function (ocId) {
 }
 
 window.abrirFormularioOC = async function () {
-  const empresas = await apiFetch(`${API}/empresas`).then(r => r.json())
+  const empresas = await apiDados(`${API}/empresas`)
   const opcoesEmpresas = empresas.map(e =>
     `<option value="${e.id}">${esc(e.nome)} (${esc(e.sigla)})</option>`
   ).join('')
@@ -877,8 +838,8 @@ window.fecharFormularioOC = function () {
 
 window.editarOC = async function (id) {
   const [oc, empresas] = await Promise.all([
-    apiFetch(`${API}/ocs/${id}`).then(r => r.json()),
-    apiFetch(`${API}/empresas`).then(r => r.json()),
+    apiDados(`${API}/ocs/${id}`),
+    apiDados(`${API}/empresas`),
   ])
 
   const opcoesEmpresas = empresas.map(e =>
@@ -1128,7 +1089,7 @@ window.buscarFornecedor = async function (q) {
     return
   }
 
-  const results = await apiFetch(`${API}/fornecedores/buscar?q=${encodeURIComponent(q)}`).then(r => r.json())
+  const results = await apiDados(`${API}/fornecedores/buscar?q=${encodeURIComponent(q)}`)
 
   if (results.length === 0) {
     div.style.display = 'none'
@@ -1370,7 +1331,7 @@ export async function renderizarDashboardOCs() {
   const vePagamentosOC = perfil === 'admin' || perfil === 'financeiro'
 
   try {
-    const d = await apiFetch(`${API}/ocs/dashboard`).then(r => r.json())
+    const d = await apiDados(`${API}/ocs/dashboard`, { semAviso: true })
 
     painel.innerHTML = `
       <h5 style="margin-bottom:12px;">Ordens de Compra</h5>
@@ -1509,8 +1470,8 @@ function normalizarContaAvulsa(c) {
 window.carregarContasAPagar = async function () {
   try {
     const [ocs, avulsas] = await Promise.all([
-      apiFetch(`${API}/ocs/contas-a-pagar`).then(r => r.json()),
-      apiFetch(`${API}/contas-pagar?todas=1`).then(r => r.json())
+      apiDados(`${API}/ocs/contas-a-pagar`),
+      apiDados(`${API}/contas-pagar?todas=1`)
     ])
 
     contasAPagarCache = [
@@ -1650,7 +1611,7 @@ window.abrirFormularioContaPagarAvulsa = function () {
 }
 
 window.editarContaPagarAvulsa = async function (id) {
-  const c = await apiFetch(`${API}/contas-pagar/${id}`).then(r => r.json())
+  const c = await apiDados(`${API}/contas-pagar/${id}`)
   document.getElementById('contasPagar').innerHTML = renderFormularioContaPagarAvulsa(c)
 }
 

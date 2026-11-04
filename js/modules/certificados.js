@@ -1,46 +1,6 @@
 import { renderSecoesTecnicasRelatorio, prepararCilindros, renderizarCilindros, lerCamposTecnicosRelatorio, hojeISO, preencherQuantidadesPadraoKit } from './relatorios.js'
 import { esc } from './html.js'
-
-const API = 'https://override-steerable-professed.ngrok-free.dev'
-
-// ─── Auth helper (mesmo padrão dos outros módulos) ────────────────────────────
-function tratarSessaoExpirada(res) {
-  if (res.status === 401) {
-    localStorage.removeItem('ns_token')
-    localStorage.removeItem('ns_usuario')
-    alert('Sua sessão expirou. Faça login novamente.')
-    window.location.href = './login.html'
-    throw new Error('Sessão expirada')
-  }
-  return res
-}
-
-async function apiFetch(url, options = {}) {
-  const token = localStorage.getItem('ns_token')
-  const res = await fetch(url, {
-    ...options,
-    headers: {
-      ...(options.headers || {}),
-      'Authorization': `Bearer ${token}`,
-      'ngrok-skip-browser-warning': 'true'
-    }
-  })
-  return tratarSessaoExpirada(res)
-}
-
-async function apiJson(url, options = {}) {
-  const token = localStorage.getItem('ns_token')
-  const res = await fetch(url, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`,
-      'ngrok-skip-browser-warning': 'true',
-      ...(options.headers || {})
-    }
-  })
-  return tratarSessaoExpirada(res)
-}
+import { API, apiJson, apiDados } from './api.js'
 
 const usuarioAtual = JSON.parse(localStorage.getItem('ns_usuario') || 'null')
 const perfil = usuarioAtual?.perfil || 'usuario'
@@ -91,7 +51,7 @@ window.gerarCertificadoDeRelatorio = async function (relatorioId) {
   if (res.ok) {
     const certificado = await res.json()
     if (certificado.avisoCadastro) alert('Certificado gerado.' + textoAvisoCadastro(certificado))
-    const empresas = await apiFetch(`${API}/empresas`).then(r => r.json())
+    const empresas = await apiDados(`${API}/empresas`)
     // Relatório técnico (gatos...) gera certificado de lista, não de balsa.
     if (certificado.tipo && certificado.tipo !== 'balsa') return exibirCertificadoLista(certificado, empresas)
     exibirCertificado(certificado, empresas)
@@ -106,7 +66,7 @@ window.gerarCertificadoDeRelatorio = async function (relatorioId) {
 // exigir Embarcação/Cliente já cadastrados. O botão "Criar" no lugar de
 // "Salvar"/"Emitir" é a única diferença.
 window.abrirNovoCertificadoAvulso = async function () {
-  const empresas = await apiFetch(`${API}/empresas`).then(r => r.json())
+  const empresas = await apiDados(`${API}/empresas`)
   exibirCertificado({}, empresas)
 }
 
@@ -130,7 +90,7 @@ export async function listarCertificados(filtros = {}) {
     if (filtros.numero) params.set('busca', filtros.numero)
     if (filtros.ano) params.set('ano', filtros.ano)
     params.set('pagina', filtros.pagina || 1)
-    const resp = await apiFetch(`${API}/certificados?${params}`).then(r => r.json())
+    const resp = await apiDados(`${API}/certificados?${params}`)
     return { certificados: resp.certificados || [], total: resp.total || 0, pagina: resp.pagina || 1, totalPaginas: resp.totalPaginas || 1 }
   } catch {
     return { certificados: [], total: 0, pagina: 1, totalPaginas: 1 }
@@ -143,8 +103,8 @@ export function urlPdfCertificado(id) {
 
 window.abrirCertificado = async function (id) {
   const [certificado, empresas] = await Promise.all([
-    apiFetch(`${API}/certificados/${id}`).then(r => r.json()),
-    apiFetch(`${API}/empresas`).then(r => r.json())
+    apiDados(`${API}/certificados/${id}`),
+    apiDados(`${API}/empresas`)
   ])
 
   if (certificado.tipo && certificado.tipo !== 'balsa') {
@@ -347,7 +307,7 @@ window.buscarEmbarcacaoCertificado = async function (q) {
     return
   }
 
-  const results = await apiFetch(`${API}/embarcacoes/buscar?q=${encodeURIComponent(q)}`).then(r => r.json())
+  const results = await apiDados(`${API}/embarcacoes/buscar?q=${encodeURIComponent(q)}`)
   if (seq !== seqBuscarEmbarcacaoCert) return
 
   if (results.length === 0) {
@@ -412,7 +372,7 @@ window.buscarBalsaCertificado = async function (q, digitando = false) {
 
   const params = new URLSearchParams({ q: q.length >= 2 ? q : '' })
   if (embarcacaoId) params.set('embarcacaoId', embarcacaoId)
-  const results = await apiFetch(`${API}/certificados/balsas/buscar?${params}`).then(r => r.json())
+  const results = await apiDados(`${API}/certificados/balsas/buscar?${params}`)
   if (seq !== seqBuscarBalsaCert) return
 
   if (results.length === 0) {
@@ -630,7 +590,7 @@ let itensLista = []
 let assinaturasLista = []
 
 async function carregarModelosLista() {
-  if (!modelosLista) modelosLista = await apiFetch(`${API}/certificados/modelos`).then(r => r.json())
+  if (!modelosLista) modelosLista = await apiDados(`${API}/certificados/modelos`)
   return modelosLista
 }
 
@@ -658,7 +618,7 @@ function linhaPadrao(modelo) {
 }
 
 window.abrirNovoCertificadoLista = async function (tipo) {
-  const empresas = await apiFetch(`${API}/empresas`).then(r => r.json())
+  const empresas = await apiDados(`${API}/empresas`)
   await exibirCertificadoLista({ tipo }, empresas)
 }
 

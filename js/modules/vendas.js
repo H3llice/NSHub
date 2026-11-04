@@ -1,44 +1,5 @@
 import { esc } from './html.js'
-const API = 'https://override-steerable-professed.ngrok-free.dev'
-
-// ─── Auth helper (mesmo padrão dos outros módulos) ────────────────────────────
-function tratarSessaoExpirada(res) {
-  if (res.status === 401) {
-    localStorage.removeItem('ns_token')
-    localStorage.removeItem('ns_usuario')
-    alert('Sua sessão expirou. Faça login novamente.')
-    window.location.href = './login.html'
-    throw new Error('Sessão expirada')
-  }
-  return res
-}
-
-async function apiFetch(url, options = {}) {
-  const token = localStorage.getItem('ns_token')
-  const res = await fetch(url, {
-    ...options,
-    headers: {
-      ...(options.headers || {}),
-      'Authorization': `Bearer ${token}`,
-      'ngrok-skip-browser-warning': 'true'
-    }
-  })
-  return tratarSessaoExpirada(res)
-}
-
-async function apiJson(url, options = {}) {
-  const token = localStorage.getItem('ns_token')
-  const res = await fetch(url, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`,
-      'ngrok-skip-browser-warning': 'true',
-      ...(options.headers || {})
-    }
-  })
-  return tratarSessaoExpirada(res)
-}
+import { API, apiJson, apiDados } from './api.js'
 
 const usuarioAtual = JSON.parse(localStorage.getItem('ns_usuario') || 'null')
 const perfil = usuarioAtual?.perfil || 'usuario'
@@ -120,7 +81,7 @@ window.carregarVendas = async function (pagina = 1) {
   params.append('pagina', pagina)
 
   try {
-    const dados = await apiFetch(`${API}/vendas?${params}`).then(r => r.json())
+    const dados = await apiDados(`${API}/vendas?${params}`)
     renderizarTabelaVendas(dados.vendas || [])
 
     const contador = document.getElementById('contador-vendas')
@@ -195,7 +156,7 @@ window.cancelarVenda = async function (id) {
 
 // ===== VISUALIZAÇÃO DA VENDA ==================================================
 window.verVenda = async function (id) {
-  const v = await apiFetch(`${API}/vendas/${id}`).then(r => r.json())
+  const v = await apiDados(`${API}/vendas/${id}`)
 
   const data = new Date(v.dataVenda).toLocaleDateString('pt-BR')
   const valor = v.valor ? 'R$ ' + v.valor.toFixed(2) : '-'
@@ -348,8 +309,8 @@ window.abrirFormularioVenda = async function () {
   balsaValoresSelecionadosVenda = new Map()
 
   const [balsas, usuarios] = await Promise.all([
-    apiFetch(`${API}/estoque?finalidade=venda`).then(r => r.json()),
-    apiFetch(`${API}/colaboradores/vendedores`).then(r => r.json())
+    apiDados(`${API}/estoque?finalidade=venda`),
+    apiDados(`${API}/colaboradores/vendedores`)
   ])
   balsasDisponiveisVendaCache = balsas
   usuariosCacheVenda = usuarios
@@ -458,7 +419,7 @@ window.buscarClienteVenda = async function (q) {
     return
   }
 
-  const results = await apiFetch(`${API}/clientes/buscar?q=${encodeURIComponent(q)}`).then(r => r.json())
+  const results = await apiDados(`${API}/clientes/buscar?q=${encodeURIComponent(q)}`)
 
   if (results.length === 0) {
     div.style.display = 'none'

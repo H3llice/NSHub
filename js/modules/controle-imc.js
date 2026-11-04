@@ -1,34 +1,7 @@
 import { labelFuncao, FUNCOES_TECNICO } from './funcoes-colaborador.js'
 import { esc } from './html.js'
 import { svgGraficoImc, legendaImcHtml, numerarColaboradoresImc, calcularImc, faixaImc, formatarImc, baixarGraficoPng } from './grafico-imc.mjs'
-
-const API = 'https://override-steerable-professed.ngrok-free.dev'
-
-// ─── Auth helper (mesmo padrão dos outros módulos) ────────────────────────────
-function tratarSessaoExpirada(res) {
-  if (res.status === 401) {
-    localStorage.removeItem('ns_token')
-    localStorage.removeItem('ns_usuario')
-    alert('Sua sessão expirou. Faça login novamente.')
-    window.location.href = './login.html'
-    throw new Error('Sessão expirada')
-  }
-  return res
-}
-
-async function apiFetch(url, options = {}) {
-  const token = localStorage.getItem('ns_token')
-  const res = await fetch(url, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`,
-      'ngrok-skip-browser-warning': 'true',
-      ...(options.headers || {})
-    }
-  })
-  return tratarSessaoExpirada(res)
-}
+import { API, apiFetch, apiJson, apiDados } from './api.js'
 
 const MESES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
 const MESES_CURTOS = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez']
@@ -68,7 +41,7 @@ async function abrirMesImc(mes, ano) {
   try {
     const [res, empresas] = await Promise.all([
       apiFetch(`${API}/controle-imc?mes=${mes}&ano=${ano}`),
-      empresasImc.length ? empresasImc : apiFetch(`${API}/empresas`).then(r => r.json())
+      empresasImc.length ? empresasImc : apiDados(`${API}/empresas`)
     ])
     const dados = await res.json()
     if (!res.ok) { pagina.innerHTML = `<div class="tab">Controle de IMC</div><p style="color:red;">${esc(dados.erro || 'Erro ao carregar')}</p>`; return }
@@ -268,7 +241,7 @@ async function salvarImc() {
     observacoes: l.observacoes
   }))
 
-  const res = await apiFetch(`${API}/controle-imc`, {
+  const res = await apiJson(`${API}/controle-imc`, {
     method: 'PUT',
     body: JSON.stringify({
       mes: imcAtual.mes,

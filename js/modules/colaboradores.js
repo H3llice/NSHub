@@ -1,47 +1,7 @@
 import { FUNCOES, FUNCOES_TECNICO, TIPOS_CONTRATO, labelFuncao } from './funcoes-colaborador.js'
 import { esc } from './html.js'
 import { svgGraficoImc, legendaImcHtml, calcularImc, faixaImc, formatarImc, baixarGraficoPng } from './grafico-imc.mjs'
-
-const API = 'https://override-steerable-professed.ngrok-free.dev'
-
-// ─── Auth helper (mesmo padrão dos outros módulos) ────────────────────────────
-function tratarSessaoExpirada(res) {
-  if (res.status === 401) {
-    localStorage.removeItem('ns_token')
-    localStorage.removeItem('ns_usuario')
-    alert('Sua sessão expirou. Faça login novamente.')
-    window.location.href = './login.html'
-    throw new Error('Sessão expirada')
-  }
-  return res
-}
-
-async function apiFetch(url, options = {}) {
-  const token = localStorage.getItem('ns_token')
-  const res = await fetch(url, {
-    ...options,
-    headers: {
-      ...(options.headers || {}),
-      'Authorization': `Bearer ${token}`,
-      'ngrok-skip-browser-warning': 'true'
-    }
-  })
-  return tratarSessaoExpirada(res)
-}
-
-async function apiJson(url, options = {}) {
-  const token = localStorage.getItem('ns_token')
-  const res = await fetch(url, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`,
-      'ngrok-skip-browser-warning': 'true',
-      ...(options.headers || {})
-    }
-  })
-  return tratarSessaoExpirada(res)
-}
+import { API, apiFetch, apiJson, apiDados } from './api.js'
 
 const usuarioAtual = JSON.parse(localStorage.getItem('ns_usuario') || 'null')
 const perfil = usuarioAtual?.perfil || 'usuario'
@@ -128,7 +88,7 @@ const formatarDataUTC = d => new Date(d).toLocaleDateString('pt-BR', { timeZone:
 async function renderizarAvisosFerias(painel) {
   if (!painel || !podeGerir) return
   try {
-    const avisos = await apiFetch(`${API}/colaboradores/ferias-avisos`).then(r => r.json())
+    const avisos = await apiDados(`${API}/colaboradores/ferias-avisos`, { semAviso: true })
     if (!Array.isArray(avisos) || avisos.length === 0) { painel.innerHTML = ''; return }
 
     painel.innerHTML = `
@@ -158,7 +118,7 @@ async function renderizarAvisosFerias(painel) {
 async function renderizarAvisosAso(painel) {
   if (!painel || !podeGerir) return
   try {
-    const avisos = await apiFetch(`${API}/colaboradores/aso-avisos`).then(r => r.json())
+    const avisos = await apiDados(`${API}/colaboradores/aso-avisos`, { semAviso: true })
     if (!Array.isArray(avisos) || avisos.length === 0) { painel.innerHTML = ''; return }
 
     painel.innerHTML = `
@@ -222,7 +182,7 @@ window.carregarColaboradores = async function (pagina = 1) {
   params.append('pagina', pagina)
 
   try {
-    const dados = await apiFetch(`${API}/colaboradores?${params}`).then(r => r.json())
+    const dados = await apiDados(`${API}/colaboradores?${params}`)
     colaboradoresCache = dados.colaboradores || []
     renderizarTabelaColaboradores(colaboradoresCache)
 
@@ -365,12 +325,12 @@ window.verColaborador = async function (id) {
 // ─── Formulário (admin e gerente) ─────────────────────────────────────────────
 async function formularioColaboradorHtml(c = {}) {
   // Logins ativos, para vincular o colaborador ao usuário do sistema
-  const usuarios = await apiFetch(`${API}/auth/simples`).then(r => r.json()).catch(() => [])
+  const usuarios = await apiDados(`${API}/auth/simples`, { semAviso: true }).catch(() => [])
   // Se o login vinculado estiver inativo, ele não vem em /auth/simples — mantém como opção
   if (c.usuario && !usuarios.some(u => u.id === c.usuario.id)) usuarios.push(c.usuario)
   // Permissões extras do login (ex.: registrar embarques sem ser gerente) — só admin vê e marca
   const permissoes = perfil === 'admin'
-    ? await apiFetch(`${API}/auth/permissoes`).then(r => r.json()).catch(() => ({}))
+    ? await apiDados(`${API}/auth/permissoes`, { semAviso: true }).catch(() => ({}))
     : {}
 
   return `
@@ -625,7 +585,7 @@ window.abrirFormularioColaborador = async function () {
 
 window.editarColaborador = async function (id) {
   documentosPendentes = []
-  const c = await apiFetch(`${API}/colaboradores/${id}`).then(r => r.json())
+  const c = await apiDados(`${API}/colaboradores/${id}`)
   estavaAtivo = c.ativo
 
   document.getElementById('colaboradores').innerHTML = `

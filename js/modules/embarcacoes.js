@@ -1,44 +1,5 @@
 import { esc } from './html.js'
-const API = 'https://override-steerable-professed.ngrok-free.dev'
-
-// ─── Auth helper (mesmo padrão dos outros módulos) ────────────────────────────
-function tratarSessaoExpirada(res) {
-  if (res.status === 401) {
-    localStorage.removeItem('ns_token')
-    localStorage.removeItem('ns_usuario')
-    alert('Sua sessão expirou. Faça login novamente.')
-    window.location.href = './login.html'
-    throw new Error('Sessão expirada')
-  }
-  return res
-}
-
-async function apiFetch(url, options = {}) {
-  const token = localStorage.getItem('ns_token')
-  const res = await fetch(url, {
-    ...options,
-    headers: {
-      ...(options.headers || {}),
-      'Authorization': `Bearer ${token}`,
-      'ngrok-skip-browser-warning': 'true'
-    }
-  })
-  return tratarSessaoExpirada(res)
-}
-
-async function apiJson(url, options = {}) {
-  const token = localStorage.getItem('ns_token')
-  const res = await fetch(url, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`,
-      'ngrok-skip-browser-warning': 'true',
-      ...(options.headers || {})
-    }
-  })
-  return tratarSessaoExpirada(res)
-}
+import { API, apiFetch, apiJson, apiDados } from './api.js'
 
 // ══════════════════════════════════════════════════════════════════════════
 // EMBARCAÇÕES (aba Cadastros → Embarcações)
@@ -155,7 +116,7 @@ window.carregarEmbarcacoes = async function (pagina = 1) {
   params.append('pagina', pagina)
 
   try {
-    const dados = await apiFetch(`${API}/embarcacoes?${params}`).then(r => r.json())
+    const dados = await apiDados(`${API}/embarcacoes?${params}`)
     if (seq !== seqCarregarEmbarcacoes) return
     embarcacoesCache = dados.embarcacoes || []
     renderizarTabelaEmbarcacoes(embarcacoesCache)
@@ -311,7 +272,7 @@ window.buscarArmadorEmbarcacao = async function (q) {
     return
   }
 
-  const results = await apiFetch(`${API}/clientes/buscar?q=${encodeURIComponent(q)}`).then(r => r.json())
+  const results = await apiDados(`${API}/clientes/buscar?q=${encodeURIComponent(q)}`)
   if (seq !== seqBuscarArmador) return
 
   if (results.length === 0) {
@@ -478,7 +439,7 @@ function renderizarPortosEmbarcacao(e) {
 }
 
 async function carregarSugestoesPortos() {
-  const portos = await apiFetch(`${API}/embarcacoes/portos/sugestoes`).then(r => r.json()).catch(() => [])
+  const portos = await apiDados(`${API}/embarcacoes/portos/sugestoes`, { semAviso: true }).catch(() => [])
   const lista = document.getElementById('sugestoes-portos')
   if (lista) lista.innerHTML = portos.map(p => `<option value="${esc(p)}">`).join('')
 }

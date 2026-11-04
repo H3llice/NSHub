@@ -1,46 +1,6 @@
 import { labelFuncao, TIPOS_CONTRATO } from './funcoes-colaborador.js'
 import { esc } from './html.js'
-
-const API = 'https://override-steerable-professed.ngrok-free.dev'
-
-// ─── Auth helper (mesmo padrão dos outros módulos) ────────────────────────────
-function tratarSessaoExpirada(res) {
-  if (res.status === 401) {
-    localStorage.removeItem('ns_token')
-    localStorage.removeItem('ns_usuario')
-    alert('Sua sessão expirou. Faça login novamente.')
-    window.location.href = './login.html'
-    throw new Error('Sessão expirada')
-  }
-  return res
-}
-
-async function apiFetch(url, options = {}) {
-  const token = localStorage.getItem('ns_token')
-  const res = await fetch(url, {
-    ...options,
-    headers: {
-      ...(options.headers || {}),
-      'Authorization': `Bearer ${token}`,
-      'ngrok-skip-browser-warning': 'true'
-    }
-  })
-  return tratarSessaoExpirada(res)
-}
-
-async function apiJson(url, options = {}) {
-  const token = localStorage.getItem('ns_token')
-  const res = await fetch(url, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`,
-      'ngrok-skip-browser-warning': 'true',
-      ...(options.headers || {})
-    }
-  })
-  return tratarSessaoExpirada(res)
-}
+import { API, apiFetch, apiJson, apiDados } from './api.js'
 
 const usuarioAtual = JSON.parse(localStorage.getItem('ns_usuario') || 'null')
 const perfil = usuarioAtual?.perfil || 'usuario'
@@ -48,7 +8,6 @@ const perfil = usuarioAtual?.perfil || 'usuario'
 const podeReabrirFolha = perfil === 'admin'
 
 const MESES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
-
 
 // Os 3 tópicos da folha, nessa ordem (grupo vem do backend: técnicos N1/N2/N3
 // → tecnicos, estagiário → estagiarios, o resto → base)
@@ -125,7 +84,7 @@ export async function inicializarFolhaPagamento() {
 
   const tabela = document.getElementById('tabela-folhas')
   try {
-    const folhas = await apiFetch(`${API}/folha-pagamento`).then(r => r.json())
+    const folhas = await apiDados(`${API}/folha-pagamento`)
     tabela.innerHTML = folhas.length === 0
       ? `<tr><td colspan="5" style="text-align:center; color:#999; padding:30px;">Nenhuma folha gerada ainda</td></tr>`
       : folhas.map(f => `
