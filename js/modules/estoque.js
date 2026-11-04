@@ -118,8 +118,9 @@ export function inicializarEstoque(finalidade) {
         <label style="font-size:12px;">Capacidade</label>
         <input type="number" id="filtro-capacidade-${finalidade}" class="form-control form-control-sm" oninput="aplicarFiltrosBalsa('${finalidade}')">
       </div>
-      <div>
+      <div style="display:flex; gap:6px; align-items:flex-end;">
         <button class="btn btn-sm btn-outline-secondary" onclick="limparFiltrosBalsa('${finalidade}')">Limpar filtros</button>
+        <button class="btn btn-sm btn-outline-primary" onclick="exportarPdfEstoque('${finalidade}')">Exportar PDF</button>
       </div>
     </div>
 
@@ -194,6 +195,18 @@ window.limparFiltrosBalsa = function (finalidade) {
     if (el) el.value = ''
   })
   aplicarFiltrosBalsa(finalidade)
+}
+
+// PDF abre em nova aba — sem header Authorization, o token vai na query. Manda os
+// filtros preenchidos e o backend (GET /estoque/pdf) aplica a mesma regra de aplicarFiltros
+window.exportarPdfEstoque = function (finalidade) {
+  const params = new URLSearchParams({ finalidade, token: localStorage.getItem('ns_token') || '' })
+  if (document.getElementById(`toggle-todas-${finalidade}`)?.checked) params.append('todas', '1')
+  CAMPOS_FILTRO.forEach(campo => {
+    const valor = (document.getElementById(`filtro-${campo}-${finalidade}`)?.value || '').trim()
+    if (valor) params.append(campo, valor)
+  })
+  window.open(`${API}/estoque/pdf?${params}`, '_blank')
 }
 
 function aplicarFiltros(finalidade, mostrarTodas) {

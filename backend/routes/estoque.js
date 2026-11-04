@@ -5,6 +5,8 @@ import fs from 'fs'
 import { fileURLToPath } from 'url'
 import { prisma } from '../server.js'
 import { autenticar, exigirPerfil } from '../middleware/auth.js'
+import { gerarPdf } from '../pdf-browser.js'
+import { htmlEstoqueBalsas } from '../templates/estoque-balsas.js'
 
 const router = Router()
 
@@ -51,6 +53,58 @@ router.get('/', autenticar, async (req, res) => {
   })
 
   res.json(balsas)
+})
+
+// ─── PDF do estoque (link em nova aba, token via ?token=) ─────────────────────
+// GET /estoque/pdf?finalidade=locacao[&todas=1][&armazem=...&capacidade=...]
+// Os filtros são os mesmos da tela (js/modules/estoque.js → aplicarFiltros) e
+// com a mesma regra: texto é "contém" sem diferenciar maiúscula, capacidade é
+// exata e ano é faixa. Se mudar lá, mudar aqui, senão o PDF sai diferente da tabela.
+const FILTROS_TEXTO_PDF = [
+  { campo: 'numeroSerie', rotulo: 'Nº Série' },
+  { campo: 'patrimonio', rotulo: 'Patrimônio' },
+  { campo: 'fabricante', rotulo: 'Fabricante' },
+  { campo: 'modelo', rotulo: 'Modelo' },
+  { campo: 'tipo', rotulo: 'Tipo' },
+  { campo: 'armazem', rotulo: 'Armazém' }
+]
+
+router.get('/pdf', autenticar, async (req, res) => {
+  const { finalidade } = req.query
+  const todas = !!req.query.todas
+  if (!FINALIDADES_VALIDAS.includes(finalidade)) {
+    return res.status(400).json({ erro: `Finalidade inválida. Use: ${FINALIDADES_VALIDAS.join(', ')}` })
+  }
+
+  const where = { finalidade }
+  if (!todas) where.status = 'disponivel'
+  let balsas = await prisma.balsa.findMany({ where, orderBy: { capacidade: 'asc' } })
+
+  const filtros = []
+  FILTROS_TEXTO_PDF.forEach(({ campo, rotulo }) => {
+    const valor = String(req.query[campo] || '').trim()
+    if (!valor) return
+    balsas = balsas.filter(b => (b[campo] || '').toLowerCase().includes(valor.toLowerCase()))
+    filtros.push(`${rotulo}: ${valor}`)
+  })
+
+  const numero = campo => {
+    const v = Number(req.query[campo])
+    return req.query[campo] && Number.isFinite(v) ? v : null
+  }
+  const anoMin = numero('anoMin')
+  const anoMax = numero('anoMax')
+  const capacidade = numero('capacidade')
+  if (anoMin !== null) { balsas = balsas.filter(b => b.anoFabricacao >= anoMin); filtros.push(`Ano mín.: ${anoMin}`) }
+  if (anoMax !== null) { balsas = balsas.filter(b => b.anoFabricacao <= anoMax); filtros.push(`Ano máx.: ${anoMax}`) }
+  if (capacidade !== null) { balsas = balsas.filter(b => b.capacidade === capacidade); filtros.push(`Capacidade: ${capacidade}`) }
+
+  const pdfBytes = await gerarPdf(htmlEstoqueBalsas(balsas, { finalidade, todas, filtros }), { preferCSSPageSize: true })
+
+  const nomeArquivo = `${finalidade === 'locacao' ? 'Estoque de locação' : 'Estoque de vendas'} ${new Date().toLocaleDateString('pt-BR').replaceAll('/', '-')}.pdf`
+  res.setHeader('Content-Type', 'application/pdf')
+  res.setHeader('Content-Disposition', `inline; filename*=UTF-8''${encodeURIComponent(nomeArquivo)}`)
+  res.send(Buffer.from(pdfBytes))
 })
 
 // ═══════════════════════════════ DOCUMENTOS ══════════════════════════════════════
