@@ -752,6 +752,16 @@ export function prepararCilindros(lista, somenteLeitura = false) {
   cilindrosSomenteLeitura = somenteLeitura
 }
 
+// Carga como foi digitada (carga*Texto do banco, ou a string guardada no
+// certificado avulso). Cilindro antigo só tem o número — mostra com vírgula.
+function cargaParaTela(c, campo) {
+  const texto = c[`${campo}Texto`]
+  if (texto) return texto
+  const valor = c[campo]
+  if (valor === null || valor === undefined) return ''
+  return typeof valor === 'number' ? String(valor).replace('.', ',') : valor
+}
+
 export function renderizarCilindros() {
   const tbody = document.getElementById('lista-cilindros')
   if (!tbody) return
@@ -762,9 +772,9 @@ export function renderizarCilindros() {
       <td><input type="text" class="form-control form-control-sm" id="cil-numero-${i}" value="${esc(c.numero || '')}" ${dis}></td>
       <td><input type="text" class="form-control form-control-sm" id="cil-valvulaNumero-${i}" value="${esc(c.valvulaNumero || '')}" ${dis}></td>
       <td><input type="text" class="form-control form-control-sm" id="cil-teste-${i}" value="${esc(c.teste || '')}" ${dis}></td>
-      <td><input type="number" step="0.01" class="form-control form-control-sm" id="cil-carga-${i}" value="${esc(c.carga ?? '')}" ${dis}></td>
-      <td><input type="number" step="0.01" class="form-control form-control-sm" id="cil-cargaCO2-${i}" value="${esc(c.cargaCO2 ?? '')}" ${dis}></td>
-      <td><input type="number" step="0.01" class="form-control form-control-sm" id="cil-cargaN2-${i}" value="${esc(c.cargaN2 ?? '')}" ${dis}></td>
+      <td><input type="text" inputmode="decimal" class="form-control form-control-sm" id="cil-carga-${i}" value="${esc(cargaParaTela(c, 'carga'))}" ${dis}></td>
+      <td><input type="text" inputmode="decimal" class="form-control form-control-sm" id="cil-cargaCO2-${i}" value="${esc(cargaParaTela(c, 'cargaCO2'))}" ${dis}></td>
+      <td><input type="text" inputmode="decimal" class="form-control form-control-sm" id="cil-cargaN2-${i}" value="${esc(cargaParaTela(c, 'cargaN2'))}" ${dis}></td>
       <td><input type="text" class="form-control form-control-sm" id="cil-fabricante-${i}" value="${esc(c.fabricante || '')}" ${dis}></td>
       <td><input type="text" class="form-control form-control-sm" id="cil-anoFabricacao-${i}" value="${esc(c.anoFabricacao || '')}" ${dis}></td>
       ${cilindrosSomenteLeitura ? '' : `<td><button class="btn btn-sm btn-danger" onclick="removerCilindro(${i})">✕</button></td>`}
@@ -785,8 +795,9 @@ window.removerCilindro = function (i) {
 }
 
 function lerCilindrosDoForm() {
+  // Cargas vão como texto, do jeito que foram digitadas ("0210", "0,210") —
+  // é isso que sai no PDF. O backend tira o número delas à parte.
   const campos = ['numero', 'valvulaNumero', 'teste', 'carga', 'cargaCO2', 'cargaN2', 'fabricante', 'anoFabricacao']
-  const numericos = ['carga', 'cargaCO2', 'cargaN2']
 
   return cilindrosEstado.map((_, i) => {
     const c = {}
@@ -794,7 +805,7 @@ function lerCilindrosDoForm() {
       const el = document.getElementById(`cil-${campo}-${i}`)
       if (!el) return
       const valor = el.value
-      c[campo] = valor === '' ? null : (numericos.includes(campo) ? parseFloat(valor) : valor)
+      c[campo] = valor === '' ? null : valor
     })
     return c
   })

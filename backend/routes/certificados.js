@@ -707,7 +707,7 @@ router.get('/:id/pdf', autenticar, async (req, res) => {
   const dadosPagina2 = certificado.relatorio
     || (certificado.dadosTecnicos ? { ...certificado.dadosTecnicos, data: certificado.dataEmissao, criadoPor: certificado.criadoPor } : null)
   if (dadosPagina2) {
-    await desenharPaginaRelatorio(pdfDoc, dadosPagina2)
+    await desenharPaginaRelatorio(pdfDoc, dadosPagina2, { observacoesCertificado: certificado.observacoes })
   }
 
   const pdfBytes = await pdfDoc.save()

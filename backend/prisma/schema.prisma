@@ -1091,6 +1091,13 @@ model CilindroRelatorio {
   carga                Float?
   cargaCO2             Float?
   cargaN2              Float?
+  // Carga exatamente como foi digitada ("0210", "0,210") — é o que sai no
+  // PDF. Os Float acima continuam gravados (valor numérico) e só servem de
+  // fallback pra cilindro salvo antes destas colunas existirem; trocar o tipo
+  // das colunas Float pra String exigiria --accept-data-loss no db push.
+  cargaTexto           String?
+  cargaCO2Texto        String?
+  cargaN2Texto         String?
   fabricante           String?
   anoFabricacao        String?
   validadeHidrostatica String?

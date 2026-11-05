@@ -119,6 +119,23 @@ function extrair(body, campos) {
   return dados
 }
 
+// Cargas do cilindro: o PDF tem que sair exatamente como foi digitado ("0210"
+// é 0210, não 210; "0,210" é 0,210, não 0,21) — então o texto vai pra
+// carga*Texto e o Float continua sendo gravado só como valor numérico.
+const CARGAS_CILINDRO = ['carga', 'cargaCO2', 'cargaN2']
+
+function extrairCilindro(c) {
+  const dados = extrair(c, CAMPOS_CILINDRO.filter(campo => !CARGAS_CILINDRO.includes(campo)))
+  for (const campo of CARGAS_CILINDRO) {
+    if (c[campo] === undefined) continue
+    const texto = c[campo] === null ? '' : String(c[campo]).trim()
+    const numero = parseFloat(texto.replace(',', '.'))
+    dados[`${campo}Texto`] = texto || null
+    dados[campo] = Number.isFinite(numero) ? numero : null
+  }
+  return dados
+}
+
 // ─── Listar relatórios ──────────────────────────────────────────────────────────
 router.get('/', autenticar, async (req, res) => {
   const { busca, empresa, status, tipo, pagina = 1 } = req.query
@@ -252,7 +269,7 @@ router.post('/', autenticar, exigirPerfil('usuario', 'gerente', 'admin', 'tecnic
       numero: proximoNumero,
       ano,
       criadoPorId: req.usuario.id,
-      cilindros: { create: (cilindros || []).map(c => extrair(c, CAMPOS_CILINDRO)) },
+      cilindros: { create: (cilindros || []).map(c => extrairCilindro(c)) },
       ...(testeImo && { testeImo: { create: extrair(testeImo, CAMPOS_TESTE_IMO) } })
     },
     include: { embarcacao: { include: { armador: true } }, empresa: true, ordemServico: true, cilindros: true, testeImo: true }
@@ -283,7 +300,7 @@ export async function atualizarRelatorioCompleto(id, body) {
       where: { id },
       data: {
         ...dados,
-        ...(cilindros && { cilindros: { create: cilindros.map(c => extrair(c, CAMPOS_CILINDRO)) } })
+        ...(cilindros && { cilindros: { create: cilindros.map(c => extrairCilindro(c)) } })
       }
     })
 
@@ -563,6 +580,19 @@ const CASULO_VALVULA_NUMERO_POS = { x: 75.0, y: 193.3 }
 const CASULO_VALVULA_FABRICANTE_POS = { x: CILINDRO_COL_DIREITA_X, y: 193.3 }
 const CASULO_VALVULA_VALIDADE_POS = { x: CILINDRO_COL_ESQUERDA_X, y: 199.0 }
 
+// Caixa "OBSERVAÇÕES / OBSERVATIONS" — 5 linhas pautadas no fundo, a 1ª
+// começando depois do rótulo. Medido no próprio fundo (1553x2251 px = 180x270 mm),
+// não extraído do .docm (lá a caixa não tinha campo).
+const OBS_LINHA1_X = 49.5
+const OBS_X = 8.5
+const OBS_X_FIM = 170.5
+const OBS_LINHA_Y0 = 207.6
+const OBS_LINHA_PASSO = 5.1
+const OBS_LINHAS = 5
+// Sai SEMPRE, antes do que foi digitado (pedido do usuário, 2026-11-05).
+// Quando o credenciamento da Bureau Veritas for renovado, é aqui que muda.
+const OBSERVACAO_FIXA = 'EM ATENDIMENTO À NORMAM 05 ITEM 0505 (B).4, CREDENCIAMENTO EM SOCIEDADES CLASSIFICADORAS: BUREAU VERITAS – CERTIFICADO Nº RJN0/LVO/20241011223013 VENCIMENTO: MAIO 2027'
+
 const DATA_ATENDIMENTO_POS = { x: 139.7, y: 243.7 }
 // Nome de quem criou o registro (criadoPor), centralizado embaixo do logo —
 // caixa do meio do rodapé (Navio/Vessel | logo | Data de Atendimento). Y um
@@ -590,11 +620,47 @@ function juntarCilindros(cilindros, campo, formatador = (v) => v ?? '') {
     .join(' / ')
 }
 
+// Carga sai como foi digitada: carga*Texto no CilindroRelatorio, ou a própria
+// string no dadosTecnicos do certificado avulso. Número só em cilindro salvo
+// antes disso — aí não há como saber o que foi digitado, vai pelo formatarKg.
+function cargaDigitada(c, campo) {
+  const texto = c[`${campo}Texto`]
+  if (texto) return texto
+  return typeof c[campo] === 'string' ? c[campo].trim() : formatarKg(c[campo])
+}
+
+function juntarCargas(cilindros, campo) {
+  return cilindros.map(c => cargaDigitada(c, campo)).filter(v => v).join(' / ')
+}
+
 // Desenha a página do Relatório (Lista de Verificação e Reparos) dentro de um
 // PDFDocument já existente — usada tanto pela rota de PDF do Relatório quanto
 // pela do Certificado, que junta as duas páginas num só arquivo (igual ao .docm
 // original, que tem Certificado + Relatório no mesmo documento).
-export async function desenharPaginaRelatorio(pdfDoc, relatorio) {
+// Quebra os parágrafos da observação em linhas que cabem na caixa — a 1ª
+// linha é mais curta porque divide espaço com o rótulo "OBSERVAÇÕES".
+function quebrarObservacao(paragrafos, fonte, size) {
+  const linhas = []
+  for (const paragrafo of paragrafos) {
+    let atual = ''
+    for (const palavra of paragrafo.split(/\s+/).filter(Boolean)) {
+      const larguraMm = linhas.length === 0 ? OBS_X_FIM - OBS_LINHA1_X : OBS_X_FIM - OBS_X
+      const tentativa = atual ? `${atual} ${palavra}` : palavra
+      if (!atual || fonte.widthOfTextAtSize(tentativa, size) <= larguraMm * MM) {
+        atual = tentativa
+      } else {
+        linhas.push(atual)
+        atual = palavra
+      }
+    }
+    if (atual) linhas.push(atual)
+  }
+  return linhas
+}
+
+const normalizarObs = (s) => s.replace(/\s+/g, ' ').trim().toUpperCase()
+
+export async function desenharPaginaRelatorio(pdfDoc, relatorio, { observacoesCertificado } = {}) {
   const page = pdfDoc.addPage([595.28, 841.89])
   const alturaPagina = page.getHeight()
 
@@ -669,9 +735,9 @@ export async function desenharPaginaRelatorio(pdfDoc, relatorio) {
   texto(juntarCilindros(cilindros, 'numero'), CILINDRO_COL_ESQUERDA_X, CILINDRO_LINHAS_Y[0])
   texto(juntarCilindros(cilindros, 'valvulaNumero'), CILINDRO_COL_DIREITA_X, CILINDRO_LINHAS_Y[0])
   texto(juntarCilindros(cilindros, 'teste'), CILINDRO_COL_ESQUERDA_X, CILINDRO_LINHAS_Y[1])
-  texto(juntarCilindros(cilindros, 'carga', formatarKg), CILINDRO_COL_DIREITA_X, CILINDRO_LINHAS_Y[1])
-  texto(juntarCilindros(cilindros, 'cargaCO2', formatarKg), CILINDRO_COL_ESQUERDA_X, CILINDRO_LINHAS_Y[2])
-  texto(juntarCilindros(cilindros, 'cargaN2', formatarKg), CILINDRO_COL_DIREITA_X, CILINDRO_LINHAS_Y[2])
+  texto(juntarCargas(cilindros, 'carga'), CILINDRO_COL_DIREITA_X, CILINDRO_LINHAS_Y[1])
+  texto(juntarCargas(cilindros, 'cargaCO2'), CILINDRO_COL_ESQUERDA_X, CILINDRO_LINHAS_Y[2])
+  texto(juntarCargas(cilindros, 'cargaN2'), CILINDRO_COL_DIREITA_X, CILINDRO_LINHAS_Y[2])
   texto(juntarCilindros(cilindros, 'fabricante'), CILINDRO_COL_ESQUERDA_X, CILINDRO_LINHAS_Y[3])
   texto(juntarCilindros(cilindros, 'anoFabricacao'), CILINDRO_COL_DIREITA_X, CILINDRO_LINHAS_Y[3])
 
@@ -681,6 +747,34 @@ export async function desenharPaginaRelatorio(pdfDoc, relatorio) {
   texto(relatorio.casuloValvulaNumero, CASULO_VALVULA_NUMERO_POS.x, CASULO_VALVULA_NUMERO_POS.y)
   texto(relatorio.casuloValvulaFabricante, CASULO_VALVULA_FABRICANTE_POS.x, CASULO_VALVULA_FABRICANTE_POS.y)
   texto(relatorio.casuloValvulaValidade, CASULO_VALVULA_VALIDADE_POS.x, CASULO_VALVULA_VALIDADE_POS.y)
+
+  // ─── Observações ─────────────────────────────────────────────────────────────
+  // Texto fixo da NORMAM/Bureau Veritas + observações do relatório + as do
+  // próprio certificado (se forem outras). Parágrafo igual ao texto fixo é
+  // descartado pra não sair repetido quando alguém digita ele na tela.
+  const fixaNormalizada = normalizarObs(OBSERVACAO_FIXA)
+  const digitadas = [relatorio.observacoes, observacoesCertificado]
+    .map(s => (s || '').trim())
+    .filter((s, i, lista) => s && lista.indexOf(s) === i)
+  const paragrafos = [
+    OBSERVACAO_FIXA,
+    ...digitadas.flatMap(s => s.split(/\r?\n/)).filter(p => p.trim() && normalizarObs(p) !== fixaNormalizada)
+  ]
+  // Cabe nas 5 linhas pautadas em 8pt? Senão diminui a fonte e aperta as
+  // linhas no mesmo espaço (do topo da 1ª ao topo da 5ª linha).
+  const alturaObsMm = (OBS_LINHAS - 1) * OBS_LINHA_PASSO
+  let obsSize = 8
+  let obsLinhas = quebrarObservacao(paragrafos, fonteNegrito, obsSize)
+  let obsPasso = OBS_LINHA_PASSO
+  while (obsLinhas.length > OBS_LINHAS && obsSize > 6) {
+    obsSize -= 1
+    obsLinhas = quebrarObservacao(paragrafos, fonteNegrito, obsSize)
+    obsPasso = Math.min(OBS_LINHA_PASSO, alturaObsMm / (obsLinhas.length - 1))
+  }
+  obsLinhas.forEach((linha, i) => {
+    // (8 - obsSize) pt de ajuste: com fonte menor a 1ª linha continua apoiada na pauta
+    texto(linha, i === 0 ? OBS_LINHA1_X : OBS_X, OBS_LINHA_Y0 + (8 - obsSize) / MM + i * obsPasso, obsSize)
+  })
 
   // ─── Rodapé ──────────────────────────────────────────────────────────────────
   // relatorio pode ser um Relatorio de verdade OU o JSON dadosTecnicos de um
@@ -964,11 +1058,11 @@ function gerarHtmlServicoBalsa(relatorio) {
         </div>
         <div class="rs-linha-id">
           ${campo('TESTE CILINDRO/CYL. TEST', juntarCilindros(cilindros, 'teste'))}
-          ${campo('CARGA/CHARGE', juntarCilindros(cilindros, 'carga', formatarKg) && `${juntarCilindros(cilindros, 'carga', formatarKg)} KG.`)}
+          ${campo('CARGA/CHARGE', juntarCargas(cilindros, 'carga') && `${juntarCargas(cilindros, 'carga')} KG.`)}
         </div>
         <div class="rs-linha-id">
-          ${campo('CARGA DE CO2/CO2 CHARGE', juntarCilindros(cilindros, 'cargaCO2', formatarKg) && `${juntarCilindros(cilindros, 'cargaCO2', formatarKg)} KG.`)}
-          ${campo('CARGA N2/N2 CHARGE', juntarCilindros(cilindros, 'cargaN2', formatarKg) && `${juntarCilindros(cilindros, 'cargaN2', formatarKg)} KG.`)}
+          ${campo('CARGA DE CO2/CO2 CHARGE', juntarCargas(cilindros, 'cargaCO2') && `${juntarCargas(cilindros, 'cargaCO2')} KG.`)}
+          ${campo('CARGA N2/N2 CHARGE', juntarCargas(cilindros, 'cargaN2') && `${juntarCargas(cilindros, 'cargaN2')} KG.`)}
         </div>
         <div class="rs-linha-id">
           ${campo('FABRICANTE/MANUFACTURER', juntarCilindros(cilindros, 'fabricante'))}

@@ -233,7 +233,7 @@ function renderCertificado(c, empresas) {
           </div>
         </div>
         <div style="margin-top:16px;">
-          <label>Observações</label>
+          <label>Observações <small style="color:#999;">(o texto da NORMAM 05 / Bureau Veritas já sai sempre no PDF, não precisa digitar)</small></label>
           <textarea id="cert-observacoes" class="form-control" rows="3" ${dis}>${esc(c.observacoes || '')}</textarea>
         </div>
 
