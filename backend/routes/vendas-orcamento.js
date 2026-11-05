@@ -6,7 +6,7 @@ import { totalLiquidoOrcamento } from './orcamentos.js'
 const router = Router()
 
 // Valores e dados de cliente — só esses perfis leem, mesmo direto pela API
-const PERFIS_LEITURA = ['admin', 'gerente', 'financeiro']
+const PERFIS_LEITURA = ['admin', 'gerente', 'vendedor', 'financeiro']
 
 const FORMAS_PAGAMENTO = ['avista', 'parcelado']
 const STATUS_VALIDOS = ['ativo', 'cancelado']
@@ -134,7 +134,7 @@ router.get('/:id', autenticar, exigirPerfil(...PERFIS_LEITURA), async (req, res)
 // Receber). Com orcamentoId, o Orçamento vira "convertido" e trava pra edição
 // (ver routes/orcamentos.js). Sem orcamentoId é venda avulsa: cliente, vendedor
 // e itens vêm direto no corpo.
-router.post('/', autenticar, exigirPerfil('admin', 'gerente'), async (req, res) => {
+router.post('/', autenticar, exigirPerfil('admin', 'gerente', 'vendedor'), async (req, res) => {
   const { orcamentoId, dataVenda, formaPagamento, numeroParcelas, dataVencimento, observacoes } = req.body
 
   if (!formaPagamento || !dataVencimento) {
@@ -236,7 +236,7 @@ router.post('/', autenticar, exigirPerfil('admin', 'gerente'), async (req, res) 
 // ─── Cancelar venda (só admin e gerente) ───────────────────────────────────────
 // Não mexe nas contas a receber já geradas (mesma regra da Venda de balsa —
 // quem cuida delas dali pra frente é a tela de Contas a Receber).
-router.put('/:id', autenticar, exigirPerfil('admin', 'gerente'), async (req, res) => {
+router.put('/:id', autenticar, exigirPerfil('admin', 'gerente', 'vendedor'), async (req, res) => {
   const id = Number(req.params.id)
   const { status, observacoes, comissao } = req.body
 

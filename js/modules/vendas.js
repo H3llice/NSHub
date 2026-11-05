@@ -3,7 +3,7 @@ import { API, apiJson, apiDados } from './api.js'
 
 const usuarioAtual = JSON.parse(localStorage.getItem('ns_usuario') || 'null')
 const perfil = usuarioAtual?.perfil || 'usuario'
-const podeGerenciarVendas = perfil === 'admin' || perfil === 'gerente'
+const podeGerenciarVendas = ['admin', 'gerente', 'vendedor'].includes(perfil)
 
 function formatarDocumento(doc) {
   if (!doc) return '-'

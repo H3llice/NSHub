@@ -15,8 +15,8 @@ const ESTADOS_DEVOLUCAO = ['bom', 'avariado']
 
 // Contrato tem valores e dados do cliente — quem não é desses perfis não lê nem
 // pela API (o menu escondido no frontend não protege nada sozinho).
-const PERFIS_LEITURA = ['admin', 'gerente', 'financeiro']
-const PERFIS_GESTAO = ['admin', 'gerente']
+const PERFIS_LEITURA = ['admin', 'gerente', 'vendedor', 'financeiro']
+const PERFIS_GESTAO = ['admin', 'gerente', 'vendedor']
 
 const INCLUDE_BALSAS = { include: { balsa: true }, orderBy: { id: 'asc' } }
 

@@ -38,7 +38,9 @@ const perfilLogado = usuarioLogado?.perfil || 'usuario'
 // perto da lógica que elas afetam.
 function aplicarPermissoesInterface() {
     document.querySelectorAll('[data-perm]').forEach(el => {
-        const permitido = el.dataset.perm.split(',').includes(perfilLogado)
+        // vendedor herda tudo do usuario (mesma regra de temPerfil no backend)
+        const perfis = el.dataset.perm.split(',')
+        const permitido = perfis.includes(perfilLogado) || (perfilLogado === 'vendedor' && perfis.includes('usuario'))
         el.style.display = permitido ? '' : 'none'
     })
 }

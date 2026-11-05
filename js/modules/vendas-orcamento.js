@@ -3,7 +3,7 @@ import { API, apiJson, apiDados } from './api.js'
 
 const usuarioAtual = JSON.parse(localStorage.getItem('ns_usuario') || 'null')
 const perfil = usuarioAtual?.perfil || 'usuario'
-const podeGerenciarVendasOrc = perfil === 'admin' || perfil === 'gerente'
+const podeGerenciarVendasOrc = ['admin', 'gerente', 'vendedor'].includes(perfil)
 
 function formatarMoedaVO(v) {
   return (v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })

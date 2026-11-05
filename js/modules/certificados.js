@@ -8,7 +8,7 @@ const podeEmitirCertificado = perfil === 'admin' || perfil === 'gerente'
 // Emitir/cancelar/excluir é restrito a gerente/admin, mas editar os dados
 // (antes de emitido) também é permitido ao Usuário — Técnico e Financeiro
 // não têm essa tela na sidebar e o backend já bloqueia o acesso direto.
-const podeEditarCertificado = podeEmitirCertificado || perfil === 'usuario'
+const podeEditarCertificado = podeEmitirCertificado || perfil === 'usuario' || perfil === 'vendedor'
 const tokenAtual = localStorage.getItem('ns_token')
 
 // ══════════════════════════════════════════════════════════════════════════

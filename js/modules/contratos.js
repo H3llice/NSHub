@@ -3,7 +3,7 @@ import { API, apiFetch, apiJson, apiDados } from './api.js'
 
 const usuarioAtual = JSON.parse(localStorage.getItem('ns_usuario') || 'null')
 const perfil = usuarioAtual?.perfil || 'usuario'
-const podeGerenciarContratos = perfil === 'admin' || perfil === 'gerente'
+const podeGerenciarContratos = ['admin', 'gerente', 'vendedor'].includes(perfil)
 
 // Datas puras (início, fim, devolução) são gravadas à meia-noite UTC — formatar
 // em UTC evita mostrar o dia anterior no fuso do Brasil

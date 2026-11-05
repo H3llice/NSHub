@@ -4,7 +4,7 @@ import path from 'path'
 import fs from 'fs'
 import { fileURLToPath } from 'url'
 import { prisma } from '../server.js'
-import { autenticar, exigirPerfil, PERMISSOES } from '../middleware/auth.js'
+import { autenticar, exigirPerfil, PERMISSOES, PERFIS } from '../middleware/auth.js'
 
 const router = Router()
 
@@ -169,12 +169,20 @@ const incluirUsuario = { usuario: { select: { id: true, nome: true, email: true,
 // Permissões extras (ver PERMISSOES em middleware/auth.js) do login vinculado ao
 // colaborador — marcadas no próprio formulário do colaborador. Só admin mexe
 // nelas: gerente salvando o colaborador não manda o campo, e se mandar é ignorado.
+// O perfil do login (perfilLogin) segue a mesma regra. Por aqui ninguém vira
+// admin e login admin não muda de perfil: assim o admin não se rebaixa sem querer
+// e trava o próprio acesso.
 async function salvarPermissoesLogin(colaborador, req) {
-  const { permissoes } = req.body
-  if (req.usuario.perfil !== 'admin' || !Array.isArray(permissoes) || !colaborador.usuarioId) return colaborador
-  const validas = [...new Set(permissoes.filter(p => PERMISSOES[p]))]
-  await prisma.usuario.update({ where: { id: colaborador.usuarioId }, data: { permissoes: validas } })
-  return { ...colaborador, usuario: { ...colaborador.usuario, permissoes: validas } }
+  const { permissoes, perfilLogin } = req.body
+  if (req.usuario.perfil !== 'admin' || !colaborador.usuarioId) return colaborador
+  const dados = {}
+  if (Array.isArray(permissoes)) dados.permissoes = [...new Set(permissoes.filter(p => PERMISSOES[p]))]
+  if (perfilLogin && PERFIS.includes(perfilLogin) && perfilLogin !== 'admin' && colaborador.usuario?.perfil !== 'admin') {
+    dados.perfil = perfilLogin
+  }
+  if (!Object.keys(dados).length) return colaborador
+  await prisma.usuario.update({ where: { id: colaborador.usuarioId }, data: dados })
+  return { ...colaborador, usuario: { ...colaborador.usuario, ...dados } }
 }
 
 // Colaborador desativado (saiu da empresa) → desativa também o login vinculado.

@@ -3,7 +3,7 @@ import bcrypt from 'bcrypt'
 import jwt from 'jsonwebtoken'
 import crypto from 'crypto'
 import { prisma } from '../server.js'
-import { autenticar, exigirPerfil, PERMISSOES } from '../middleware/auth.js'
+import { autenticar, exigirPerfil, PERMISSOES, PERFIS } from '../middleware/auth.js'
 import { enviarEmailResetSenha } from '../email.js'
 
 const router = Router()
@@ -118,9 +118,8 @@ router.post('/', autenticar, exigirPerfil('admin'), async (req, res) => {
     return res.status(400).json({ erro: 'Todos os campos são obrigatórios' })
   }
 
-  const perfisValidos = ['admin', 'usuario', 'gerente', 'financeiro', 'tecnico']
-  if (!perfisValidos.includes(perfil)) {
-    return res.status(400).json({ erro: `Perfil inválido. Use: ${perfisValidos.join(', ')}` })
+  if (!PERFIS.includes(perfil)) {
+    return res.status(400).json({ erro: `Perfil inválido. Use: ${PERFIS.join(', ')}` })
   }
 
   const existe = await prisma.usuario.findUnique({ where: { email } })
@@ -175,7 +174,11 @@ router.put('/:id', autenticar, exigirPerfil('admin'), async (req, res) => {
   }
   if (nome) dados.nome = nome
   if (email) dados.email = email
-  if (perfil) dados.perfil = perfil
+  if (perfil) {
+    // Antes não validava aqui: qualquer texto virava perfil e o login perdia acesso a tudo
+    if (!PERFIS.includes(perfil)) return res.status(400).json({ erro: `Perfil inválido. Use: ${PERFIS.join(', ')}` })
+    dados.perfil = perfil
+  }
   if (typeof ativo === 'boolean') dados.ativo = ativo
   if (senha) {
     dados.senha = await bcrypt.hash(senha, 10)

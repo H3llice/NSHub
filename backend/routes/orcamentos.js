@@ -5,7 +5,7 @@ import { autenticar, exigirPerfil } from '../middleware/auth.js'
 const router = Router()
 
 // Valores e dados de cliente — só esses perfis leem, mesmo direto pela API
-const PERFIS_LEITURA = ['admin', 'gerente', 'financeiro']
+const PERFIS_LEITURA = ['admin', 'gerente', 'vendedor', 'financeiro']
 
 const STATUS_VALIDOS = ['em_andamento', 'aprovado', 'recusado', 'expirado', 'convertido']
 const STATUS_ENVIO_VALIDOS = ['nao_enviado', 'enviado']
@@ -147,7 +147,7 @@ router.get('/:id', autenticar, exigirPerfil(...PERFIS_LEITURA), async (req, res)
 })
 
 // ─── Criar orçamento (só admin e gerente — mesma regra de Venda) ───────────────
-router.post('/', autenticar, exigirPerfil('admin', 'gerente'), async (req, res) => {
+router.post('/', autenticar, exigirPerfil('admin', 'gerente', 'vendedor'), async (req, res) => {
   const {
     clienteId, email, telefone, vendedorId,
     dataOrcamento, validade, previsaoEntrega,
@@ -206,7 +206,7 @@ router.post('/', autenticar, exigirPerfil('admin', 'gerente'), async (req, res) 
 // setado pelo POST /vendas-orcamento (que cria a Venda de verdade) — depois
 // de convertido, o orçamento trava (mesma regra de "cancelado" do Certificado),
 // pra não desalinhar do que já virou venda/contas a receber.
-router.put('/:id', autenticar, exigirPerfil('admin', 'gerente'), async (req, res) => {
+router.put('/:id', autenticar, exigirPerfil('admin', 'gerente', 'vendedor'), async (req, res) => {
   const id = Number(req.params.id)
   const atual = await prisma.orcamento.findUnique({ where: { id } })
   if (!atual) return res.status(404).json({ erro: 'Orçamento não encontrado' })
@@ -274,7 +274,7 @@ router.put('/:id', autenticar, exigirPerfil('admin', 'gerente'), async (req, res
 })
 
 // ─── Excluir orçamento (só admin e gerente) ────────────────────────────────────
-router.delete('/:id', autenticar, exigirPerfil('admin', 'gerente'), async (req, res) => {
+router.delete('/:id', autenticar, exigirPerfil('admin', 'gerente', 'vendedor'), async (req, res) => {
   const id = Number(req.params.id)
   const orcamento = await prisma.orcamento.findUnique({ where: { id } })
   if (!orcamento) return res.status(404).json({ erro: 'Orçamento não encontrado' })

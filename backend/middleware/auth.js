@@ -37,7 +37,7 @@ export const PERMISSOES = {
 // permissão de alguém vale na hora, sem esperar o login de 8h expirar.
 export function exigirPermissao(chave) {
   return async (req, res, next) => {
-    if (PERMISSOES[chave].perfis.includes(req.usuario?.perfil)) return next()
+    if (temPerfil(req.usuario?.perfil, PERMISSOES[chave].perfis)) return next()
     const usuario = await prisma.usuario.findUnique({
       where: { id: req.usuario?.id },
       select: { ativo: true, permissoes: true }
@@ -47,10 +47,21 @@ export function exigirPermissao(chave) {
   }
 }
 
+// Perfis de login válidos. vendedor = usuario + aba Produtos (orçamentos,
+// vendas, vendas de balsa, contratos de locação, que liberam 'vendedor' nas
+// próprias rotas). Pra não ter que repetir 'vendedor' em toda rota que já
+// aceita 'usuario', o vendedor herda o usuario aqui (PERFIS_HERDADOS).
+export const PERFIS = ['admin', 'gerente', 'financeiro', 'usuario', 'vendedor', 'tecnico']
+const PERFIS_HERDADOS = { vendedor: 'usuario' }
+
+export function temPerfil(perfil, perfis) {
+  return perfis.includes(perfil) || (PERFIS_HERDADOS[perfil] !== undefined && perfis.includes(PERFIS_HERDADOS[perfil]))
+}
+
 // Middleware de perfil — uso: exigirPerfil('gerente', 'admin')
 export function exigirPerfil(...perfis) {
   return (req, res, next) => {
-    if (!perfis.includes(req.usuario?.perfil)) {
+    if (!temPerfil(req.usuario?.perfil, perfis)) {
       return res.status(403).json({ erro: 'Sem permissão para esta ação' })
     }
     next()

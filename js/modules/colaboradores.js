@@ -10,6 +10,11 @@ const perfil = usuarioAtual?.perfil || 'usuario'
 const podeGerir = ['admin', 'gerente'].includes(perfil)
 // Financeiro também vê a remuneração (já vê na Folha de pagamento), mas não edita
 const podeVerRemuneracao = podeGerir || perfil === 'financeiro'
+
+// Perfis que o admin pode dar pelo formulário do colaborador. Admin fica de
+// fora, mesma regra do backend (salvarPermissoesLogin).
+const PERFIS_LOGIN = [['usuario', 'Usuário'], ['vendedor', 'Vendedor'], ['tecnico', 'Técnico'], ['financeiro', 'Financeiro'], ['gerente', 'Gerente']]
+let perfilDosLogins = {}
 const tokenAtual = localStorage.getItem('ns_token')
 
 function formatarCpf(cpf) {
@@ -332,6 +337,11 @@ async function formularioColaboradorHtml(c = {}) {
   const permissoes = perfil === 'admin'
     ? await apiDados(`${API}/auth/permissoes`, { semAviso: true }).catch(() => ({}))
     : {}
+  // Perfil de cada login (só o admin lista), pro seletor "Perfil do login" acompanhar o login escolhido
+  perfilDosLogins = perfil === 'admin'
+    ? Object.fromEntries((await apiDados(`${API}/auth`, { semAviso: true }).catch(() => [])).map(u => [u.id, u.perfil]))
+    : {}
+  const perfilLoginAtual = c.usuario ? (perfilDosLogins[c.usuario.id] || c.usuario.perfil) : ''
 
   return `
     <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
@@ -403,6 +413,16 @@ async function formularioColaboradorHtml(c = {}) {
         </div>
         <small style="color:#999;">Desmarcar também desativa o login vinculado.</small>
       </div>
+      ${perfil === 'admin' ? `
+      <div>
+        <label>Perfil do login</label>
+        <select id="colaborador-perfilLogin" class="form-control" ${!c.usuario || perfilLoginAtual === 'admin' ? 'disabled' : ''}>
+          ${perfilLoginAtual === 'admin' ? '<option value="admin" selected>Admin</option>' : ''}
+          ${PERFIS_LOGIN.map(([valor, nome]) => `<option value="${valor}" ${perfilLoginAtual === valor ? 'selected' : ''}>${nome}</option>`).join('')}
+        </select>
+        <small style="color:#999;">Vendedor = usuário + aba Produtos (orçamentos, vendas, contratos). Vale no próximo login da pessoa.</small>
+      </div>
+      ` : ''}
       ${Object.keys(permissoes).length ? `
       <div style="grid-column:span 2;">
         ${Object.entries(permissoes).map(([chave, p]) => `
@@ -431,6 +451,16 @@ async function formularioColaboradorHtml(c = {}) {
 // Trocou o login vinculado: as permissões marcadas eram do login anterior
 window.limparPermissoesColaborador = function () {
   document.querySelectorAll('.colaborador-permissao').forEach(el => { el.checked = false })
+  // Troca de login: o seletor passa a mostrar o perfil do login novo. Login admin
+  // fica travado, porque o backend não muda perfil de admin por aqui.
+  const sel = document.getElementById('colaborador-perfilLogin')
+  if (!sel) return
+  const id = document.getElementById('colaborador-usuarioId').value
+  const perfilDoLogin = perfilDosLogins[id] || ''
+  sel.querySelector('option[value="admin"]')?.remove()
+  if (perfilDoLogin === 'admin') sel.insertAdjacentHTML('afterbegin', '<option value="admin">Admin</option>')
+  sel.value = perfilDoLogin
+  sel.disabled = !id || perfilDoLogin === 'admin'
 }
 
 // SISPAT só existe pra técnico — nas outras funções o backend descarta o valor
@@ -470,7 +500,10 @@ function lerFormularioColaborador() {
     ativo: document.getElementById('colaborador-ativo').checked,
     // Só existe na tela do admin — sem as caixas, o campo nem vai e o backend não mexe
     ...(perfil === 'admin' && {
-      permissoes: [...document.querySelectorAll('.colaborador-permissao:checked')].map(el => el.value)
+      permissoes: [...document.querySelectorAll('.colaborador-permissao:checked')].map(el => el.value),
+      ...(!document.getElementById('colaborador-perfilLogin')?.disabled && {
+        perfilLogin: document.getElementById('colaborador-perfilLogin')?.value || undefined
+      })
     }),
   }
 }

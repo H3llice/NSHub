@@ -5,7 +5,7 @@ import { autenticar, exigirPerfil } from '../middleware/auth.js'
 const router = Router()
 
 // Valores e dados de cliente — só esses perfis leem, mesmo direto pela API
-const PERFIS_LEITURA = ['admin', 'gerente', 'financeiro']
+const PERFIS_LEITURA = ['admin', 'gerente', 'vendedor', 'financeiro']
 
 const STATUS_VALIDOS = ['ativo', 'cancelado']
 
@@ -61,7 +61,7 @@ function lerComissao(v) {
   return n >= 0 ? Math.round(n * 100) / 100 : undefined
 }
 
-router.post('/', autenticar, exigirPerfil('admin', 'gerente'), async (req, res) => {
+router.post('/', autenticar, exigirPerfil('admin', 'gerente', 'vendedor'), async (req, res) => {
   const {
     clienteId, balsas, dataVenda, vendedorId, comissao,
     valor, frete, descontoTipo, descontoValor, formaPagamento, condicoesPagto, observacoes,
@@ -166,7 +166,7 @@ router.post('/', autenticar, exigirPerfil('admin', 'gerente'), async (req, res) 
 
 // ─── Editar venda (só admin e gerente) ──────────────────────────────────────────
 // Não permite trocar as balsas vinculadas aqui — só dados da venda, o valor individual delas e status.
-router.put('/:id', autenticar, exigirPerfil('admin', 'gerente'), async (req, res) => {
+router.put('/:id', autenticar, exigirPerfil('admin', 'gerente', 'vendedor'), async (req, res) => {
   const id = Number(req.params.id)
   const { dataVenda, valor, frete, descontoTipo, descontoValor, balsas, formaPagamento, condicoesPagto, observacoes, status, comissao } = req.body
   if (comissao !== undefined && lerComissao(comissao) === undefined) return res.status(400).json({ erro: 'Comissão inválida' })
