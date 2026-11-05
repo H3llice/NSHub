@@ -142,6 +142,39 @@ export const MODELOS_RELATORIO_TECNICO = {
     assinaturas: [NOEL, AUGUSTO]
   },
 
+  // RELATÓRIO DE MANUTENÇÃO-SUBSTITUIÇÃO DOS CABOS DE AÇO DOS TURCOS DE BALSAS - P-75
+  // (R261037, out/2026). Um grupo de campos por turco, igual aos turcos do
+  // relatório de gatos. Números do certificado do cabo, da SS e da plataforma
+  // ficam em branco: mudam a cada serviço.
+  cabos: {
+    nome: 'Substituição dos Cabos de Aço dos Turcos de Balsas',
+    certificado: null,
+    titulo: 'RELATÓRIO DE MANUTENÇÃO/SUBSTITUIÇÃO DOS CABOS DE AÇO DOS TURCOS DE BALSAS',
+    local: 'RIO DE JANEIRO-RJ',
+    secoes: [
+      campos('DADOS DA EMPRESA SOLICITANTE', EMPRESA_SOLICITANTE, PETROBRAS),
+      campos('DADOS DO EQUIPAMENTO', [
+        'Equipamento', 'Identificação', 'Fabricante', 'Modelo', 'Série',
+        'Guincho', 'Fabricante', 'Modelo', 'Série', 'Data de Fabricação', 'Data da Execução'
+      ], { Equipamento: 'TURCO DE BALSAS' }),
+      texto('OBJETIVO', 'Remoção e substituição dos Cabos de aço principal dos Turcos de Balsas de  em atendimento a SS- conforme plano de manutenção preventiva, requisitos do fabricante, SOLAS, LSA Code, NORMAM, Normas ABNT NBR ISO 4309, ABNT NBR 11900-4, ABNT NBR 11900-2, N-2225 e procedimentos. Executar a substituição dos cabos de aço do turco dos Turcos de Balsas de , restabelecendo as condições operacionais e de segurança do sistema de lançamento, em conformidade com os requisitos do fabricante, Código LSA, Resolução IMO MSC.402(96) e procedimentos internos aplicáveis. A substituição dos cabos faz parte das atividades de manutenção previstas para garantir a confiabilidade do equipamento.'),
+      texto('REPARAÇÃO EM EQUIPAMENTO DE SALVATAGEM', 'Motivo: Para os cabos de aço (falls) dos Turcos de Baleeiras, Bote de Resgate e Turco de Balsas a SOLAS Capítulo III, Regra 20.4, incorporada pela Autoridade Marítima Brasileira, estabelece que: Mesmo sem apresentar desgaste, os cabos devem ser substituídos em prazo não superior a 5 anos.'),
+      texto('ESCOPO EXECUTADO', '- Isolamento e liberação da área de trabalho.\n- Instalação das lingas de manutenção e bloqueio do equipamento.\n- Remoção dos cabos de aço existentes.\n- Inspeção visual do tambor do guincho, polias, eixos, fixações e pontos de ancoragem.\n- Limpeza dos canais do tambor e componentes.\n- Instalação dos novos cabos de aço conforme especificação do fabricante.\n- Regulagem da tensão e enrolamento uniforme dos cabos.\n- Lubrificação dos cabos e componentes móveis.\n- Realização dos testes operacionais.\n- Liberação do equipamento para operação.', true),
+      texto('SUBSTITUIÇÃO DOS CABOS DE AÇO', 'Materiais Aplicados\n- Cabos de aço novos conforme especificação do fabricante.\n- Graxa específica para cabos de aço.\n- Elementos de fixação novos.\n- Materiais de limpeza e preservação.\nInspeções Realizadas Durante a execução dos serviços foram verificadas as seguintes condições:\n- Estado das polias.\n- Estado dos rolamentos.\n- Alinhamento do cabo.\n- Condição do tambor.\n- Fixação dos terminais.\n- Funcionamento do freio.\n- Integridade estrutural dos suportes.\n- Funcionamento dos limitadores e dispositivos de segurança.', true),
+      texto('DADOS DOS CABOS DE AÇO', 'Os Cabos de aço instalados nos Turcos de Balsas de .\nCertificado de cabo de aço galvanizado\nNorma do produto: ISO 10425:2003 Nº do produto: \nNº do certificado: \nData \n\nCABOS DE AÇO MONTADOS NOS TURCOS DE BALSAS EM :\n\nTipo: Olhal prensado na extremidade externa\n\nConstrução da corda: \nDiâmetro:  mm Sentido de torção da corda: \nComprimento:  m Peso bruto:  kg Peso líquido:  kg\nGrau de resistência: \nForça mínima de ruptura (Fmin):  kN', true),
+      texto('TESTES E VERIFICAÇÕES FUNCIONAIS', 'Após a conclusão da montagem foram realizados:\n- Teste de funcionamento sem carga.\n- Teste de enrolamento dos cabos.\n- Verificação do alinhamento na polia.\n- Verificação do acionamento dos freios.\n- Teste operacional de subida e descida da embarcação.\n- Verificação do funcionamento dos dispositivos de segurança.\nOs resultados demonstraram funcionamento satisfatório do sistema, sem ocorrência de travamentos, escorregamentos ou desalinhamentos.', true),
+      texto('CONCLUSÃO'),
+      texto('CONFORMIDADE/REFERÊNCIAS', 'SOLAS Capítulo III, LSA Code, IMO Resolution MSC. 402(96)\nManual do fabricante.\nPlano de manutenção/Procedimentos.\nApós inspeção, substituição dos Cabos de aço principais, os Turcos de Balsas de  foram considerados: OPERACIONAL E EM CONFORMIDADE.', true),
+      texto('RECOMENDAÇÕES', '- Realizar inspeções visuais periódicas dos cabos.\n- Manter a lubrificação conforme recomendação do fabricante.\n- Verificar regularmente o enrolamento no tambor.\n- Registrar todas as inspeções no histórico de manutenção.\n- Executar inspeções anuais e quinquenais conforme a IMO MSC.402(96) e o fabricante do equipamento.', true),
+      // No original as fotos vêm depois das assinaturas (página própria)
+      { ...fotos('TROCA DOS CABOS DE AÇO DOS TURCOS DE BALSAS.', 'REGISTRO FOTOGRÁFICO', true), aposAssinaturas: true }
+    ],
+    assinaturas: [
+      { nome: 'WILLIAM DE MATOS AZEVEDO', cargo: 'TÉCNICO DE MANUTENÇÃO', registro: 'SISPAT: 72559785' },
+      { nome: 'AUGUSTO GUSTAVO FILHO', cargo: 'TÉCNICO DE MANUTENÇÃO', registro: 'SISPAT: 40230647' }
+    ]
+  },
+
   branco: {
     nome: 'Em branco',
     certificado: null,
