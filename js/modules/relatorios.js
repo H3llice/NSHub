@@ -1,6 +1,6 @@
 import { esc } from './html.js'
 import { API, apiFetch, apiJson, apiDados } from './api.js'
-import { editorTexto, lerEditorTexto } from './editor-texto.js'
+import { editorTexto, lerEditorTexto, textoPuroFormatado } from './editor-texto.js'
 
 // ══════════════════════════════════════════════════════════════════════════
 // RELATÓRIOS DE SERVIÇO DE BALSAS (Serviços → Relatórios)
@@ -211,7 +211,7 @@ function colunasIdentificacaoRelatorio(r, tipo) {
     return `
       <td ${abrir}>${esc(r.conteudo?.certificadoNumero || '-')}</td>
       <td ${abrir}>${esc(r.navio || '-')}</td>
-      <td ${abrir}>${esc((r.conteudo?.titulo || '-').replace(/\s+/g, ' '))}</td>
+      <td ${abrir}>${esc((tituloPuro(r.conteudo) || '-').replace(/\s+/g, ' '))}</td>
     `
   }
   return `
@@ -1103,6 +1103,15 @@ async function abrirFormularioRelatorioTecnico(r, empresas, modelos) {
   renderizarAnexosTecnico()
 }
 
+// Título da capa: mesmo mini editor das seções, centralizado como sai na capa.
+// Gravado com tituloFormato: 'html' (título antigo/de modelo é texto puro).
+function editorTituloCapa() {
+  return editorTexto('rel-tec-titulo', tecnicoEstado.titulo, tecnicoEstado.tituloFormato === 'html', tecnicoSomenteLeitura, { alinhamentoPadrao: 'center', linhasMinimas: 2 })
+}
+
+// Título como texto (lista, conferência de obrigatório)
+const tituloPuro = c => c?.tituloFormato === 'html' ? textoPuroFormatado(c.titulo) : (c?.titulo || '')
+
 function renderFormularioRelatorioTecnico(r, empresas, modelos) {
   const cancelado = r.status === 'cancelado'
   const concluido = r.status === 'concluido'
@@ -1136,7 +1145,7 @@ function renderFormularioRelatorioTecnico(r, empresas, modelos) {
           `}
           <div style="grid-column: span 2;">
             <label>Título *</label>
-            <textarea id="rel-tec-titulo" class="form-control" rows="2" ${dis}>${esc(c.titulo || '')}</textarea>
+            <div id="rel-tec-titulo-caixa">${editorTituloCapa()}</div>
           </div>
           <div><label>Empresa executante *</label><select id="rel-empresaId" class="form-control" ${dis}>${opcoesEmpresas}</select></div>
           <div><label>Data * <small style="color:#999;">(mês/ano impresso na capa)</small></label><input type="date" id="rel-data" class="form-control" value="${esc(r.data ? r.data.split('T')[0] : hojeISO())}" ${dis}></div>
@@ -1495,7 +1504,8 @@ function renderizarAssinaturasTecnico() {
 function sincronizarTecnicoDoForm() {
   const valor = id => document.getElementById(id)?.value ?? ''
   const marcado = id => !!document.getElementById(id)?.checked
-  tecnicoEstado.titulo = valor('rel-tec-titulo')
+  tecnicoEstado.titulo = lerEditorTexto('rel-tec-titulo')
+  tecnicoEstado.tituloFormato = 'html'
   tecnicoEstado.imo = valor('rel-tec-imo')
   tecnicoEstado.certificadoNumero = valor('rel-tec-certificadoNumero')
   tecnicoEstado.numeroRastreio = valor('rel-tec-numeroRastreio')
@@ -1625,7 +1635,7 @@ window.trocarModeloRelatorioTecnico = async function () {
   sincronizarTecnicoDoForm()
   const novo = structuredClone(modelosTecnico[select.value].conteudo)
   tecnicoEstado = { ...novo, imo: tecnicoEstado.imo, certificadoNumero: tecnicoEstado.certificadoNumero, numeroRastreio: tecnicoEstado.numeroRastreio }
-  document.getElementById('rel-tec-titulo').value = novo.titulo
+  document.getElementById('rel-tec-titulo-caixa').innerHTML = editorTituloCapa()
   document.getElementById('rel-tec-local').value = novo.local
   renderizarSecoesTecnico()
   renderizarAssinaturasTecnico()
@@ -1643,7 +1653,7 @@ window.salvarRelatorioTecnico = async function (id) {
     navio: document.getElementById('rel-tec-navio').value.trim(),
     conteudo: tecnicoEstado
   }
-  if (!body.empresaId || !body.navio || !tecnicoEstado.titulo.trim()) {
+  if (!body.empresaId || !body.navio || !tituloPuro(tecnicoEstado).trim()) {
     alert('Título, Empresa e Unidade/Embarcação são obrigatórios!')
     return
   }

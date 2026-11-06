@@ -37,6 +37,12 @@ export function limparTextoFormatado(valor) {
   return linhasFormatadas(valor).map(l => l.alinhamento ? `<${l.alinhamento}>${l.html}</${l.alinhamento}>` : l.html).join('\n')
 }
 
+// Texto formatado sem as marcas, pra onde ele aparece como texto (lista, busca...)
+export function textoPuroFormatado(valor) {
+  return String(valor ?? '').replace(/<[^>]*>/g, '')
+    .replaceAll('&lt;', '<').replaceAll('&gt;', '>').replaceAll('&amp;', '&')
+}
+
 // Uma <div> por linha — é o que o contenteditable do Chrome também produz, e o
 // mesmo HTML vai pro PDF (htmlTextoFormatado no backend)
 function htmlInicial(texto, formatado) {
@@ -57,8 +63,10 @@ function iconeAlinhamento(tipo) {
 }
 
 // `formatado`: o texto já está no formato do editor (seção com formato: 'html')
-export function editorTexto(id, texto, formatado, desabilitado = false) {
-  const linhas = Math.max(3, (texto || '').split('\n').length + 1)
+// `alinhamentoPadrao`: como sai no PDF a linha sem alinhamento escolhido (o
+// título da capa é centralizado) — o editor mostra igual pra não enganar.
+export function editorTexto(id, texto, formatado, desabilitado = false, { alinhamentoPadrao = '', linhasMinimas = 3 } = {}) {
+  const linhas = Math.max(linhasMinimas, (texto || '').split('\n').length + 1)
   const botao = (comando, rotulo, titulo, estilo = '') =>
     `<button type="button" class="btn btn-sm btn-secondary" style="min-width:32px; ${estilo}" title="${titulo}" onmousedown="event.preventDefault()" onclick="editorTextoComando('${id}', '${comando}')">${rotulo}</button>`
   const separador = '<span style="width:1px; background:#ccc; margin:2px 4px;"></span>'
@@ -79,7 +87,7 @@ export function editorTexto(id, texto, formatado, desabilitado = false) {
         </div>
       `}
       <div id="${id}" class="form-control" contenteditable="${desabilitado ? 'false' : 'true'}"
-        style="height:auto; min-height:${linhas * 1.5 + 0.75}em; overflow-wrap:anywhere; ${desabilitado ? 'background:#e9ecef;' : ''}"
+        style="height:auto; min-height:${linhas * 1.5 + 0.75}em; overflow-wrap:anywhere; ${alinhamentoPadrao ? `text-align:${alinhamentoPadrao};` : ''} ${desabilitado ? 'background:#e9ecef;' : ''}"
         onpaste="editorTextoColar(event)">${htmlInicial(texto, formatado)}</div>
     </div>
   `

@@ -226,7 +226,7 @@ export function conteudoInicial(chave) {
 // Título padrão do "Em branco": relatório que ficou com ele não tem nome
 // próprio, então não vira modelo.
 export const nomeModeloSalvo = conteudo => {
-  const nome = normalizarConteudo(conteudo).titulo.trim().replace(/\s+/g, ' ')
+  const nome = tituloPuro(normalizarConteudo(conteudo)).trim().replace(/\s+/g, ' ')
   return nome === MODELOS_RELATORIO_TECNICO.branco.titulo ? '' : nome
 }
 
@@ -259,7 +259,11 @@ export function normalizarConteudo(bruto) {
   const lista = v => Array.isArray(v) ? v : []
 
   return {
-    titulo: txt(c.titulo),
+    // tituloFormato 'html': título da capa feito no mini editor (mesmo filtro
+    // das seções de texto); sem ele é texto puro
+    ...(c.tituloFormato === 'html'
+      ? { titulo: limparTextoFormatado(txt(c.titulo)), tituloFormato: 'html' }
+      : { titulo: txt(c.titulo) }),
     imo: txt(c.imo),
     certificadoNumero: txt(c.certificadoNumero),
     numeroRastreio: txt(c.numeroRastreio),
@@ -335,8 +339,8 @@ function formatarCnpj(cnpj) {
 // e embarcação. Barra e afins viram hífen: o Windows não aceita no nome do
 // arquivo, e o nº pode vir como "1320/26".
 export function nomeArquivoRelatorioTecnico(relatorio) {
-  const { certificadoNumero, titulo } = normalizarConteudo(relatorio.conteudo)
-  const nome = [certificadoNumero, titulo, relatorio.navio]
+  const c = normalizarConteudo(relatorio.conteudo)
+  const nome = [c.certificadoNumero, tituloPuro(c), relatorio.navio]
     .map(parte => (parte || '').replace(/[\\/:*?"<>|]/g, '-').replace(/\s+/g, ' ').trim())
     .filter(Boolean)
     .join(' - ')
@@ -369,6 +373,16 @@ function linhasFormatadas(valor) {
 
 export function limparTextoFormatado(valor) {
   return linhasFormatadas(valor).map(l => l.alinhamento ? `<${l.alinhamento}>${l.html}</${l.alinhamento}>` : l.html).join('\n')
+}
+
+// Texto formatado sem as marcas — nome de arquivo, nome de modelo salvo
+function textoPuroFormatado(valor) {
+  return String(valor ?? '').replace(/<[^>]*>/g, '')
+    .replaceAll('&lt;', '<').replaceAll('&gt;', '>').replaceAll('&amp;', '&')
+}
+
+function tituloPuro(c) {
+  return c.tituloFormato === 'html' ? textoPuroFormatado(c.titulo) : c.titulo
 }
 
 // Uma <div> por linha (linha vazia segura a altura com <br>), igual ao editor da tela
@@ -499,7 +513,7 @@ export function htmlRelatorioTecnico(relatorio, paginas = {}) {
 </head>
 <body>
   <div class="capa">
-    <div class="titulo">${comQuebras(c.titulo)}</div>
+    <div class="titulo">${c.tituloFormato === 'html' ? htmlTextoFormatado(c.titulo) : comQuebras(c.titulo)}</div>
     ${c.numeroRastreio ? `<div class="rastreio">${escapeHtml(c.numeroRastreio)}</div>` : ''}
     <div class="ident">
       ${relatorio.navio ? `<div>Unidade Marítima: ${escapeHtml(relatorio.navio)}</div>` : ''}
