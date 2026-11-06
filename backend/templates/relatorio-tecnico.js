@@ -284,6 +284,12 @@ export function normalizarConteudo(bruto) {
           sub: !!s.sub,
           grupos: lista(s.grupos).map(g => lista(g).map(f => ({ rotulo: txt(f?.rotulo), valor: txt(f?.valor) })))
         }
+      // formato 'html': texto do mini editor da tela (negrito/itálico/sublinhado e
+      // alinhamento por linha) — passa pelo filtro aqui, então o banco só guarda
+      // as tags conhecidas, sem atributo.
+      // Sem formato é texto puro (gravado antes do editor ou texto de modelo).
+      : s?.formato === 'html'
+      ? { tipo: 'texto', titulo: txt(s?.titulo), texto: limparTextoFormatado(txt(s?.texto)), formato: 'html', sub: !!s?.sub }
       : { tipo: 'texto', titulo: txt(s?.titulo), texto: txt(s?.texto), sub: !!s?.sub }),
     assinaturas: lista(c.assinaturas).map(a => ({ empresa: txt(a?.empresa), nome: txt(a?.nome), cargo: txt(a?.cargo), registro: txt(a?.registro) })),
     // Mesmo cuidado das fotos: o nome vira caminho de arquivo no PDF.
@@ -337,6 +343,41 @@ export function nomeArquivoRelatorioTecnico(relatorio) {
   return `${nome.slice(0, 180).trim()}.pdf`
 }
 
+// Texto do mini editor (js/modules/editor-texto.js — mesmo filtro lá): uma
+// linha por "\n"; linha alinhada vem inteira dentro de <centro>, <direita>,
+// <justificado> ou <esquerda>. Dentro da linha só <b>, <i> e <u> sem
+// atributos; qualquer outra tag some (o texto dentro fica) e "<"/">" soltos
+// viram entidade. O texto entre as tags já vem escapado pelo editor.
+const TAGS_FORMATADO = { b: 'b', strong: 'b', i: 'i', em: 'i', u: 'u' }
+const ALINHAMENTOS_FORMATADO = { esquerda: 'left', centro: 'center', direita: 'right', justificado: 'justify' }
+
+function limparLinhaFormatada(linha) {
+  return linha.split(/(<[^>]*>)/).map(parte => {
+    const tag = parte.match(/^<(\/?)\s*(b|i|u|strong|em)\b[^>]*>$/i)
+    if (tag) return `<${tag[1]}${TAGS_FORMATADO[tag[2].toLowerCase()]}>`
+    if (parte.startsWith('<') && parte.endsWith('>')) return ''
+    return parte.replaceAll('<', '&lt;').replaceAll('>', '&gt;')
+  }).join('')
+}
+
+function linhasFormatadas(valor) {
+  return String(valor ?? '').split('\n').map(linha => {
+    const m = linha.match(/^<(esquerda|centro|direita|justificado)>(.*)<\/\1>$/)
+    return m ? { alinhamento: m[1], html: limparLinhaFormatada(m[2]) } : { alinhamento: '', html: limparLinhaFormatada(linha) }
+  })
+}
+
+export function limparTextoFormatado(valor) {
+  return linhasFormatadas(valor).map(l => l.alinhamento ? `<${l.alinhamento}>${l.html}</${l.alinhamento}>` : l.html).join('\n')
+}
+
+// Uma <div> por linha (linha vazia segura a altura com <br>), igual ao editor da tela
+function htmlTextoFormatado(valor) {
+  return linhasFormatadas(valor).map(l =>
+    `<div${l.alinhamento ? ` style="text-align:${ALINHAMENTOS_FORMATADO[l.alinhamento]}"` : ''}>${l.html || '<br>'}</div>`
+  ).join('')
+}
+
 function comQuebras(valor) {
   return escapeHtml(valor).replaceAll('\n', '<br>')
 }
@@ -382,7 +423,11 @@ export function htmlRelatorioTecnico(relatorio, paginas = {}) {
         `).join('')}</div>` : ''}
       `
     }
-    if (s.tipo === 'texto') return s.texto.trim() ? `<div class="texto">${comQuebras(s.texto)}</div>` : ''
+    if (s.tipo === 'texto') {
+      if (!s.texto.trim()) return ''
+      const html = s.formato === 'html' ? htmlTextoFormatado(s.texto) : comQuebras(s.texto)
+      return `<div class="texto">${html}</div>`
+    }
     return s.grupos.map(g => {
       const linhas = g.filter(f => f.rotulo.trim() || f.valor.trim())
       if (!linhas.length) return ''

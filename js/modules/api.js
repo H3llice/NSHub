@@ -10,13 +10,23 @@ const API_PRODUCAO = 'https://override-steerable-professed.ngrok-free.dev'
 const devLocal = ['localhost', '127.0.0.1'].includes(location.hostname) && location.port !== '3000'
 export const API = devLocal ? API_PRODUCAO : ''
 
+// A tela dispara várias chamadas ao mesmo tempo, e com o token vencido todas
+// voltam 401 — sem a trava, cada uma abria o seu alert. Só a primeira avisa e
+// redireciona; todas (inclusive ela) ficam pendentes pra sempre em vez de
+// rejeitar, senão o .catch de quem chamou mostraria outro alert/aviso de erro
+// enquanto a página ainda está indo pro login.
+let sessaoExpirada = false
+
 function tratarSessaoExpirada(res) {
   if (res.status === 401) {
-    localStorage.removeItem('ns_token')
-    localStorage.removeItem('ns_usuario')
-    alert('Sua sessão expirou. Faça login novamente.')
-    window.location.href = './login.html'
-    throw new Error('Sessão expirada')
+    if (!sessaoExpirada) {
+      sessaoExpirada = true
+      localStorage.removeItem('ns_token')
+      localStorage.removeItem('ns_usuario')
+      alert('Sua sessão expirou. Faça login novamente.')
+      window.location.href = './login.html'
+    }
+    return new Promise(() => {})
   }
   return res
 }

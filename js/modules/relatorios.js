@@ -1,5 +1,6 @@
 import { esc } from './html.js'
 import { API, apiFetch, apiJson, apiDados } from './api.js'
+import { editorTexto, lerEditorTexto } from './editor-texto.js'
 
 // ══════════════════════════════════════════════════════════════════════════
 // RELATÓRIOS DE SERVIÇO DE BALSAS (Serviços → Relatórios)
@@ -150,6 +151,12 @@ const SERVICOS_BALSA = [
   ['servReparoBalsaGrande', 'REPARO DE BALSA GRANDE'],
 ]
 
+// Tipo e página da lista ficam guardados aqui: o "← Voltar" de dentro de um
+// relatório chama inicializarRelatorios() e tem que cair na mesma lista
+// (antes sempre voltava pra Balsa, página 1).
+let tipoAtivoRelatorios = 'balsa'
+let paginaAtualRelatorios = 1
+
 export function inicializarRelatorios() {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'))
   document.getElementById('relatorios').classList.add('active')
@@ -160,11 +167,8 @@ export function inicializarRelatorios() {
 
     <div style="display:flex; gap:8px; align-items:center; margin-bottom: 8px; flex-wrap:wrap;">
       <select id="rel-tipo-ativo" class="form-control" style="max-width:200px;" onchange="trocarTipoRelatorio()">
-        <option value="balsa">Balsa</option>
-        <option value="baleeira">Baleeira</option>
-        <option value="turco">Turco</option>
-        <option value="colete">Colete</option>
-        <option value="tecnico">Relatório técnico (timbrado)</option>
+        ${Object.entries({ balsa: 'Balsa', baleeira: 'Baleeira', turco: 'Turco', colete: 'Colete', tecnico: 'Relatório técnico (timbrado)' })
+          .map(([valor, nome]) => `<option value="${valor}" ${valor === tipoAtivoRelatorios ? 'selected' : ''}>${nome}</option>`).join('')}
       </select>
       <button class="btn btn-secondary" onclick="novoRelatorioTipoAtivo()">+ Novo Relatório</button>
     </div>
@@ -172,7 +176,7 @@ export function inicializarRelatorios() {
     <div class="table-scroll">
       <table class="table-certificados" style="margin-top:16px; table-layout:fixed;">
         <thead>
-          <tr id="cabecalho-relatorios">${cabecalhoRelatorios('balsa')}</tr>
+          <tr id="cabecalho-relatorios">${cabecalhoRelatorios(tipoAtivoRelatorios)}</tr>
         </thead>
         <tbody id="tabela-relatorios">
           <tr><td colspan="6" style="text-align:center; color:#999; padding:30px;">Carregando...</td></tr>
@@ -182,10 +186,8 @@ export function inicializarRelatorios() {
     <div id="contador-relatorios" style="margin-top:12px;"></div>
   `
 
-  carregarRelatorios()
+  carregarRelatorios(paginaAtualRelatorios)
 }
-
-let paginaAtualRelatorios = 1
 
 const LABEL_TIPO_RELATORIO = { balsa: 'balsa', baleeira: 'baleeira', turco: 'turco', colete: 'colete', tecnico: 'relatório técnico' }
 
@@ -247,10 +249,13 @@ window.novoRelatorioTipoAtivo = async function () {
 
 window.carregarRelatorios = async function (pagina = 1) {
   paginaAtualRelatorios = pagina
-  const tipo = document.getElementById('rel-tipo-ativo')?.value || 'balsa'
+  const tipo = document.getElementById('rel-tipo-ativo')?.value || tipoAtivoRelatorios
+  tipoAtivoRelatorios = tipo
   document.getElementById('cabecalho-relatorios').innerHTML = cabecalhoRelatorios(tipo)
   try {
     const resp = await apiDados(`${API}/relatorios?pagina=${pagina}&tipo=${tipo}`)
+    // Página guardada que deixou de existir (excluiu o último da página) volta uma
+    if (pagina > 1 && !resp.relatorios.length) return carregarRelatorios(pagina - 1)
     const tabela = document.getElementById('tabela-relatorios')
 
     const contador = document.getElementById('contador-relatorios')
@@ -351,6 +356,12 @@ window.editarRelatorio = async function (id) {
     apiFetch(`${API}/relatorios/${id}`).then(res => res.json()),
     apiFetch(`${API}/empresas`).then(res => res.json())
   ])
+  // Aberto de fora da lista (Ordens de Serviço): o Voltar cai na lista do tipo dele
+  const tipoDoRelatorio = r.modelo ? 'tecnico' : 'balsa'
+  if (tipoDoRelatorio !== tipoAtivoRelatorios) {
+    tipoAtivoRelatorios = tipoDoRelatorio
+    paginaAtualRelatorios = 1
+  }
   if (r.modelo) return abrirFormularioRelatorioTecnico(r, empresas)
 
   cilindrosEstado = r.cilindros.length ? r.cilindros : [{}]
@@ -1251,7 +1262,7 @@ function renderizarSecoesTecnico() {
             `}
           </div>
         `).join('') + (ro ? '' : `<button type="button" class="btn btn-sm btn-secondary" onclick="tecAdicionarGrupo(${i})">+ Bloco em branco</button>`)
-      : `<textarea class="form-control" id="tec-s${i}-texto" rows="${Math.max(3, (s.texto || '').split('\n').length + 1)}" ${dis}>${esc(s.texto || '')}</textarea>`
+      : editorTexto(`tec-s${i}-texto`, s.texto, s.formato === 'html', ro)
 
     return `
       <div style="background:white; border-radius:6px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06); margin-bottom:16px;">
@@ -1508,7 +1519,8 @@ function sincronizarTecnicoDoForm() {
           valor: valor(`tec-s${i}-g${gi}-f${fi}-val`)
         })))
       }
-    : { tipo: 'texto', titulo: valor(`tec-s${i}-titulo`), texto: valor(`tec-s${i}-texto`), sub: marcado(`tec-s${i}-sub`) })
+    // O editor devolve o texto já no formato formatado (ver editor-texto.js)
+    : { tipo: 'texto', titulo: valor(`tec-s${i}-titulo`), texto: lerEditorTexto(`tec-s${i}-texto`), formato: 'html', sub: marcado(`tec-s${i}-sub`) })
   tecnicoEstado.assinaturas = tecnicoEstado.assinaturas.map((_, i) => ({
     empresa: valor(`tec-a${i}-empresa`),
     nome: valor(`tec-a${i}-nome`),
