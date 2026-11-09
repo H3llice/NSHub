@@ -32,6 +32,7 @@ import embarquesRouter from './routes/embarques.js'
 import folhaPagamentoRouter from './routes/folha-pagamento.js'
 import auditoriaRouter from './routes/auditoria.js'
 import controleImcRouter from './routes/controle-imc.js'
+import indicadoresRouter from './routes/indicadores.js'
 import { auditoria } from './middleware/auditoria.js'
 import { tratarErros } from './middleware/erros.js'
 import { extensaoDinheiro } from './dinheiro.js'
@@ -125,6 +126,7 @@ app.use('/embarques', embarquesRouter)
 app.use('/folha-pagamento', folhaPagamentoRouter)
 app.use('/auditoria', auditoriaRouter)
 app.use('/controle-imc', controleImcRouter)
+app.use('/indicadores', indicadoresRouter)
 
 app.get('/api', (req, res) => {
   res.json({ mensagem: 'API do Portal NS funcionando!' })

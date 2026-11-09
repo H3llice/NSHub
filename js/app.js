@@ -19,6 +19,7 @@ import { listarCertificados, urlPdfCertificado, badgeStatusCertificado, nomeTipo
 import { inicializarPerfil } from './modules/perfil.js'
 import { inicializarAuditoria } from './modules/auditoria.js'
 import { inicializarControleImc } from './modules/controle-imc.js'
+import { inicializarIndicadores } from './modules/indicadores.js'
 import { esc } from './modules/html.js'
 
 
@@ -183,6 +184,10 @@ window.abrirPagina = function (event, id) {
 
     if (id === 'controleImc') {
         inicializarControleImc()
+    }
+
+    if (id === 'indicadores') {
+        inicializarIndicadores()
     }
 
     if (id === 'embarcacoes') {

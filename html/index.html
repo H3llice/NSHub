@@ -137,13 +137,19 @@
                 </div>
             </div>
 
-            <a href="#" onclick="toggleMenu(event,'conformidade')" data-perm="admin,gerente">📑 Conformidade</a>
+            <a href="#" onclick="toggleMenu(event,'conformidade')" data-perm="admin,gerente,vendedor,financeiro">📑 Conformidade</a>
 
-            <!-- Documentos para auditoria (PCMSO etc.) — dados de saúde, só admin/gerente -->
-            <div id="conformidade" class="submenu" data-perm="admin,gerente">
-                <div class="menu-item">
+            <!-- Documentos para auditoria (PCMSO etc.) e indicadores. Controle de IMC é
+            dado de saúde, só admin/gerente; Indicadores segue os perfis do catálogo
+            (cada indicador ainda é filtrado por perfil no backend) -->
+            <div id="conformidade" class="submenu" data-perm="admin,gerente,vendedor,financeiro">
+                <div class="menu-item" data-perm="admin,gerente">
                     <a href="#" onclick="abrirPagina(event,'controleImc')" style="flex: 1;">Controle de IMC</a>
                     <button class="star-btn" onclick="toggleFavorito(event, 'controleImc', 'Controle de IMC')">☆</button>
+                </div>
+                <div class="menu-item" data-perm="admin,gerente,vendedor,financeiro">
+                    <a href="#" onclick="abrirPagina(event,'indicadores')" style="flex: 1;">Indicadores</a>
+                    <button class="star-btn" onclick="toggleFavorito(event, 'indicadores', 'Indicadores')">☆</button>
                 </div>
             </div>
 
@@ -347,6 +353,8 @@
         <div id="auditoria" class="page"></div>
 
         <div id="controleImc" class="page"></div>
+
+        <div id="indicadores" class="page"></div>
 
     </div>
 
