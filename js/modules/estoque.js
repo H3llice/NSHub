@@ -21,7 +21,8 @@ function badgeStatus(status) {
 const balsasCache = {}
 
 // Seleção em lote (checkbox da tabela) — ids das balsas marcadas, por finalidade.
-// Sobrevive a filtro e a ir/voltar do formulário de lote; só balsa disponível entra.
+// Sobrevive a filtro e a ir/voltar do formulário de lote. Qualquer balsa entra:
+// disponível vai pra "Locar/Vender selecionadas", locada/vendida pra "Marcar como disponível".
 const balsasSelecionadas = { locacao: new Set(), venda: new Set() }
 // O que a tabela está mostrando agora (depois dos filtros) — base do "selecionar todas"
 const balsasVisiveis = { locacao: [], venda: [] }
@@ -107,7 +108,7 @@ export function inicializarEstoque(finalidade) {
       <table class="table-certificados">
         <thead>
           <tr>
-            ${podeGerenciar ? `<th style="width:32px;"><input type="checkbox" id="selecionar-todas-${finalidade}" title="Selecionar todas as disponíveis da lista" onchange="selecionarTodasBalsas('${finalidade}', this.checked)"></th>` : ''}
+            ${podeGerenciar ? `<th style="width:32px;"><input type="checkbox" id="selecionar-todas-${finalidade}" title="Selecionar todas as balsas da lista" onchange="selecionarTodasBalsas('${finalidade}', this.checked)"></th>` : ''}
             <th>Capacidade</th>
             <th>Patrimônio</th>
             <th>Fabricante</th>
@@ -150,9 +151,9 @@ async function carregarBalsas(finalidade) {
     const balsas = await res.json()
     balsasCache[finalidade] = balsas
 
-    // Tira da seleção o que deixou de estar disponível (locada/vendida por outra pessoa, etc.)
-    const disponiveis = new Set(balsas.filter(b => b.status === 'disponivel').map(b => b.id))
-    balsasSelecionadas[finalidade].forEach(id => { if (!disponiveis.has(id)) balsasSelecionadas[finalidade].delete(id) })
+    // Tira da seleção o que não está mais na lista (trocou o "Mostrar", foi excluída, etc.)
+    const naLista = new Set(balsas.map(b => b.id))
+    balsasSelecionadas[finalidade].forEach(id => { if (!naLista.has(id)) balsasSelecionadas[finalidade].delete(id) })
 
     aplicarFiltros(finalidade, situacao)
   } catch (err) {
@@ -259,9 +260,7 @@ function renderizarTabela(finalidade, balsas) {
   const selecionadas = balsasSelecionadas[finalidade]
   tabela.innerHTML = balsas.map(b => `
     <tr>
-      ${podeGerenciar ? `<td>${b.status === 'disponivel'
-        ? `<input type="checkbox" ${selecionadas.has(b.id) ? 'checked' : ''} onchange="alternarSelecaoBalsa('${finalidade}', ${b.id}, this.checked)">`
-        : ''}</td>` : ''}
+      ${podeGerenciar ? `<td><input type="checkbox" ${selecionadas.has(b.id) ? 'checked' : ''} onchange="alternarSelecaoBalsa('${finalidade}', ${b.id}, this.checked)"></td>` : ''}
       <td${podeGerenciar ? ` style="cursor:pointer;" onclick="editarBalsa(${b.id}, '${finalidade}')"` : ''}><strong>${esc(b.capacidade)}</strong></td>
       <td>${esc(b.patrimonio) || '-'}</td>
       <td${podeGerenciar ? ` style="cursor:pointer;" onclick="editarBalsa(${b.id}, '${finalidade}')"` : ''}>${esc(b.fabricante)}</td>
@@ -298,9 +297,9 @@ window.alternarSelecaoBalsa = function (finalidade, id, marcada) {
   atualizarBarraSelecao(finalidade)
 }
 
-// "Todas" = as disponíveis que a tabela está mostrando agora (respeita os filtros)
+// "Todas" = as que a tabela está mostrando agora (respeita os filtros e o "Mostrar")
 window.selecionarTodasBalsas = function (finalidade, marcar) {
-  balsasVisiveis[finalidade].filter(b => b.status === 'disponivel').forEach(b => {
+  balsasVisiveis[finalidade].forEach(b => {
     if (marcar) balsasSelecionadas[finalidade].add(b.id)
     else balsasSelecionadas[finalidade].delete(b.id)
   })
@@ -315,24 +314,60 @@ window.limparSelecaoBalsas = function (finalidade) {
 function atualizarBarraSelecao(finalidade) {
   const barra = document.getElementById(`barra-selecao-${finalidade}`)
   if (!barra) return
-  const qtd = balsasSelecionadas[finalidade].size
+  const selecionadas = balsasSelecionadas[finalidade]
+  const qtd = selecionadas.size
 
-  const disponiveisVisiveis = balsasVisiveis[finalidade].filter(b => b.status === 'disponivel')
+  const visiveis = balsasVisiveis[finalidade]
   const checkTodas = document.getElementById(`selecionar-todas-${finalidade}`)
   if (checkTodas) {
-    checkTodas.checked = disponiveisVisiveis.length > 0 && disponiveisVisiveis.every(b => balsasSelecionadas[finalidade].has(b.id))
+    checkTodas.checked = visiveis.length > 0 && visiveis.every(b => selecionadas.has(b.id))
   }
 
   if (qtd === 0) {
     barra.style.display = 'none'
     return
   }
+
+  // Locar/Vender só com todas disponíveis (o contrato/venda não aceita balsa
+  // ocupada); "Marcar como disponível" age só nas que não estão disponíveis
+  const marcadas = (balsasCache[finalidade] || []).filter(b => selecionadas.has(b.id))
+  const indisponiveis = marcadas.filter(b => b.status !== 'disponivel').length
+  const rotuloLote = finalidade === 'locacao' ? 'Locar selecionadas' : 'Vender selecionadas'
+
   barra.style.display = 'flex'
   barra.innerHTML = `
     <strong>${qtd} balsa(s) selecionada(s)</strong>
-    <button class="btn btn-sm btn-primary" onclick="abrirFormularioLoteBalsas('${finalidade}')">${finalidade === 'locacao' ? 'Locar selecionadas' : 'Vender selecionadas'}</button>
+    ${indisponiveis === 0
+      ? `<button class="btn btn-sm btn-primary" onclick="abrirFormularioLoteBalsas('${finalidade}')">${rotuloLote}</button>`
+      : `<button class="btn btn-sm btn-success" onclick="marcarDisponivelLote('${finalidade}')">Marcar como disponível${indisponiveis < qtd ? ` (${indisponiveis})` : ''}</button>
+         ${indisponiveis < qtd ? `<small style="color:#666;">${rotuloLote} só com todas disponíveis</small>` : ''}`}
     <button class="btn btn-sm btn-outline-secondary" onclick="limparSelecaoBalsas('${finalidade}')">Limpar seleção</button>
   `
+}
+
+// Mesmo efeito do "Reativar" de cada linha, em várias de uma vez
+window.marcarDisponivelLote = async function (finalidade) {
+  const selecionadas = balsasSelecionadas[finalidade]
+  const alvo = (balsasCache[finalidade] || []).filter(b => selecionadas.has(b.id) && b.status !== 'disponivel')
+  if (alvo.length === 0) return
+
+  const locadas = alvo.filter(b => b.status === 'locado').length
+  const aviso = locadas > 0
+    ? `\n\nAtenção: ${locadas} delas está(ão) locada(s). Isto só muda o status da balsa — não registra a devolução no contrato. Para devolver balsa de um contrato, use a tela do contrato.`
+    : ''
+  if (!confirm(`Marcar ${alvo.length} balsa(s) como disponível(is) novamente?${aviso}`)) return
+
+  const res = await apiJson(`${API}/estoque/disponivel-lote`, {
+    method: 'POST',
+    body: JSON.stringify({ ids: alvo.map(b => b.id) })
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    alert('Erro: ' + (err.erro || 'Falha ao atualizar status'))
+    return
+  }
+  alvo.forEach(b => selecionadas.delete(b.id))
+  carregarBalsas(finalidade)
 }
 
 // ===== LOCAR / VENDER EM LOTE — contrato/venda simplificado ===================

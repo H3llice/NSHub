@@ -259,6 +259,21 @@ router.post('/', autenticar, exigirPerfil('admin', 'gerente'), async (req, res) 
   res.json(balsa)
 })
 
+// ─── Marcar várias balsas como disponíveis (seleção em lote da tela) ──────────
+// POST /estoque/disponivel-lote { ids: [...] }. Mesmo efeito do botão "Reativar"
+// de cada linha (PUT /:id { status }): só troca o status — não registra devolução
+// no contrato. Pra devolver balsa de contrato o caminho é o próprio contrato.
+router.post('/disponivel-lote', autenticar, exigirPerfil('admin', 'gerente'), async (req, res) => {
+  const ids = Array.isArray(req.body.ids) ? req.body.ids.map(Number).filter(Number.isInteger) : []
+  if (ids.length === 0) return res.status(400).json({ erro: 'Selecione ao menos uma balsa' })
+
+  const { count } = await prisma.balsa.updateMany({
+    where: { id: { in: ids }, status: { not: 'disponivel' } },
+    data: { status: 'disponivel' }
+  })
+  res.json({ atualizadas: count })
+})
+
 // ─── Editar balsa — inclui trocar status: disponivel | locado | vendido (só admin e gerente) ─
 router.put('/:id', autenticar, exigirPerfil('admin', 'gerente'), async (req, res) => {
   const id = Number(req.params.id)
