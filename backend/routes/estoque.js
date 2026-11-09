@@ -110,18 +110,18 @@ router.get('/pdf', autenticar, async (req, res) => {
   if (capacidade !== null) { balsas = balsas.filter(b => b.capacidade === capacidade); filtros.push(`Capacidade: ${capacidade}`) }
 
   // Contrato em que cada balsa locada está agora (passagem sem devolvidaEm).
-  // Map balsaId → { numero, ano, cliente }
+  // Map balsaId → { numero, ano, cliente, dataFim }
   const contratoAtual = new Map()
   const idsLocadas = balsas.filter(b => b.status === 'locado').map(b => b.id)
   if (idsLocadas.length > 0) {
     const passagens = await prisma.contratoBalsa.findMany({
       where: { balsaId: { in: idsLocadas }, devolvidaEm: null },
-      select: { balsaId: true, contrato: { select: { numero: true, ano: true, cliente: { select: { nome: true } } } } },
+      select: { balsaId: true, contrato: { select: { numero: true, ano: true, dataFim: true, cliente: { select: { nome: true } } } } },
       orderBy: { criadoEm: 'desc' }
     })
     for (const p of passagens) {
       if (!contratoAtual.has(p.balsaId)) {
-        contratoAtual.set(p.balsaId, { numero: p.contrato.numero, ano: p.contrato.ano, cliente: p.contrato.cliente?.nome })
+        contratoAtual.set(p.balsaId, { numero: p.contrato.numero, ano: p.contrato.ano, cliente: p.contrato.cliente?.nome, dataFim: p.contrato.dataFim })
       }
     }
   }

@@ -37,8 +37,8 @@ const SITUACAO_LABEL = {
 
 // finalidade: 'locacao' | 'venda'. situacao: disponivel | locado | vendido | todas
 // (com 'todas' sai a coluna de status). filtros: textos tipo "Armazém: Manaus"
-// (vazio = sem filtro). contratoAtual: Map balsaId → { numero, ano, cliente } das
-// locadas — vira a coluna Contrato quando há balsa locada na lista.
+// (vazio = sem filtro). contratoAtual: Map balsaId → { numero, ano, cliente, dataFim }
+// das locadas — vira as colunas Contrato e Retorno quando há balsa locada na lista.
 export function htmlEstoqueBalsas(balsas, { finalidade, situacao, filtros, contratoAtual = new Map() }) {
   const todas = situacao === 'todas'
   const colunaContrato = balsas.some(b => b.status === 'locado')
@@ -48,6 +48,17 @@ export function htmlEstoqueBalsas(balsas, { finalidade, situacao, filtros, contr
     // Locada sem passagem aberta = dado inconsistente (ex.: status mudado à mão)
     if (!c) return 'não encontrado'
     return `<strong>${escapeHtml(c.numero)}.${escapeHtml(c.ano)}</strong>${c.cliente ? ` — ${escapeHtml(c.cliente)}` : ''}`
+  }
+  // Retorno = fim do contrato (dataFim). Data "só dia" gravada como meia-noite
+  // UTC — formatar em UTC, senão sai um dia antes. Já passou = contrato vencido
+  // com a balsa ainda fora (o job só avisa por email, não encerra sozinho).
+  const hoje = new Date().toISOString().slice(0, 10)
+  const textoRetorno = b => {
+    const c = b.status === 'locado' ? contratoAtual.get(b.id) : null
+    if (!c) return '-'
+    if (!c.dataFim) return 'sem data'
+    const data = new Date(c.dataFim).toLocaleDateString('pt-BR', { timeZone: 'UTC' })
+    return new Date(c.dataFim).toISOString().slice(0, 10) < hoje ? `<strong>${data} (vencido)</strong>` : data
   }
   const logoBase64 = fs.existsSync(LOGO_PATH)
     ? `data:image/png;base64,${fs.readFileSync(LOGO_PATH).toString('base64')}`
@@ -120,6 +131,7 @@ export function htmlEstoqueBalsas(balsas, { finalidade, situacao, filtros, contr
                 <th>Armazém</th>
                 ${todas ? '<th>Status</th>' : ''}
                 ${colunaContrato ? '<th>Contrato</th>' : ''}
+                ${colunaContrato ? '<th>Retorno</th>' : ''}
               </tr>
             </thead>
             <tbody>
@@ -135,6 +147,7 @@ export function htmlEstoqueBalsas(balsas, { finalidade, situacao, filtros, contr
                   <td>${escapeHtml(b.armazem) || '-'}</td>
                   ${todas ? `<td class="centro">${escapeHtml(STATUS_LABEL[b.status] || b.status)}</td>` : ''}
                   ${colunaContrato ? `<td>${textoContrato(b)}</td>` : ''}
+                  ${colunaContrato ? `<td class="centro">${textoRetorno(b)}</td>` : ''}
                 </tr>
               `).join('')}
             </tbody>
