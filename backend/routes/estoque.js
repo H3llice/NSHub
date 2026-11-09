@@ -13,6 +13,47 @@ const router = Router()
 const FINALIDADES_VALIDAS = ['locacao', 'venda']
 const STATUS_VALIDOS = ['disponivel', 'locado', 'vendido']
 
+// ─── Patrimônio automático: SIGLA-NNN ─────────────────────────────────────────
+// Quem cadastra/edita só escolhe a sigla; o número é o maior já usado naquela
+// sigla + 1 (3 dígitos, NSB-001; passa de 999 sem problema, NSB-1000).
+// Patrimônios antigos fora do formato ficam como estão até alguém trocar a
+// sigla na edição. Lista de siglas repetida em js/modules/estoque.js (SIGLAS_PATRIMONIO).
+const SIGLAS_PATRIMONIO = ['NSB', 'NS', 'SB']
+const FORMATO_PATRIMONIO = /^([A-Z]+)-(\d+)$/
+
+// Sigla do patrimônio, se ele já estiver no formato novo (senão null)
+function siglaDoPatrimonio(patrimonio) {
+  const m = FORMATO_PATRIMONIO.exec(String(patrimonio || '').trim().toUpperCase())
+  return m && SIGLAS_PATRIMONIO.includes(m[1]) ? m[1] : null
+}
+
+// startsWith 'NS-' não pega 'NSB-' (o hífen faz parte do prefixo)
+async function proximoPatrimonio(db, sigla) {
+  const existentes = await db.balsa.findMany({
+    where: { patrimonio: { startsWith: `${sigla}-`, mode: 'insensitive' } },
+    select: { patrimonio: true }
+  })
+  let maior = 0
+  for (const { patrimonio } of existentes) {
+    const m = FORMATO_PATRIMONIO.exec(patrimonio.trim().toUpperCase())
+    if (m && m[1] === sigla) maior = Math.max(maior, Number(m[2]))
+  }
+  return `${sigla}-${String(maior + 1).padStart(3, '0')}`
+}
+
+// Gera o número e grava na mesma transação serializável: dois cadastros ao mesmo
+// tempo na mesma sigla não saem com o mesmo número (o segundo falha com P2034 e
+// tenta de novo). `gravar(db, patrimonio)` faz o create/update.
+async function comPatrimonioNovo(sigla, gravar) {
+  for (let tentativa = 1; ; tentativa++) {
+    try {
+      return await prisma.$transaction(async tx => gravar(tx, await proximoPatrimonio(tx, sigla)), { isolationLevel: 'Serializable' })
+    } catch (err) {
+      if (err.code !== 'P2034' || tentativa >= 5) throw err
+    }
+  }
+}
+
 // Documentos da balsa ficam fora de backend/uploads, no mesmo esquema dos
 // documentos de colaborador: pasta própria, entregues só pela rota autenticada.
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -134,6 +175,16 @@ router.get('/pdf', autenticar, async (req, res) => {
   res.send(Buffer.from(pdfBytes))
 })
 
+// ─── Próximo patrimônio de uma sigla (prévia no formulário) ───────────────────
+// Só prévia: o número de verdade é gerado na hora de gravar (outro cadastro
+// pode pegar este número antes). Antes de GET /:id, senão o Express lê
+// "proximo-patrimonio" como id.
+router.get('/proximo-patrimonio', autenticar, exigirPerfil('admin', 'gerente'), async (req, res) => {
+  const sigla = String(req.query.sigla || '').toUpperCase()
+  if (!SIGLAS_PATRIMONIO.includes(sigla)) return res.status(400).json({ erro: 'Sigla de patrimônio inválida' })
+  res.json({ patrimonio: await proximoPatrimonio(prisma, sigla) })
+})
+
 // ═══════════════════════════════ DOCUMENTOS ══════════════════════════════════════
 // Declaradas antes de GET /:id pra "/documentos/..." não ser lido como um id de balsa.
 
@@ -221,10 +272,14 @@ router.post('/', autenticar, exigirPerfil('admin', 'gerente'), async (req, res) 
     fabricante, numeroSerie, modelo, anoFabricacao,
     capacidade, tipo, armazem, finalidade, observacoes
   } = req.body
-  const patrimonio = (req.body.patrimonio || '').trim()
+  const sigla = String(req.body.siglaPatrimonio || '').toUpperCase()
 
-  if (!fabricante || !numeroSerie || !modelo || !anoFabricacao || !capacidade || !tipo || !finalidade || !patrimonio) {
+  if (!fabricante || !numeroSerie || !modelo || !anoFabricacao || !capacidade || !tipo || !finalidade || !sigla) {
     return res.status(400).json({ erro: 'Todos os campos são obrigatórios, exceto armazém e observações' })
+  }
+
+  if (!SIGLAS_PATRIMONIO.includes(sigla)) {
+    return res.status(400).json({ erro: `Sigla de patrimônio inválida. Use: ${SIGLAS_PATRIMONIO.join(', ')}` })
   }
 
   if (!FINALIDADES_VALIDAS.includes(finalidade)) {
@@ -236,12 +291,7 @@ router.post('/', autenticar, exigirPerfil('admin', 'gerente'), async (req, res) 
     return res.status(400).json({ erro: 'Já existe uma balsa cadastrada com esse número de série' })
   }
 
-  const patrimonioExiste = await prisma.balsa.findFirst({ where: { patrimonio } })
-  if (patrimonioExiste) {
-    return res.status(400).json({ erro: 'Já existe uma balsa cadastrada com esse patrimônio' })
-  }
-
-  const balsa = await prisma.balsa.create({
+  const balsa = await comPatrimonioNovo(sigla, (tx, patrimonio) => tx.balsa.create({
     data: {
       fabricante,
       numeroSerie,
@@ -254,7 +304,7 @@ router.post('/', autenticar, exigirPerfil('admin', 'gerente'), async (req, res) 
       observacoes: observacoes || null,
       finalidade
     }
-  })
+  }))
 
   res.json(balsa)
 })
@@ -292,18 +342,19 @@ router.put('/:id', autenticar, exigirPerfil('admin', 'gerente'), async (req, res
   if (armazem !== undefined) dados.armazem = armazem || null
   if (observacoes !== undefined) dados.observacoes = observacoes || null
 
-  // Só valida o patrimônio quando ele vem no body — a troca de status
-  // (marcar locado/vendido/reativar) manda só { status } e não pode ser barrada
-  // por uma balsa antiga que ainda não tem patrimônio.
-  if (req.body.patrimonio !== undefined) {
-    const patrimonio = String(req.body.patrimonio || '').trim()
-    if (!patrimonio) return res.status(400).json({ erro: 'Patrimônio é obrigatório' })
-
-    const patrimonioExiste = await prisma.balsa.findFirst({ where: { patrimonio } })
-    if (patrimonioExiste && patrimonioExiste.id !== id) {
-      return res.status(400).json({ erro: 'Já existe uma balsa cadastrada com esse patrimônio' })
+  // Patrimônio não se digita: vem só a sigla. Sigla igual à atual = mantém o
+  // número; diferente (ou balsa antiga fora do formato) = gera número novo.
+  // Sem siglaPatrimonio no body (troca de status, ou "manter atual" numa balsa
+  // antiga) o patrimônio não muda.
+  let novaSigla = null
+  if (req.body.siglaPatrimonio) {
+    const sigla = String(req.body.siglaPatrimonio).toUpperCase()
+    if (!SIGLAS_PATRIMONIO.includes(sigla)) {
+      return res.status(400).json({ erro: `Sigla de patrimônio inválida. Use: ${SIGLAS_PATRIMONIO.join(', ')}` })
     }
-    dados.patrimonio = patrimonio
+    const atual = await prisma.balsa.findUnique({ where: { id }, select: { patrimonio: true } })
+    if (!atual) return res.status(404).json({ erro: 'Balsa não encontrada' })
+    if (siglaDoPatrimonio(atual.patrimonio) !== sigla) novaSigla = sigla
   }
 
   if (finalidade) {
@@ -321,13 +372,13 @@ router.put('/:id', autenticar, exigirPerfil('admin', 'gerente'), async (req, res
   }
 
   try {
-    const balsa = await prisma.balsa.update({
-      where: { id },
-      data: dados
-    })
+    const balsa = novaSigla
+      ? await comPatrimonioNovo(novaSigla, (tx, patrimonio) => tx.balsa.update({ where: { id }, data: { ...dados, patrimonio } }))
+      : await prisma.balsa.update({ where: { id }, data: dados })
     res.json(balsa)
-  } catch {
-    res.status(404).json({ erro: 'Balsa não encontrada' })
+  } catch (err) {
+    if (err.code === 'P2025') return res.status(404).json({ erro: 'Balsa não encontrada' })
+    throw err
   }
 })
 

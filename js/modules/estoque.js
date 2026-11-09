@@ -17,6 +17,56 @@ function badgeStatus(status) {
   return `<span style="background:${s.cor}; color:white; padding:2px 8px; border-radius:12px; font-size:12px;">${esc(s.texto)}</span>`
 }
 
+// ─── Patrimônio automático (SIGLA-NNN) ────────────────────────────────────────
+// Escolhe-se só a sigla; o número sai no backend (routes/estoque.js, mesma lista).
+const SIGLAS_PATRIMONIO = [
+  { sigla: 'NSB', nome: 'Balsa de locação Natal Safety' },
+  { sigla: 'NS', nome: 'Balsa nova para venda' },
+  { sigla: 'SB', nome: 'Superbraço' },
+]
+const SIGLA_PADRAO = { locacao: 'NSB', venda: 'NS' }
+
+// Sigla de um patrimônio já no formato novo (NSB-001 → 'NSB'), senão null
+function siglaDoPatrimonio(patrimonio) {
+  const m = /^([A-Z]+)-(\d+)$/.exec(String(patrimonio || '').trim().toUpperCase())
+  return m && SIGLAS_PATRIMONIO.some(s => s.sigla === m[1]) ? m[1] : null
+}
+
+// <select> da sigla. Na edição de balsa com patrimônio antigo (fora do formato)
+// a 1ª opção é "manter o atual" (value vazio = backend não mexe no patrimônio).
+function selectSiglaPatrimonio({ selecionada, patrimonioAntigo }) {
+  return `
+    <select id="balsa-siglaPatrimonio" class="form-control" onchange="atualizarPreviaPatrimonio()">
+      ${patrimonioAntigo ? `<option value="">Manter o atual (${esc(patrimonioAntigo)})</option>` : ''}
+      ${SIGLAS_PATRIMONIO.map(s => `<option value="${s.sigla}" ${s.sigla === selecionada ? 'selected' : ''}>${s.sigla} — ${esc(s.nome)}</option>`).join('')}
+    </select>
+    <small id="balsa-previaPatrimonio" style="color:#666;"></small>
+  `
+}
+
+// Prévia do número embaixo do select. patrimonioAtual: o da balsa em edição —
+// se a sigla escolhida é a dele, o número não muda.
+let patrimonioEmEdicao = null
+window.atualizarPreviaPatrimonio = async function () {
+  const sigla = document.getElementById('balsa-siglaPatrimonio')?.value
+  const previa = document.getElementById('balsa-previaPatrimonio')
+  if (!previa) return
+  if (!sigla) { previa.textContent = 'O patrimônio não muda.'; return }
+  if (patrimonioEmEdicao && siglaDoPatrimonio(patrimonioEmEdicao) === sigla) {
+    previa.textContent = `Continua ${patrimonioEmEdicao}.`
+    return
+  }
+  previa.textContent = 'Calculando número...'
+  try {
+    const { patrimonio } = await apiDados(`${API}/estoque/proximo-patrimonio?sigla=${sigla}`, { semAviso: true })
+    // Ignora resposta atrasada se a pessoa já trocou de sigla
+    if (document.getElementById('balsa-siglaPatrimonio')?.value !== sigla) return
+    previa.textContent = `${patrimonioEmEdicao ? 'Novo número' : 'Vai ser cadastrada como'}: ${patrimonio} (confirmado ao salvar)`
+  } catch {
+    previa.textContent = 'O número é gerado ao salvar.'
+  }
+}
+
 // Guarda a lista completa (sem filtro) recebida do backend, por finalidade
 const balsasCache = {}
 
@@ -804,7 +854,7 @@ window.abrirFormularioBalsa = function (finalidade) {
         <div><label>Ano de Fabricação *</label><input type="number" id="balsa-anoFabricacao" class="form-control"></div>
         <div><label>Capacidade *</label><input type="number" id="balsa-capacidade" class="form-control"></div>
         <div><label>Tipo *</label><input type="text" id="balsa-tipo" class="form-control" placeholder="Ex: balsa, baleeira..."></div>
-        <div><label>Patrimônio *</label><input type="text" id="balsa-patrimonio" class="form-control"></div>
+        <div><label>Patrimônio * <small style="color:#999;">(número automático)</small></label>${selectSiglaPatrimonio({ selecionada: SIGLA_PADRAO[finalidade] })}</div>
         <div><label>Armazém</label><input type="text" id="balsa-armazem" class="form-control"></div>
         <div style="grid-column:span 2;"><label>Observações</label><textarea id="balsa-observacoes" class="form-control" rows="3"></textarea></div>
       </div>
@@ -816,6 +866,8 @@ window.abrirFormularioBalsa = function (finalidade) {
       <button type="button" class="btn btn-success" style="margin-top:20px;" onclick="salvarBalsa('${finalidade}')">Salvar Balsa</button>
     </div>
   `
+  patrimonioEmEdicao = null
+  atualizarPreviaPatrimonio()
 }
 
 window.salvarBalsa = async function (finalidade) {
@@ -826,13 +878,13 @@ window.salvarBalsa = async function (finalidade) {
     anoFabricacao: parseInt(document.getElementById('balsa-anoFabricacao').value) || null,
     capacidade: parseInt(document.getElementById('balsa-capacidade').value) || null,
     tipo: document.getElementById('balsa-tipo').value.trim(),
-    patrimonio: document.getElementById('balsa-patrimonio').value.trim(),
+    siglaPatrimonio: document.getElementById('balsa-siglaPatrimonio').value,
     armazem: document.getElementById('balsa-armazem').value.trim(),
     observacoes: document.getElementById('balsa-observacoes').value.trim(),
     finalidade,
   }
 
-  if (!body.fabricante || !body.numeroSerie || !body.modelo || !body.anoFabricacao || !body.capacidade || !body.tipo || !body.patrimonio) {
+  if (!body.fabricante || !body.numeroSerie || !body.modelo || !body.anoFabricacao || !body.capacidade || !body.tipo || !body.siglaPatrimonio) {
     alert('Preencha todos os campos obrigatórios!')
     return
   }
@@ -846,8 +898,8 @@ window.salvarBalsa = async function (finalidade) {
     const balsa = await res.json()
     const documentosOk = await enviarDocumentosBalsaPendentes(balsa.id)
     alert(documentosOk
-      ? 'Balsa cadastrada com sucesso!'
-      : 'Balsa cadastrada, mas algum documento não foi enviado. Confira a lista de documentos.')
+      ? `Balsa cadastrada com sucesso! Patrimônio: ${balsa.patrimonio}`
+      : `Balsa cadastrada (patrimônio ${balsa.patrimonio}), mas algum documento não foi enviado. Confira a lista de documentos.`)
     inicializarEstoqueWrapper(finalidade)
   } else {
     const err = await res.json()
@@ -873,7 +925,9 @@ window.editarBalsa = async function (id, finalidade) {
         <div><label>Ano de Fabricação *</label><input type="number" id="balsa-anoFabricacao" class="form-control" value="${esc(b.anoFabricacao)}"></div>
         <div><label>Capacidade *</label><input type="number" id="balsa-capacidade" class="form-control" value="${esc(b.capacidade)}"></div>
         <div><label>Tipo *</label><input type="text" id="balsa-tipo" class="form-control" value="${esc(b.tipo)}"></div>
-        <div><label>Patrimônio *</label><input type="text" id="balsa-patrimonio" class="form-control" value="${esc(b.patrimonio)}"></div>
+        <div><label>Patrimônio * <small style="color:#999;">${b.patrimonio ? `atual: <strong>${esc(b.patrimonio)}</strong>` : '(sem patrimônio)'}</small></label>${siglaDoPatrimonio(b.patrimonio)
+      ? selectSiglaPatrimonio({ selecionada: siglaDoPatrimonio(b.patrimonio) })
+      : selectSiglaPatrimonio({ selecionada: b.patrimonio ? null : SIGLA_PADRAO[b.finalidade], patrimonioAntigo: b.patrimonio })}</div>
         <div><label>Armazém</label><input type="text" id="balsa-armazem" class="form-control" value="${esc(b.armazem || '')}"></div>
         <div>
           <label>Finalidade</label>
@@ -890,7 +944,7 @@ window.editarBalsa = async function (id, finalidade) {
       ${secaoHistoricoLocacoesHtml(b.contratosBalsa)}
 
       <div style="display:flex; flex-wrap:wrap; gap:8px; margin-top:20px;">
-        <button type="button" class="btn btn-success" onclick="atualizarBalsa(${b.id}, '${finalidade}')">Salvar Alterações</button>
+        <button type="button" class="btn btn-success" onclick="atualizarBalsa(${b.id}, '${finalidade}', ${esc(JSON.stringify(b.patrimonio || ''))})">Salvar Alterações</button>
         ${b.status === 'disponivel' && finalidade === 'locacao'
       ? `<button type="button" class="btn btn-warning" onclick="marcarStatusBalsa(${b.id}, 'locado', '${finalidade}')">Marcar locado</button>`
       : ''}
@@ -903,9 +957,11 @@ window.editarBalsa = async function (id, finalidade) {
       </div>
     </div>
   `
+  patrimonioEmEdicao = b.patrimonio || null
+  atualizarPreviaPatrimonio()
 }
 
-window.atualizarBalsa = async function (id, finalidadeOrigem) {
+window.atualizarBalsa = async function (id, finalidadeOrigem, patrimonioAtual) {
   const body = {
     fabricante: document.getElementById('balsa-fabricante').value.trim(),
     numeroSerie: document.getElementById('balsa-numeroSerie').value.trim(),
@@ -913,14 +969,19 @@ window.atualizarBalsa = async function (id, finalidadeOrigem) {
     anoFabricacao: parseInt(document.getElementById('balsa-anoFabricacao').value) || null,
     capacidade: parseInt(document.getElementById('balsa-capacidade').value) || null,
     tipo: document.getElementById('balsa-tipo').value.trim(),
-    patrimonio: document.getElementById('balsa-patrimonio').value.trim(),
+    siglaPatrimonio: document.getElementById('balsa-siglaPatrimonio').value,
     armazem: document.getElementById('balsa-armazem').value.trim(),
     observacoes: document.getElementById('balsa-observacoes').value.trim(),
     finalidade: document.getElementById('balsa-finalidade').value,
   }
 
-  if (!body.patrimonio) {
-    alert('Patrimônio é obrigatório!')
+  if (!body.siglaPatrimonio && !patrimonioAtual) {
+    alert('Escolha a sigla do patrimônio!')
+    return
+  }
+  // Trocar de sigla dá número novo — o antigo (plaqueta/etiqueta) deixa de valer
+  if (body.siglaPatrimonio && patrimonioAtual && siglaDoPatrimonio(patrimonioAtual) !== body.siglaPatrimonio &&
+    !confirm(`O patrimônio ${patrimonioAtual} vai ser trocado por um número novo da sigla ${body.siglaPatrimonio}. Continuar?`)) {
     return
   }
 
@@ -930,9 +991,10 @@ window.atualizarBalsa = async function (id, finalidadeOrigem) {
   })
 
   if (res.ok) {
+    const balsa = await res.json()
     const documentosOk = await enviarDocumentosBalsaPendentes(id)
     alert(documentosOk
-      ? 'Balsa atualizada com sucesso!'
+      ? `Balsa atualizada com sucesso!${balsa.patrimonio !== patrimonioAtual ? ` Patrimônio: ${balsa.patrimonio}` : ''}`
       : 'Balsa atualizada, mas algum documento não foi enviado. Confira a lista de documentos.')
     inicializarEstoqueWrapper(finalidadeOrigem)
   } else {
