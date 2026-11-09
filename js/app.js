@@ -19,7 +19,7 @@ import { listarCertificados, urlPdfCertificado, badgeStatusCertificado, nomeTipo
 import { inicializarPerfil } from './modules/perfil.js'
 import { inicializarAuditoria } from './modules/auditoria.js'
 import { inicializarControleImc } from './modules/controle-imc.js'
-import { inicializarIndicadores } from './modules/indicadores.js'
+import { inicializarIndicadores, renderizarDashboardIndicadores } from './modules/indicadores.js'
 import { esc } from './modules/html.js'
 
 
@@ -291,6 +291,7 @@ window.addEventListener('load', () => {
     });
     atualizarFavoritos();
     atualizarTabelaCertificados();
+    renderizarDashboardIndicadores();
     renderizarDashboardInicio();
     renderizarDashboardOCs();
     renderizarDashboardContratos();

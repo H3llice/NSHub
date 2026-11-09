@@ -24,9 +24,12 @@ function formatar(valor, unidade) {
 // Variação do último mês em relação ao anterior. Percentual compara em pontos
 // percentuais (p.p.) — "inadimplência subiu 2 p.p." é o que se fala na reunião;
 // moeda/número comparam em % do valor anterior.
-function variacao(ind) {
+function variacao(ind, meses) {
   const v = ind.valores
   const atual = v[v.length - 1], anterior = v[v.length - 2]
+  // Soma (R$, quantidade) do mês corrente ainda está pela metade — comparar com
+  // o mês anterior inteiro daria "queda" todo começo de mês
+  if (ind.unidade !== 'percentual' && emAndamento(meses[meses.length - 1])) return `<span style="color:#999;">mês em andamento</span>`
   if (atual === null || anterior === null || anterior === undefined) return ''
   let delta, texto
   if (ind.unidade === 'percentual') {
@@ -44,8 +47,8 @@ function variacao(ind) {
 
 // Gráfico de barras em SVG puro (mesma linha do grafico-imc.mjs: sem biblioteca,
 // dá pra reaproveitar num PDF depois). Mês corrente/último em cor cheia.
-function svgBarras(meses, valores, unidade) {
-  const L = 320, A = 130, base = A - 18, topo = 8
+function svgBarras(meses, valores, unidade, A = 130) {
+  const L = 320, base = A - 18, topo = 8
   const numeros = valores.filter(v => v !== null)
   const max = Math.max(...numeros, unidade === 'percentual' ? 100 : 0, 1)
   const passo = L / meses.length
@@ -84,7 +87,7 @@ function cardIndicador(ind, meses) {
       ? `<div style="color:#dc3545; font-size:13px;">${esc(ind.erro)}</div>`
       : `<div style="display:flex; align-items:baseline; gap:8px; flex-wrap:wrap;">
             <span style="font-size:24px; font-weight:700;">${formatar(atual, ind.unidade)}</span>
-            <span style="font-size:12px;">${variacao(ind)}</span>
+            <span style="font-size:12px;">${variacao(ind, meses)}</span>
           </div>
           <div style="font-size:11px; color:#999;">${rotuloMes(meses[meses.length - 1])}</div>
           ${svgBarras(meses, ind.valores, ind.unidade)}`}
@@ -95,6 +98,8 @@ function cardIndicador(ind, meses) {
     </div>
   `
 }
+
+const emAndamento = chave => chave === mesRelativo(0)
 
 // 'YYYY-MM' do mês atual deslocado em `delta` meses
 function mesRelativo(delta) {
@@ -169,4 +174,58 @@ window.carregarIndicadores = async function () {
       ${lista.map(ind => cardIndicador(ind, dados.meses)).join('')}
     </div>
   `).join('')
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// CARDS DE INDICADORES — Tela Início
+// ══════════════════════════════════════════════════════════════════════════
+// Versão compacta: valor do mês atual + barrinhas dos últimos 6 meses. Clicar
+// abre Conformidade → Indicadores. Mesmos perfis da tela (o backend filtra
+// indicador por indicador; perfil sem nenhum = painel some).
+
+const PERFIS_INDICADORES = ['admin', 'gerente', 'vendedor', 'financeiro']
+
+export async function renderizarDashboardIndicadores() {
+  const container = document.getElementById('inicio')
+  if (!container) return
+
+  const perfil = JSON.parse(localStorage.getItem('ns_usuario') || 'null')?.perfil
+  if (!PERFIS_INDICADORES.includes(perfil)) {
+    document.getElementById('painel-indicadores-inicio')?.remove()
+    return
+  }
+
+  let painel = document.getElementById('painel-indicadores-inicio')
+  if (!painel) {
+    painel = document.createElement('div')
+    painel.id = 'painel-indicadores-inicio'
+    painel.style = 'margin-top:20px;'
+    container.appendChild(painel)
+  }
+
+  painel.innerHTML = `<div style="color:#999; padding:12px;">Carregando indicadores...</div>`
+
+  try {
+    const params = new URLSearchParams({ de: mesRelativo(-5), ate: mesRelativo(0) })
+    const d = await apiDados(`${API}/indicadores?${params}`, { semAviso: true })
+    const lista = d.indicadores.filter(i => !i.erro)
+    if (lista.length === 0) { painel.remove(); return }
+
+    painel.innerHTML = `
+      <h5 style="margin-bottom:12px;">Indicadores <small style="font-size:12px; color:#999; font-weight:normal;">${rotuloMes(d.meses[d.meses.length - 1])} · últimos 6 meses</small></h5>
+      <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(200px, 1fr)); gap:16px;">
+        ${lista.map(ind => `
+          <div style="background:white; border-radius:6px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06); cursor:pointer;"
+            onclick="abrirPagina(event, 'indicadores')" title="${esc(ind.formula)}">
+            <div style="color:#999; font-size:12px;">${esc(ind.titulo)}</div>
+            <div style="font-size:20px; font-weight:700;">${formatar(ind.valores[ind.valores.length - 1], ind.unidade)}</div>
+            <div style="font-size:11px; margin-bottom:4px;">${variacao(ind, d.meses)}</div>
+            ${svgBarras(d.meses, ind.valores, ind.unidade, 70)}
+          </div>
+        `).join('')}
+      </div>
+    `
+  } catch {
+    painel.remove()
+  }
 }
