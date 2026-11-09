@@ -28,9 +28,27 @@ function resumoPorCapacidade(balsas) {
   return [...contagem.entries()].sort((a, b) => a[0] - b[0])
 }
 
-// finalidade: 'locacao' | 'venda'. todas: se inclui locadas/vendidas (aí sai a
-// coluna de status). filtros: textos tipo "Armazém: Manaus" (vazio = sem filtro)
-export function htmlEstoqueBalsas(balsas, { finalidade, todas, filtros }) {
+const SITUACAO_LABEL = {
+  disponivel: 'Somente disponíveis',
+  locado: 'Somente locadas',
+  vendido: 'Somente vendidas',
+  todas: 'Todas as balsas (inclui locadas/vendidas)'
+}
+
+// finalidade: 'locacao' | 'venda'. situacao: disponivel | locado | vendido | todas
+// (com 'todas' sai a coluna de status). filtros: textos tipo "Armazém: Manaus"
+// (vazio = sem filtro). contratoAtual: Map balsaId → { numero, ano, cliente } das
+// locadas — vira a coluna Contrato quando há balsa locada na lista.
+export function htmlEstoqueBalsas(balsas, { finalidade, situacao, filtros, contratoAtual = new Map() }) {
+  const todas = situacao === 'todas'
+  const colunaContrato = balsas.some(b => b.status === 'locado')
+  const textoContrato = b => {
+    if (b.status !== 'locado') return '-'
+    const c = contratoAtual.get(b.id)
+    // Locada sem passagem aberta = dado inconsistente (ex.: status mudado à mão)
+    if (!c) return 'não encontrado'
+    return `<strong>${escapeHtml(c.numero)}.${escapeHtml(c.ano)}</strong>${c.cliente ? ` — ${escapeHtml(c.cliente)}` : ''}`
+  }
   const logoBase64 = fs.existsSync(LOGO_PATH)
     ? `data:image/png;base64,${fs.readFileSync(LOGO_PATH).toString('base64')}`
     : ''
@@ -76,7 +94,7 @@ export function htmlEstoqueBalsas(balsas, { finalidade, todas, filtros }) {
         ${logoBase64 ? `<img src="${logoBase64}">` : '<span></span>'}
         <h1>${titulo}</h1>
         <div class="info">
-          <strong>${todas ? 'Todas as balsas (inclui locadas/vendidas)' : 'Somente disponíveis'}</strong><br>
+          <strong>${SITUACAO_LABEL[situacao] || ''}</strong><br>
           ${balsas.length} balsa(s)<br>
           Gerado em ${new Date().toLocaleDateString('pt-BR')}
         </div>
@@ -101,6 +119,7 @@ export function htmlEstoqueBalsas(balsas, { finalidade, todas, filtros }) {
                 <th>Tipo</th>
                 <th>Armazém</th>
                 ${todas ? '<th>Status</th>' : ''}
+                ${colunaContrato ? '<th>Contrato</th>' : ''}
               </tr>
             </thead>
             <tbody>
@@ -115,6 +134,7 @@ export function htmlEstoqueBalsas(balsas, { finalidade, todas, filtros }) {
                   <td>${escapeHtml(b.tipo)}</td>
                   <td>${escapeHtml(b.armazem) || '-'}</td>
                   ${todas ? `<td class="centro">${escapeHtml(STATUS_LABEL[b.status] || b.status)}</td>` : ''}
+                  ${colunaContrato ? `<td>${textoContrato(b)}</td>` : ''}
                 </tr>
               `).join('')}
             </tbody>

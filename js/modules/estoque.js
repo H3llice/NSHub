@@ -43,11 +43,15 @@ export function inicializarEstoque(finalidade) {
     <div class="tab">${titulo}</div>
     ${podeGerenciar ? `<button class="btn btn-success" onclick="abrirFormularioBalsa('${finalidade}')">+ Nova Balsa</button>` : ''}
 
-    <div style="margin: 16px 0 8px;">
-      <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-size:13px; width:fit-content;">
-        <input type="checkbox" id="toggle-todas-${finalidade}" onchange="carregarBalsasWrapper('${finalidade}')">
-        Mostrar todas (inclui locadas/vendidas)
-      </label>
+    <div style="margin: 16px 0 8px; display:flex; align-items:center; gap:8px; font-size:13px;">
+      <label for="situacao-${finalidade}">Mostrar:</label>
+      <select id="situacao-${finalidade}" class="form-control form-control-sm" style="width:auto;" onchange="carregarBalsasWrapper('${finalidade}')">
+        <option value="disponivel">Só disponíveis</option>
+        ${finalidade === 'locacao'
+      ? '<option value="locado">Só locadas</option>'
+      : '<option value="vendido">Só vendidas</option>'}
+        <option value="todas">Todas</option>
+      </select>
     </div>
 
     <!-- Filtros -->
@@ -133,12 +137,14 @@ const DIRECAO_ORDEM = 'asc'
 const CAMPOS_FILTRO = ['numeroSerie', 'patrimonio', 'fabricante', 'modelo', 'tipo', 'armazem', 'anoMin', 'anoMax', 'capacidade']
 
 // ===== CARREGA BALSAS DO BACKEND ==============================================
+// disponivel | locado | vendido | todas (seletor "Mostrar" — ver lerSituacao em routes/estoque.js)
+const situacaoAtual = finalidade => document.getElementById(`situacao-${finalidade}`)?.value || 'disponivel'
+
 async function carregarBalsas(finalidade) {
-  const mostrarTodas = document.getElementById(`toggle-todas-${finalidade}`)?.checked
+  const situacao = situacaoAtual(finalidade)
 
   try {
-    const params = new URLSearchParams({ finalidade })
-    if (mostrarTodas) params.append('todas', '1')
+    const params = new URLSearchParams({ finalidade, situacao })
 
     const res = await apiFetch(`${API}/estoque?${params}`)
     const balsas = await res.json()
@@ -148,7 +154,7 @@ async function carregarBalsas(finalidade) {
     const disponiveis = new Set(balsas.filter(b => b.status === 'disponivel').map(b => b.id))
     balsasSelecionadas[finalidade].forEach(id => { if (!disponiveis.has(id)) balsasSelecionadas[finalidade].delete(id) })
 
-    aplicarFiltros(finalidade, mostrarTodas)
+    aplicarFiltros(finalidade, situacao)
   } catch (err) {
     document.getElementById(`tabela-balsas-${finalidade}`).innerHTML = `
       <tr><td colspan="${COLUNAS_TABELA}" style="text-align:center; color:red; padding:30px;">Erro ao conectar com o servidor</td></tr>
@@ -163,8 +169,7 @@ window.carregarBalsasWrapper = function (finalidade) {
 
 // ===== APLICA FILTROS + ORDENAÇÃO (client-side, sobre o cache) ===============
 window.aplicarFiltrosBalsa = function (finalidade) {
-  const mostrarTodas = document.getElementById(`toggle-todas-${finalidade}`)?.checked
-  aplicarFiltros(finalidade, mostrarTodas)
+  aplicarFiltros(finalidade, situacaoAtual(finalidade))
 }
 
 window.limparFiltrosBalsa = function (finalidade) {
@@ -178,8 +183,7 @@ window.limparFiltrosBalsa = function (finalidade) {
 // PDF abre em nova aba — sem header Authorization, o token vai na query. Manda os
 // filtros preenchidos e o backend (GET /estoque/pdf) aplica a mesma regra de aplicarFiltros
 window.exportarPdfEstoque = function (finalidade) {
-  const params = new URLSearchParams({ finalidade, token: localStorage.getItem('ns_token') || '' })
-  if (document.getElementById(`toggle-todas-${finalidade}`)?.checked) params.append('todas', '1')
+  const params = new URLSearchParams({ finalidade, situacao: situacaoAtual(finalidade), token: localStorage.getItem('ns_token') || '' })
   CAMPOS_FILTRO.forEach(campo => {
     const valor = (document.getElementById(`filtro-${campo}-${finalidade}`)?.value || '').trim()
     if (valor) params.append(campo, valor)
@@ -187,7 +191,9 @@ window.exportarPdfEstoque = function (finalidade) {
   window.open(`${API}/estoque/pdf?${params}`, '_blank')
 }
 
-function aplicarFiltros(finalidade, mostrarTodas) {
+const CONTADOR_SITUACAO = { disponivel: 'disponível(is)', locado: 'locada(s)', vendido: 'vendida(s)', todas: 'no total' }
+
+function aplicarFiltros(finalidade, situacao) {
   let balsas = [...(balsasCache[finalidade] || [])]
 
   const texto = campo => (document.getElementById(`filtro-${campo}-${finalidade}`)?.value || '').trim().toLowerCase()
@@ -234,7 +240,7 @@ function aplicarFiltros(finalidade, mostrarTodas) {
   if (contador) {
     const totalCache = (balsasCache[finalidade] || []).length
     contador.textContent = balsas.length === totalCache
-      ? `${balsas.length} balsa(s) ${mostrarTodas ? 'no total' : 'disponível(is)'}`
+      ? `${balsas.length} balsa(s) ${CONTADOR_SITUACAO[situacao] || ''}`
       : `${balsas.length} de ${totalCache} balsa(s) (filtro aplicado)`
   }
 }

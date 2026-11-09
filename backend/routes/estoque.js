@@ -28,11 +28,21 @@ const upload = multer({
   limits: { fileSize: 20 * 1024 * 1024 }
 })
 
+// ─── Situação (filtro de status da tela de estoque) ─────────────────────────────
+// ?situacao=disponivel | locado | vendido | todas. Sem situacao vale o formato
+// antigo (?todas=1 = todas; nada = só disponíveis), que é o que contratos.js e
+// vendas.js usam pra listar balsas livres.
+const SITUACOES = ['disponivel', 'locado', 'vendido', 'todas']
+function lerSituacao(query) {
+  if (SITUACOES.includes(query.situacao)) return query.situacao
+  return query.todas ? 'todas' : 'disponivel'
+}
+
 // ─── Listar balsas ─────────────────────────────────────────────────────────────
-// GET /estoque?finalidade=locacao        → só disponíveis dessa finalidade
-// GET /estoque?finalidade=locacao&todas=1 → inclui locadas/vendidas também
+// GET /estoque?finalidade=locacao[&situacao=...]  (ver lerSituacao)
 router.get('/', autenticar, async (req, res) => {
-  const { finalidade, todas } = req.query
+  const { finalidade } = req.query
+  const situacao = lerSituacao(req.query)
 
   const where = {}
 
@@ -43,8 +53,8 @@ router.get('/', autenticar, async (req, res) => {
     where.finalidade = finalidade
   }
 
-  if (!todas) {
-    where.status = 'disponivel'
+  if (situacao !== 'todas') {
+    where.status = situacao
   }
 
   const balsas = await prisma.balsa.findMany({
@@ -56,7 +66,7 @@ router.get('/', autenticar, async (req, res) => {
 })
 
 // ─── PDF do estoque (link em nova aba, token via ?token=) ─────────────────────
-// GET /estoque/pdf?finalidade=locacao[&todas=1][&armazem=...&capacidade=...]
+// GET /estoque/pdf?finalidade=locacao[&situacao=...][&armazem=...&capacidade=...]
 // Os filtros são os mesmos da tela (js/modules/estoque.js → aplicarFiltros) e
 // com a mesma regra: texto é "contém" sem diferenciar maiúscula, capacidade é
 // exata e ano é faixa. Se mudar lá, mudar aqui, senão o PDF sai diferente da tabela.
@@ -71,13 +81,13 @@ const FILTROS_TEXTO_PDF = [
 
 router.get('/pdf', autenticar, async (req, res) => {
   const { finalidade } = req.query
-  const todas = !!req.query.todas
+  const situacao = lerSituacao(req.query)
   if (!FINALIDADES_VALIDAS.includes(finalidade)) {
     return res.status(400).json({ erro: `Finalidade inválida. Use: ${FINALIDADES_VALIDAS.join(', ')}` })
   }
 
   const where = { finalidade }
-  if (!todas) where.status = 'disponivel'
+  if (situacao !== 'todas') where.status = situacao
   let balsas = await prisma.balsa.findMany({ where, orderBy: { capacidade: 'asc' } })
 
   const filtros = []
@@ -99,9 +109,26 @@ router.get('/pdf', autenticar, async (req, res) => {
   if (anoMax !== null) { balsas = balsas.filter(b => b.anoFabricacao <= anoMax); filtros.push(`Ano máx.: ${anoMax}`) }
   if (capacidade !== null) { balsas = balsas.filter(b => b.capacidade === capacidade); filtros.push(`Capacidade: ${capacidade}`) }
 
-  const pdfBytes = await gerarPdf(htmlEstoqueBalsas(balsas, { finalidade, todas, filtros }), { preferCSSPageSize: true })
+  // Contrato em que cada balsa locada está agora (passagem sem devolvidaEm).
+  // Map balsaId → { numero, ano, cliente }
+  const contratoAtual = new Map()
+  const idsLocadas = balsas.filter(b => b.status === 'locado').map(b => b.id)
+  if (idsLocadas.length > 0) {
+    const passagens = await prisma.contratoBalsa.findMany({
+      where: { balsaId: { in: idsLocadas }, devolvidaEm: null },
+      select: { balsaId: true, contrato: { select: { numero: true, ano: true, cliente: { select: { nome: true } } } } },
+      orderBy: { criadoEm: 'desc' }
+    })
+    for (const p of passagens) {
+      if (!contratoAtual.has(p.balsaId)) {
+        contratoAtual.set(p.balsaId, { numero: p.contrato.numero, ano: p.contrato.ano, cliente: p.contrato.cliente?.nome })
+      }
+    }
+  }
 
-  const nomeArquivo = `${finalidade === 'locacao' ? 'Estoque de locação' : 'Estoque de vendas'} ${new Date().toLocaleDateString('pt-BR').replaceAll('/', '-')}.pdf`
+  const pdfBytes = await gerarPdf(htmlEstoqueBalsas(balsas, { finalidade, situacao, filtros, contratoAtual }), { preferCSSPageSize: true })
+
+  const nomeArquivo = `${finalidade === 'locacao' ? 'Estoque de locação' : 'Estoque de vendas'}${situacao === 'locado' ? ' - locadas' : situacao === 'vendido' ? ' - vendidas' : ''} ${new Date().toLocaleDateString('pt-BR').replaceAll('/', '-')}.pdf`
   res.setHeader('Content-Type', 'application/pdf')
   res.setHeader('Content-Disposition', `inline; filename*=UTF-8''${encodeURIComponent(nomeArquivo)}`)
   res.send(Buffer.from(pdfBytes))
