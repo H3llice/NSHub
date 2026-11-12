@@ -7,6 +7,7 @@ import crypto from 'crypto'
 import multer from 'multer'
 import { prisma } from '../server.js'
 import { autenticar, exigirPerfil } from '../middleware/auth.js'
+import { assinaturaPorNome, nomeArquivoAssinatura } from '../assinaturas.js'
 import { MODELOS_RELATORIO_TECNICO, conteudoInicial, conteudoModeloSalvo, nomeModeloSalvo, normalizarConteudo, gerarPdfRelatorioTecnico, nomeArquivoRelatorioTecnico, pastaFotosRelatorio, fotosUsadas } from '../templates/relatorio-tecnico.js'
 
 const router = Router()
@@ -198,6 +199,14 @@ router.get('/modelos', autenticar, async (req, res) => {
     modelos[`salvo-${m.id}`] = { nome: m.nome, certificado: null, conteudo: m.conteudo }
   }
   res.json(modelos)
+})
+
+// ─── Prévia da assinatura que vai no PDF ───────────────────────────────────────
+// A tela mostra embaixo do nome do técnico a imagem que o PDF vai usar (ou o
+// nome de arquivo esperado, se não tiver). Precisa vir antes de /:id.
+router.get('/assinatura', autenticar, (req, res) => {
+  const nome = String(req.query.nome || '')
+  res.json({ imagem: assinaturaPorNome(nome) || null, arquivo: nomeArquivoAssinatura(nome) })
 })
 
 // ─── Buscar um relatório pelo ID ────────────────────────────────────────────────
@@ -880,7 +889,10 @@ function gerarHtmlServicoBalsa(relatorio) {
     ? `data:image/png;base64,${fs.readFileSync(logoPath).toString('base64')}`
     : ''
 
+  // Assinatura desenhada na conclusão, se houver; senão a imagem do técnico
+  // na pasta de assinaturas (backend/assinaturas.js), pelo nome do relatório.
   const assinaturaTecnico = relatorio.assinaturas?.find(as => as.etapa === 'tecnico')
+  const assinaturaImg = assinaturaTecnico?.assinaturaImg || assinaturaPorNome(executanteNome)
 
   const kitHtml = KIT_ITENS_ORDEM.map(chave => {
     let equipamento = KIT_ITENS_LABELS[chave]
@@ -1099,8 +1111,8 @@ function gerarHtmlServicoBalsa(relatorio) {
         <span>${caixaMarcada(revisaoOk === false)} NÃO</span>
         <span class="assinatura">
           ASSINATURA:
-          ${assinaturaTecnico?.assinaturaImg
-      ? `<img src="${assinaturaTecnico.assinaturaImg}">`
+          ${assinaturaImg
+      ? `<img src="${esc(assinaturaImg)}">`
       : esc(executanteNome)
     }
         </span>

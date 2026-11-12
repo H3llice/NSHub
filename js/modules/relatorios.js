@@ -16,6 +16,46 @@ export function hojeISO() {
 const tokenAtual = localStorage.getItem('ns_token')
 const usuarioAtual = JSON.parse(localStorage.getItem('ns_usuario') || 'null')
 const perfil = usuarioAtual?.perfil || 'usuario'
+// ─── Prévia da assinatura que vai no PDF ───────────────────────────────────────
+// Embaixo do nome do técnico mostra a imagem que o PDF vai usar, vinda da pasta
+// de assinaturas (backend/assinaturas.js), ou o nome de arquivo que falta lá.
+// Assinante com empresa preenchida é de fora e nunca leva imagem.
+const cacheAssinaturas = new Map()
+
+function previaAssinaturaHtml(nomeId, empresaId, semImagem) {
+  return `<div class="previa-assinatura" data-nome="${nomeId}" data-empresa="${empresaId}" data-sem="${esc(semImagem)}" style="margin-top:6px; font-size:12px; color:#999;"></div>`
+}
+
+async function atualizarPreviaAssinatura(div) {
+  const valor = id => (id && document.getElementById(id)?.value.trim()) || ''
+  const nome = valor(div.dataset.nome)
+  if (valor(div.dataset.empresa)) { div.textContent = 'Assinatura de outra empresa — vai sem imagem.'; return }
+  if (!nome) { div.textContent = ''; return }
+  if (!cacheAssinaturas.has(nome)) {
+    cacheAssinaturas.set(nome, apiDados(`${API}/relatorios/assinatura?nome=${encodeURIComponent(nome)}`, { semAviso: true }).catch(() => null))
+  }
+  const r = await cacheAssinaturas.get(nome)
+  if (valor(div.dataset.nome) !== nome) return // continuou digitando
+  if (!r) { cacheAssinaturas.delete(nome); div.textContent = ''; return }
+  div.innerHTML = r.imagem
+    ? `<div style="display:flex; align-items:center; gap:8px;">
+         <img src="${esc(r.imagem)}" style="max-height:48px; max-width:180px; background:#fff; border:1px solid #ddd; border-radius:4px; padding:2px;">
+         <span style="color:#28a745;">✓ vai no PDF</span>
+       </div>`
+    : `<span style="color:#b8860b;">⚠ Sem assinatura pra esse nome — ${esc(div.dataset.sem)}.</span>
+       ${r.arquivo ? `<br>Arquivo esperado na pasta de assinaturas: <code>${esc(r.arquivo)}.png</code>` : ''}`
+}
+
+function atualizarPreviasAssinatura() {
+  document.querySelectorAll('.previa-assinatura').forEach(atualizarPreviaAssinatura)
+}
+
+let timerPreviasAssinatura = null
+window.agendarPreviasAssinatura = function () {
+  clearTimeout(timerPreviasAssinatura)
+  timerPreviasAssinatura = setTimeout(atualizarPreviasAssinatura, 300)
+}
+
 // Cancelar/excluir é restrito a gerente/admin, mesma regra do Certificado
 // (js/modules/certificados.js).
 const podeCancelarOuExcluirRelatorio = perfil === 'admin' || perfil === 'gerente'
@@ -244,6 +284,7 @@ window.novoRelatorioTipoAtivo = async function () {
 
   document.getElementById('relatorios').innerHTML = renderFormularioRelatorio(null, empresas)
   renderizarCilindros()
+  atualizarPreviasAssinatura()
   preencherQuantidadesPadraoKit(undefined)
 }
 
@@ -340,6 +381,7 @@ window.gerarRelatorioDeOS = async function (ordemServicoId) {
 
   document.getElementById('relatorios').innerHTML = renderFormularioRelatorio(preenchido, empresas)
   renderizarCilindros()
+  atualizarPreviasAssinatura()
   // Relatório do zero — sugere as quantidades padrão do kit (mesma lógica do Certificado).
   preencherQuantidadesPadraoKit(preenchido.equipCapacidade)
 }
@@ -368,6 +410,7 @@ window.editarRelatorio = async function (id) {
   cilindrosSomenteLeitura = r.status === 'concluido'
   document.getElementById('relatorios').innerHTML = renderFormularioRelatorio(r, empresas)
   renderizarCilindros()
+  atualizarPreviasAssinatura()
 }
 
 function secao(titulo, conteudoHtml) {
@@ -600,7 +643,8 @@ export function renderSecoesTecnicasRelatorio(r, somenteLeitura, opcoes = {}) {
           </div>
           <div>
             <label>Técnico responsável <small style="color:#999;">(impresso no rodapé da 2ª página)</small></label>
-            <input type="text" id="rel-tecnicoNome" class="form-control" value="${esc(r?.tecnicoNome || nomeTecnicoDefault)}" ${dis}>
+            <input type="text" id="rel-tecnicoNome" class="form-control" value="${esc(r?.tecnicoNome || nomeTecnicoDefault)}" oninput="agendarPreviasAssinatura()" ${dis}>
+            ${previaAssinaturaHtml('rel-tecnicoNome', '', 'no PDF sai só o nome escrito')}
           </div>
         </div>
         <div style="margin-top:16px;">
@@ -1489,13 +1533,17 @@ function renderizarAssinaturasTecnico() {
   const dis = tecnicoSomenteLeitura ? 'disabled' : ''
   div.innerHTML = tecnicoEstado.assinaturas.map((a, i) => `
     <div style="display:grid; grid-template-columns:${tecnicoSomenteLeitura ? '1fr 1fr 1fr 1fr' : '1fr 1fr 1fr 1fr 36px'}; gap:8px; margin-bottom:8px; align-items:start;">
-      <input type="text" class="form-control form-control-sm" id="tec-a${i}-empresa" placeholder="Empresa (vazio = executante)" value="${esc(a.empresa || '')}" ${dis}>
-      <input type="text" class="form-control form-control-sm" id="tec-a${i}-nome" placeholder="Nome" list="tec-lista-tecnicos" autocomplete="off" onchange="tecSelecionarTecnico(${i})" value="${esc(a.nome || '')}" ${dis}>
+      <input type="text" class="form-control form-control-sm" id="tec-a${i}-empresa" placeholder="Empresa (vazio = executante)" oninput="agendarPreviasAssinatura()" value="${esc(a.empresa || '')}" ${dis}>
+      <div>
+        <input type="text" class="form-control form-control-sm" id="tec-a${i}-nome" placeholder="Nome" list="tec-lista-tecnicos" autocomplete="off" onchange="tecSelecionarTecnico(${i})" oninput="agendarPreviasAssinatura()" value="${esc(a.nome || '')}" ${dis}>
+        ${previaAssinaturaHtml(`tec-a${i}-nome`, `tec-a${i}-empresa`, 'no PDF sai só a linha em branco')}
+      </div>
       <input type="text" class="form-control form-control-sm" id="tec-a${i}-cargo" placeholder="Cargo (ex: ENG MECÂNICO)" value="${esc(a.cargo || '')}" ${dis}>
       <textarea class="form-control form-control-sm" id="tec-a${i}-registro" rows="2" placeholder="Registro (CREA, CRT, SISPAT...)" ${dis}>${esc(a.registro || '')}</textarea>
       ${tecnicoSomenteLeitura ? '' : `<button type="button" class="btn btn-sm btn-danger" title="Remover assinatura" onclick="tecRemoverAssinatura(${i})">✕</button>`}
     </div>
   `).join('') || '<p style="color:#999; font-size:13px; margin:0;">Nenhuma assinatura.</p>'
+  atualizarPreviasAssinatura()
 }
 
 // Copia o que está digitado na tela de volta pro estado — chamada antes de
@@ -1608,6 +1656,7 @@ window.tecSelecionarTecnico = function (i) {
   document.getElementById(`tec-a${i}-cargo`).value = 'TÉCNICO DE MANUTENÇÃO'
   document.getElementById(`tec-a${i}-registro`).value = tecnico.sispat ? `SISPAT: ${tecnico.sispat}` : ''
   if (!tecnico.sispat) alert(`${tecnico.nome} não tem SISPAT no cadastro de Colaboradores — preencha o registro à mão ou atualize o cadastro.`)
+  atualizarPreviasAssinatura()
 }
 
 window.tecAdicionarAssinatura = function () {

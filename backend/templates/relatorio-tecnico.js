@@ -16,6 +16,7 @@ import fs from 'fs'
 import path from 'path'
 import { PDFDocument, PDFName, StandardFonts, rgb } from 'pdf-lib'
 import { gerarPdf } from '../pdf-browser.js'
+import { assinaturaPorNome } from '../assinaturas.js'
 
 // Seção 'texto': título + texto livre (quebras de linha mantidas no PDF).
 // Seção 'campos': título + um ou mais grupos de "Rótulo: valor" — no
@@ -508,6 +509,9 @@ export function htmlRelatorioTecnico(relatorio, paginas = {}) {
   .assinaturas { display: flex; justify-content: space-around; gap: 6mm; margin-top: 22mm; page-break-inside: avoid; text-align: center; font-size: 9pt; line-height: 1.3; }
   .assinatura { flex: 1; max-width: 60mm; }
   .assinatura .linha { border-top: 1px solid #333; margin-bottom: 2mm; }
+  /* Assinatura escaneada em cima da linha; a margem negativa encosta o traço
+     na linha sem empurrar o bloco pra baixo. */
+  .assinatura img { display: block; max-height: 18mm; max-width: 55mm; margin: -18mm auto 0; height: 18mm; object-fit: contain; }
   .assinatura .empresa { font-weight: bold; font-size: 10pt; }
 </style>
 </head>
@@ -546,6 +550,7 @@ export function htmlRelatorioTecnico(relatorio, paginas = {}) {
     <div class="assinaturas">
       ${assinaturas.map(a => `
         <div class="assinatura">
+          ${(img => img ? `<img src="${escapeHtml(img)}">` : '')(a.empresa.trim() ? '' : assinaturaPorNome(a.nome))}
           <div class="linha"></div>
           ${a.empresa.trim()
             ? `<div class="empresa">${escapeHtml(a.empresa.toUpperCase())}</div>`
