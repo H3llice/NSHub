@@ -213,6 +213,48 @@ const INDICADORES = [
       })
       return somarPorMes(meses, oss, o => o.dataEmissao)
     }
+  },
+  {
+    id: 'certificados-feitos',
+    area: 'Serviços técnicos',
+    titulo: 'Certificados feitos',
+    formula: 'Quantidade de certificados criados no mês (data de criação no sistema), emitidos ou não. Cancelados ficam fora; os migrados de anos anteriores contam pela data de emissão.',
+    unidade: 'numero',
+    melhor: 'maior',
+    perfis: PERFIS_COMERCIAL,
+    async calcular(meses) {
+      const inicio = meses[0].inicio, fim = meses.at(-1).fim
+      // Migrado tem criadoEm = dia da importação — contar por ele jogaria anos
+      // de certificados num mês só. Pra esses, a data que vale é a da emissão.
+      const certificados = await prisma.certificado.findMany({
+        where: {
+          OR: [
+            { status: { notIn: ['cancelado', 'migrado'] }, criadoEm: { gte: inicio, lt: fim } },
+            { status: 'migrado', dataEmissao: { gte: inicio, lt: fim } }
+          ]
+        },
+        select: { status: true, criadoEm: true, dataEmissao: true }
+      })
+      return somarPorMes(meses, certificados, c => (c.status === 'migrado' ? c.dataEmissao : c.criadoEm))
+    }
+  },
+  {
+    id: 'certificados-emitidos',
+    area: 'Serviços técnicos',
+    titulo: 'Certificados emitidos',
+    formula: 'Quantidade de certificados emitidos no mês (data de emissão), incluindo os migrados de anos anteriores. Pendentes e cancelados ficam fora.',
+    unidade: 'numero',
+    melhor: 'maior',
+    perfis: PERFIS_COMERCIAL,
+    async calcular(meses) {
+      // Pendente pode já ter dataEmissao preenchida (o formulário deixa digitar
+      // antes de emitir), por isso o filtro é pelo status e não só pela data
+      const certificados = await prisma.certificado.findMany({
+        where: { status: { in: ['emitido', 'migrado'] }, dataEmissao: { gte: meses[0].inicio, lt: meses.at(-1).fim } },
+        select: { dataEmissao: true }
+      })
+      return somarPorMes(meses, certificados, c => c.dataEmissao)
+    }
   }
 ]
 
