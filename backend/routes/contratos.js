@@ -53,6 +53,28 @@ function deltaValorContrato(contrato, valorBalsa) {
   return valor
 }
 
+// Próximo número de contrato do ano corrente
+async function proximoNumeroContrato(db) {
+  const ano = new Date().getFullYear()
+  const ultimo = await db.contrato.findFirst({ where: { ano }, orderBy: { numero: 'desc' } })
+  return { ano, numero: ultimo ? ultimo.numero + 1 : 1 }
+}
+
+// 1ª parcela do contrato (as seguintes, se mensal, saem do job em server.js)
+function criarPrimeiraParcela(tx, contratoId, valor, dataVencimento, periodicidade) {
+  const dataVenc = new Date(dataVencimento)
+  return tx.pagamento.create({
+    data: {
+      contratoId,
+      valor,
+      dataVencimento: dataVenc.toISOString(),
+      referencia: periodicidade === 'mensal'
+        ? `${String(dataVenc.getUTCMonth() + 1).padStart(2, '0')}/${dataVenc.getUTCFullYear()}`
+        : null
+    }
+  })
+}
+
 // ─── Listar contratos (paginado) ───────────────────────────────────────────────
 router.get('/', autenticar, exigirPerfil(...PERFIS_LEITURA), async (req, res) => {
   const { status, pagina = 1 } = req.query
@@ -99,6 +121,21 @@ router.get('/dashboard', autenticar, exigirPerfil('admin'), async (req, res) => 
     emDia: ativos.length - atrasados,
     vencendoEmBreve
   })
+})
+
+// ─── Contratos vencidos (aviso na tela Início) ─────────────────────────────────
+// Ativo com dataFim já passada: o gerente decide ali mesmo se encerra (devolução)
+// ou renova (contrato novo). O sistema não encerra sozinho — ver job em server.js.
+router.get('/vencidos', autenticar, exigirPerfil('admin', 'gerente'), async (req, res) => {
+  const contratos = await prisma.contrato.findMany({
+    where: { status: 'ativo', dataFim: { lt: hojeDataPura() } },
+    include: {
+      cliente: { select: { nome: true } },
+      balsas: { where: { devolvidaEm: null }, include: { balsa: { select: { patrimonio: true, numeroSerie: true } } } }
+    },
+    orderBy: { dataFim: 'asc' }
+  })
+  res.json(contratos)
 })
 
 // ═══════════════════════════════ DOCUMENTOS ══════════════════════════════════════
@@ -160,7 +197,9 @@ router.get('/:id', autenticar, exigirPerfil(...PERFIS_LEITURA), async (req, res)
       cliente: true,
       criadoPor: { select: { id: true, nome: true } },
       balsas: INCLUDE_BALSAS,
-      documentos: { orderBy: { criadoEm: 'desc' } }
+      documentos: { orderBy: { criadoEm: 'desc' } },
+      renovadoDe: { select: { id: true, numero: true, ano: true } },
+      renovacoes: { select: { id: true, numero: true, ano: true } }
     }
   })
   if (!contrato) return res.status(404).json({ erro: 'Contrato não encontrado' })
@@ -218,11 +257,11 @@ router.post('/', autenticar, exigirPerfil(...PERFIS_GESTAO), async (req, res) =>
     periodicidadePagamento, dataVencimento
   } = req.body
 
-  if (!clienteId || !Array.isArray(balsas) || balsas.length === 0 || !dataInicio) {
-    return res.status(400).json({ erro: 'Cliente, ao menos uma balsa e data de início são obrigatórios' })
+  if (!clienteId || !Array.isArray(balsas) || balsas.length === 0 || !dataInicio || !dataFim) {
+    return res.status(400).json({ erro: 'Cliente, ao menos uma balsa, data de início e data de fim são obrigatórios' })
   }
 
-  if (dataFim && new Date(dataFim) < new Date(dataInicio)) {
+  if (new Date(dataFim) < new Date(dataInicio)) {
     return res.status(400).json({ erro: 'A data de fim não pode ser anterior à data de início' })
   }
 
@@ -240,22 +279,17 @@ router.post('/', autenticar, exigirPerfil(...PERFIS_GESTAO), async (req, res) =>
   const erroBalsas = await validarBalsasParaLocacao(balsaIds)
   if (erroBalsas) return res.status(400).json({ erro: erroBalsas })
 
-  const ano = new Date().getFullYear()
-  const ultimo = await prisma.contrato.findFirst({
-    where: { ano },
-    orderBy: { numero: 'desc' }
-  })
-  const proximoNumero = ultimo ? ultimo.numero + 1 : 1
+  const { ano, numero } = await proximoNumeroContrato(prisma)
 
   const contrato = await prisma.$transaction(async (tx) => {
     const novoContrato = await tx.contrato.create({
       data: {
-        numero: proximoNumero,
+        numero,
         ano,
         tipo: 'locacao',
         clienteId: parseInt(clienteId),
         dataInicio: new Date(dataInicio).toISOString(),
-        dataFim: dataFim ? new Date(dataFim).toISOString() : null,
+        dataFim: new Date(dataFim).toISOString(),
         valor: valor ? parseFloat(valor) : null,
         frete: frete ? parseFloat(frete) : null,
         descontoTipo: descontoValor ? (descontoTipo || 'percentual') : null,
@@ -279,17 +313,7 @@ router.post('/', autenticar, exigirPerfil(...PERFIS_GESTAO), async (req, res) =>
 
     // Cria a primeira parcela, se houver valor definido
     if (valor && dataVencimento) {
-      const dataVenc = new Date(dataVencimento)
-      await tx.pagamento.create({
-        data: {
-          contratoId: novoContrato.id,
-          valor: parseFloat(valor),
-          dataVencimento: dataVenc.toISOString(),
-          referencia: periodicidade === 'mensal'
-            ? `${String(dataVenc.getMonth() + 1).padStart(2, '0')}/${dataVenc.getFullYear()}`
-            : null
-        }
-      })
+      await criarPrimeiraParcela(tx, novoContrato.id, parseFloat(valor), dataVencimento, periodicidade)
     }
 
     return novoContrato
@@ -396,6 +420,85 @@ router.post('/:id/balsas/:contratoBalsaId/devolucao', autenticar, exigirPerfil(.
   res.json(atualizado)
 })
 
+// ─── Renovar: cria um contrato novo idêntico, com novas datas ─────────────────
+// O novo copia cliente, condições, desconto e as balsas que estão no contrato
+// agora (com o valor de cada uma); frete vem no body porque as balsas já estão com
+// o cliente e normalmente não tem frete de novo. O antigo fica encerrado e as
+// passagens das balsas nele são fechadas na data de início do novo, sem vistoria
+// (as balsas não voltaram) — a observação aponta pro contrato novo. Parcelas
+// pendentes do antigo continuam como estão.
+router.post('/:id/renovar', autenticar, exigirPerfil(...PERFIS_GESTAO), async (req, res) => {
+  const id = Number(req.params.id)
+  const { dataInicio, dataFim, frete, dataVencimento } = req.body
+
+  const antigo = await prisma.contrato.findUnique({ where: { id }, include: { balsas: true } })
+  if (!antigo) return res.status(404).json({ erro: 'Contrato não encontrado' })
+  if (antigo.status !== 'ativo') return res.status(400).json({ erro: 'Só é possível renovar contrato ativo' })
+
+  const noContrato = antigo.balsas.filter(cb => !cb.devolvidaEm)
+  if (noContrato.length === 0) return res.status(400).json({ erro: 'O contrato não tem balsas para renovar' })
+
+  if (!dataInicio || !dataFim) return res.status(400).json({ erro: 'Datas de início e de fim do novo contrato são obrigatórias' })
+  const inicio = new Date(dataInicio)
+  const fim = new Date(dataFim)
+  if (fim < inicio) return res.status(400).json({ erro: 'A data de fim não pode ser anterior à data de início' })
+  if (inicio < new Date(antigo.dataInicio)) {
+    return res.status(400).json({ erro: 'O novo contrato não pode começar antes do início do contrato renovado' })
+  }
+
+  // Valor do contrato = balsas - desconto + frete: troca só a parte do frete
+  const novoFrete = frete ? parseFloat(frete) : null
+  const valor = antigo.valor != null
+    ? Math.max(0, antigo.valor - (antigo.frete || 0) + (novoFrete || 0))
+    : null
+  if (valor && !dataVencimento) {
+    return res.status(400).json({ erro: 'Data de vencimento da 1ª parcela é obrigatória quando há valor definido' })
+  }
+
+  const { ano, numero } = await proximoNumeroContrato(prisma)
+
+  const novo = await prisma.$transaction(async (tx) => {
+    const criado = await tx.contrato.create({
+      data: {
+        numero,
+        ano,
+        tipo: antigo.tipo,
+        clienteId: antigo.clienteId,
+        dataInicio: inicio.toISOString(),
+        dataFim: fim.toISOString(),
+        valor,
+        frete: novoFrete,
+        descontoTipo: antigo.descontoTipo,
+        descontoValor: antigo.descontoValor,
+        formaPagamento: antigo.formaPagamento,
+        condicoesPagto: antigo.condicoesPagto,
+        observacoes: antigo.observacoes,
+        periodicidadePagamento: antigo.periodicidadePagamento,
+        renovadoDeId: antigo.id,
+        criadoPorId: req.usuario.id,
+        balsas: { create: noContrato.map(cb => ({ balsaId: cb.balsaId, valor: cb.valor })) }
+      }
+    })
+
+    await tx.contratoBalsa.updateMany({
+      where: { id: { in: noContrato.map(cb => cb.id) } },
+      data: { devolvidaEm: inicio, estadoDevolucao: null, observacoesDevolucao: `Renovada no contrato ${numero}.${ano}` }
+    })
+    await tx.contrato.update({ where: { id: antigo.id }, data: { status: 'encerrado' } })
+
+    // Continuam com o cliente; garante 'locado' caso alguém tenha mexido no estoque
+    await tx.balsa.updateMany({ where: { id: { in: noContrato.map(cb => cb.balsaId) } }, data: { status: 'locado' } })
+
+    if (valor && dataVencimento) {
+      await criarPrimeiraParcela(tx, criado.id, valor, dataVencimento, antigo.periodicidadePagamento)
+    }
+
+    return criado
+  })
+
+  res.json(novo)
+})
+
 // ─── Editar contrato (só admin e gerente) ───────────────────────────────────────
 // Balsas entram por POST /:id/balsas (aditivo) e saem por devolução — aqui só
 // dados do contrato, valor individual das balsas e status.
@@ -414,7 +517,10 @@ router.put('/:id', autenticar, exigirPerfil(...PERFIS_GESTAO), async (req, res) 
 
   const dados = {}
   if (dataInicio) dados.dataInicio = new Date(dataInicio).toISOString()
-  if (dataFim !== undefined) dados.dataFim = dataFim ? new Date(dataFim).toISOString() : null
+  if (dataFim !== undefined) {
+    if (!dataFim) return res.status(400).json({ erro: 'A data de fim do contrato é obrigatória' })
+    dados.dataFim = new Date(dataFim).toISOString()
+  }
   if (valor !== undefined) dados.valor = valor ? parseFloat(valor) : null
   if (frete !== undefined) dados.frete = frete ? parseFloat(frete) : null
   if (descontoValor !== undefined) {

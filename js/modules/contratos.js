@@ -354,7 +354,8 @@ function renderizarTabelaContratos(contratos) {
 // Encerrar/cancelar/devolver são chamados tanto da lista quanto de dentro do
 // contrato aberto — atualiza a tela em que o usuário está
 function atualizarTelaContrato(id) {
-  if (document.getElementById('tabela-contratos')) carregarContratos(paginaAtualContratos)
+  if (document.getElementById('inicio')?.classList.contains('active')) renderizarContratosVencidos()
+  else if (document.getElementById('tabela-contratos')) carregarContratos(paginaAtualContratos)
   else verContrato(id)
 }
 
@@ -514,6 +515,8 @@ window.verContrato = async function (id) {
         ${badgeStatusContrato(c.status)}
         <a class="btn btn-secondary" style="margin-left:auto;" href="${urlPdfContrato(c.id)}" target="_blank">📄 PDF</a>
       </div>
+      ${c.renovadoDe ? `<div style="margin:-10px 0 16px; font-size:13px; color:#666;">Renovação do contrato <a href="#" onclick="verContrato(${c.renovadoDe.id}); return false;">${c.renovadoDe.numero}.${c.renovadoDe.ano}</a></div>` : ''}
+      ${(c.renovacoes || []).map(r => `<div style="margin:-10px 0 16px; font-size:13px; color:#666;">Renovado no contrato <a href="#" onclick="verContrato(${r.id}); return false;">${r.numero}.${r.ano}</a></div>`).join('')}
 
       <div style="background:white; border-radius:6px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06); margin-bottom:16px;">
         <div style="font-weight:700; color:var(--acento); margin-bottom:10px;">Cliente</div>
@@ -533,7 +536,9 @@ window.verContrato = async function (id) {
                 ${cb.aditivo ? `<span style="background:#e7f1ff; color:#0d6efd; padding:1px 6px; border-radius:10px; font-size:11px;">Aditivo ${cb.aditivo}</span>` : ''}
                 ${cb.devolvidaEm ? `<br><small>${cb.estadoDevolucao
                   ? `Devolvida em ${dataPura(cb.devolvidaEm)} — ${ESTADO_DEVOLUCAO_LABEL[cb.estadoDevolucao] || esc(cb.estadoDevolucao)}`
-                  : `Liberada em ${dataPura(cb.devolvidaEm)} (contrato cancelado, sem vistoria)`}${cb.observacoesDevolucao ? ' — ' + esc(cb.observacoesDevolucao) : ''}</small>` : ''}
+                  : c.status === 'cancelado'
+                    ? `Liberada em ${dataPura(cb.devolvidaEm)} (contrato cancelado, sem vistoria)`
+                    : `Saiu em ${dataPura(cb.devolvidaEm)} sem vistoria`}${cb.observacoesDevolucao ? ' — ' + esc(cb.observacoesDevolucao) : ''}</small>` : ''}
               </span>
               <span style="display:flex; align-items:center; gap:8px; white-space:nowrap;">
                 <strong>${cb.valor ? 'R$ ' + cb.valor.toFixed(2) : '-'}</strong>
@@ -617,12 +622,18 @@ window.verContrato = async function (id) {
       ${podeGerenciarContratos && c.status === 'ativo' ? `
         <div style="background:white; border-radius:6px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06); margin-bottom:16px;">
           <div style="font-weight:700; color:var(--acento); margin-bottom:10px;">Renovar Contrato</div>
-          <div style="display:flex; gap:8px; align-items:end;">
-            <div>
-              <label style="font-size:12px;">Nova data de fim</label>
-              <input type="date" id="renovar-dataFim-${c.id}" class="form-control form-control-sm" value="${c.dataFim ? c.dataFim.split('T')[0] : ''}">
+          <div style="font-size:13px; color:#666; margin-bottom:10px;">Cria um contrato novo idêntico (mesmo cliente, balsas e condições) com novas datas; este fica encerrado e as balsas seguem com o cliente.</div>
+          <button class="btn btn-sm btn-primary" onclick="abrirRenovacaoContrato(${esc(JSON.stringify(dadosRenovacao(c)))})">Renovar (novo contrato)</button>
+
+          <div style="margin-top:14px; padding-top:12px; border-top:1px dashed #ddd;">
+            <div style="font-size:13px; font-weight:600; margin-bottom:6px;">Prorrogar / corrigir a data de fim deste contrato</div>
+            <div style="display:flex; gap:8px; align-items:end;">
+              <div>
+                <label style="font-size:12px;">Data de fim</label>
+                <input type="date" id="renovar-dataFim-${c.id}" class="form-control form-control-sm" value="${c.dataFim ? c.dataFim.split('T')[0] : ''}">
+              </div>
+              <button class="btn btn-sm btn-outline-secondary" onclick="renovarContrato(${c.id})">Salvar data</button>
             </div>
-            <button class="btn btn-sm btn-primary" onclick="renovarContrato(${c.id})">Renovar</button>
           </div>
         </div>
       ` : ''}
@@ -637,6 +648,8 @@ window.verContrato = async function (id) {
   `
 }
 
+// Prorroga/corrige a dataFim do próprio contrato (a renovação de verdade, que cria
+// contrato novo, é abrirRenovacaoContrato)
 window.renovarContrato = async function (id) {
   const novaData = document.getElementById(`renovar-dataFim-${id}`).value
   if (!novaData) {
@@ -647,12 +660,76 @@ window.renovarContrato = async function (id) {
   const res = await apiJson(`${API}/contratos/${id}`, { method: 'PUT', body: JSON.stringify({ dataFim: novaData }) })
 
   if (res.ok) {
-    alert('Contrato renovado com sucesso!')
+    alert('Data de fim atualizada!')
     verContrato(id)
   } else {
     const err = await res.json()
     alert('Erro ao renovar contrato: ' + (err.erro || ''))
   }
+}
+
+// ===== RENOVAÇÃO (contrato novo idêntico) ======================================
+// Só o que o modal precisa — vai no onclick como JSON
+function dadosRenovacao(c) {
+  return {
+    id: c.id, numero: c.numero, ano: c.ano, cliente: c.cliente?.nome,
+    dataFim: c.dataFim, frete: c.frete, valor: c.valor
+  }
+}
+
+// 'YYYY-MM-DD' de uma data pura somando `dias`
+function isoDataMais(data, dias) {
+  const d = data ? new Date(data) : new Date()
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + dias)).toISOString().split('T')[0]
+}
+
+window.abrirRenovacaoContrato = function (c) {
+  // Sugere o novo começando no dia seguinte ao fim do antigo; o fim o usuário escolhe
+  const inicioSugerido = c.dataFim ? isoDataMais(c.dataFim, 1) : isoDataMais(null, 0)
+  const modal = document.createElement('div')
+  modal.style = `
+    position:fixed; inset:0; background:rgba(0,0,0,0.5);
+    display:flex; align-items:center; justify-content:center; z-index:9999;
+  `
+  modal.innerHTML = `
+    <div style="background:white; border-radius:8px; padding:24px; width:460px; max-width:92vw;">
+      <h5 style="margin-bottom:8px;">Renovar contrato ${c.numero}.${c.ano}</h5>
+      <p style="font-size:13px; color:#666;">${esc(c.cliente || '')} — cria um contrato novo com o mesmo cliente, balsas, valores e condições. Este fica encerrado; as balsas continuam locadas.</p>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+        <div><label>Início *</label><input type="date" class="form-control" data-campo="dataInicio" value="${inicioSugerido}"></div>
+        <div><label>Fim *</label><input type="date" class="form-control" data-campo="dataFim"></div>
+        <div><label>Frete <small style="color:#999;">(as balsas já estão no cliente)</small></label><input type="number" step="0.01" min="0" class="form-control" data-campo="frete" value="${c.frete || ''}"></div>
+        <div><label>Vencimento da 1ª parcela${c.valor ? ' *' : ''}</label><input type="date" class="form-control" data-campo="dataVencimento" value="${c.valor ? inicioSugerido : ''}"></div>
+      </div>
+      <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:16px;">
+        <button class="btn btn-secondary" data-acao="fechar">Voltar</button>
+        <button class="btn btn-primary" data-acao="confirmar">Renovar</button>
+      </div>
+    </div>
+  `
+  const campo = nome => modal.querySelector(`[data-campo="${nome}"]`).value
+  modal.querySelector('[data-acao="fechar"]').onclick = () => modal.remove()
+  modal.querySelector('[data-acao="confirmar"]').onclick = async (e) => {
+    const body = { dataInicio: campo('dataInicio'), dataFim: campo('dataFim'), frete: campo('frete') || null, dataVencimento: campo('dataVencimento') || null }
+    if (!body.dataInicio || !body.dataFim) { alert('Informe as datas de início e de fim do novo contrato!'); return }
+    if (body.dataFim < body.dataInicio) { alert('A data de fim não pode ser anterior à data de início!'); return }
+    if (c.valor && !body.dataVencimento) { alert('Informe o vencimento da 1ª parcela!'); return }
+
+    e.target.disabled = true
+    const res = await apiJson(`${API}/contratos/${c.id}/renovar`, { method: 'POST', body: JSON.stringify(body) })
+    e.target.disabled = false
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}))
+      alert('Erro ao renovar contrato: ' + (err.erro || ''))
+      return
+    }
+    const novo = await res.json()
+    modal.remove()
+    alert(`Contrato renovado — novo contrato ${novo.numero}.${novo.ano}`)
+    if (document.getElementById('inicio')?.classList.contains('active')) renderizarContratosVencidos()
+    else verContrato(novo.id)
+  }
+  document.body.appendChild(modal)
 }
 
 // ===== FORMULÁRIO — NOVO CONTRATO =============================================
@@ -786,7 +863,7 @@ window.abrirFormularioContrato = async function () {
 
       <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
         <div><label>Data Início *</label><input type="date" id="contrato-dataInicio" class="form-control" value="${new Date().toISOString().split('T')[0]}"></div>
-        <div><label>Data Fim</label><input type="date" id="contrato-dataFim" class="form-control"></div>
+        <div><label>Data Fim *</label><input type="date" id="contrato-dataFim" class="form-control"></div>
         <div><label>Frete</label><input type="number" id="contrato-frete" class="form-control" step="0.01" min="0" oninput="recalcularValorContrato()"></div>
         <div>
           <label>Desconto</label>
@@ -883,7 +960,11 @@ window.salvarContrato = async function () {
   }
 
   const dataFimInformada = document.getElementById('contrato-dataFim').value
-  if (dataFimInformada && dataFimInformada < dataInicio) {
+  if (!dataFimInformada) {
+    alert('Data de fim do contrato é obrigatória!')
+    return
+  }
+  if (dataFimInformada < dataInicio) {
     alert('A data de fim não pode ser anterior à data de início!')
     return
   }
@@ -929,7 +1010,7 @@ window.salvarContrato = async function () {
     clienteId,
     balsas,
     dataInicio,
-    dataFim: document.getElementById('contrato-dataFim').value || null,
+    dataFim: dataFimInformada,
     valor: valorPreenchido || null,
     frete: document.getElementById('contrato-frete').value || null,
     descontoTipo: document.getElementById('contrato-descontoTipo').value,
@@ -959,6 +1040,8 @@ window.salvarContrato = async function () {
 export async function renderizarDashboardContratos() {
   const container = document.getElementById('inicio')
   if (!container) return
+
+  renderizarContratosVencidos()
 
   // Contratos de balsa só aparecem pro admin (Financeiro fica de fora explicitamente;
   // Usuário/Gerente/Técnico nem têm acesso à tela de Contratos)
@@ -1004,6 +1087,67 @@ export async function renderizarDashboardContratos() {
   } catch {
     painel.innerHTML = ''
   }
+}
+
+// ── Aviso de contratos vencidos (tela Início, admin e gerente) ─────────────────
+// Contrato ativo com fim já passado: encerrar (devolução com vistoria) ou renovar
+// (contrato novo) direto daqui. Some sozinho quando não há nenhum vencido.
+async function renderizarContratosVencidos() {
+  const container = document.getElementById('inicio')
+  if (!container) return
+  if (!['admin', 'gerente'].includes(perfil)) {
+    document.getElementById('painel-contratos-vencidos')?.remove()
+    return
+  }
+
+  let vencidos
+  try {
+    vencidos = await apiDados(`${API}/contratos/vencidos`, { semAviso: true })
+  } catch {
+    return
+  }
+
+  let painel = document.getElementById('painel-contratos-vencidos')
+  if (vencidos.length === 0) {
+    painel?.remove()
+    return
+  }
+  if (!painel) {
+    painel = document.createElement('div')
+    painel.id = 'painel-contratos-vencidos'
+    painel.style = 'margin-top:20px;'
+    // Logo abaixo do título da tela, antes dos outros painéis — é o que pede ação
+    const intro = container.querySelector('p')
+    if (intro) intro.after(painel)
+    else container.prepend(painel)
+  }
+
+  const agora = new Date()
+  const hoje = Date.UTC(agora.getFullYear(), agora.getMonth(), agora.getDate())
+
+  painel.innerHTML = `
+    <div style="background:#fff5f5; border:1px solid #f1aeb5; border-left:4px solid #dc3545; border-radius:6px; padding:16px;">
+      <h5 style="margin:0 0 4px; color:#b02a37;">⚠️ ${vencidos.length === 1 ? '1 contrato de locação vencido' : `${vencidos.length} contratos de locação vencidos`}</h5>
+      <div style="font-size:13px; color:#666; margin-bottom:12px;">Encerre (registra a devolução das balsas) ou renove (cria um contrato novo idêntico com nova data de fim).</div>
+      ${vencidos.map(c => {
+        const dias = Math.round((hoje - new Date(c.dataFim).getTime()) / 86400000)
+        const balsas = c.balsas.map(cb => cb.balsa.patrimonio || cb.balsa.numeroSerie).join(', ')
+        return `
+          <div style="display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:8px; padding:8px 0; border-top:1px solid #f5c2c7;">
+            <div style="font-size:13px;">
+              <strong>Contrato ${c.numero}.${c.ano}</strong> — ${esc(c.cliente.nome)}<br>
+              <span style="color:#b02a37;">Venceu em ${dataPura(c.dataFim)} (há ${dias} dia${dias === 1 ? '' : 's'})</span>
+              ${balsas ? `<span style="color:#888;"> · Balsas: ${esc(balsas)}</span>` : ''}
+            </div>
+            <div style="display:flex; gap:6px;">
+              <button class="btn btn-sm btn-secondary" onclick="encerrarContrato(${c.id})">Encerrar</button>
+              <button class="btn btn-sm btn-primary" onclick="abrirRenovacaoContrato(${esc(JSON.stringify(dadosRenovacao(c)))})">Renovar</button>
+            </div>
+          </div>
+        `
+      }).join('')}
+    </div>
+  `
 }
 
 // Expostas em window para funcionar em onclick inline (ex: botões "Voltar")

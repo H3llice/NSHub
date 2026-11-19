@@ -325,6 +325,7 @@ router.post('/disponivel-lote', autenticar, exigirPerfil('admin', 'gerente'), as
 })
 
 // ─── Editar balsa — inclui trocar status: disponivel | locado | vendido (só admin e gerente) ─
+// 'locado' só passa se a balsa estiver num contrato ativo (ver abaixo)
 router.put('/:id', autenticar, exigirPerfil('admin', 'gerente'), async (req, res) => {
   const id = Number(req.params.id)
   const {
@@ -367,6 +368,18 @@ router.put('/:id', autenticar, exigirPerfil('admin', 'gerente'), async (req, res
   if (status) {
     if (!STATUS_VALIDOS.includes(status)) {
       return res.status(400).json({ erro: `Status inválido. Use: ${STATUS_VALIDOS.join(', ')}` })
+    }
+    // Locada só por contrato (regra do usuário, 2026-11-19): marcar à mão como
+    // locada só vale pra balsa que está num contrato ativo (ex.: alguém deu
+    // "Reativar" sem querer). Balsas que já estão locadas sem contrato ficam como
+    // estão — a regra é só da aplicação, não do banco.
+    if (status === 'locado') {
+      const emContrato = await prisma.contratoBalsa.findFirst({
+        where: { balsaId: id, devolvidaEm: null, contrato: { status: 'ativo' } }
+      })
+      if (!emContrato) {
+        return res.status(400).json({ erro: 'Balsa só fica locada através de um contrato de locação — crie o contrato (ou inclua a balsa num contrato ativo)' })
+      }
     }
     dados.status = status
   }

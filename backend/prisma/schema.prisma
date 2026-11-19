@@ -467,6 +467,13 @@ model Contrato {
   avisoVencimentoEnviado Boolean @default(false)
   avisoVencidoEnviado    Boolean @default(false)
 
+  // Renovação = contrato novo idêntico (POST /contratos/:id/renovar); o novo aponta
+  // pro antigo. Sem @unique de propósito: unique em coluna nova faz o db push do
+  // deploy pedir --accept-data-loss.
+  renovadoDe   Contrato?  @relation("RenovacaoContrato", fields: [renovadoDeId], references: [id])
+  renovadoDeId Int?
+  renovacoes   Contrato[] @relation("RenovacaoContrato")
+
   balsas     ContratoBalsa[]
   pagamentos Pagamento[]
   documentos DocumentoContrato[]

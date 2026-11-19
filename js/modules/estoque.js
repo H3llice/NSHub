@@ -325,7 +325,7 @@ function renderizarTabela(finalidade, balsas) {
           <div style="display:flex; flex-wrap:wrap; gap:6px;">
             <button class="btn btn-sm btn-info" onclick="editarBalsa(${b.id}, '${finalidade}')">Editar</button>
             ${b.status === 'disponivel' && finalidade === 'locacao'
-        ? `<button class="btn btn-sm btn-warning" onclick="marcarStatusBalsa(${b.id}, 'locado', '${finalidade}')">Marcar locado</button>`
+        ? `<button class="btn btn-sm btn-warning" onclick="marcarLocadaBalsa(${esc(JSON.stringify({ id: b.id, nome: b.patrimonio || b.numeroSerie }))}, '${finalidade}')">Marcar locado</button>`
         : ''}
             ${b.status === 'disponivel'
         ? `<button class="btn btn-sm btn-secondary" onclick="marcarStatusBalsa(${b.id}, 'vendido', '${finalidade}')">Marcar vendido</button>`
@@ -691,10 +691,127 @@ window.salvarLoteBalsas = async function (finalidade) {
   }
 }
 
-// ===== MARCA STATUS (locado / vendido / disponível novamente) ================
+// ===== MARCAR LOCADA =========================================================
+// Balsa só fica locada através de contrato. O "Marcar locado" pede o mínimo —
+// pra quem (cliente) e quando vence — e cria um contrato de locação sem valores
+// por trás (POST /contratos). Assim a balsa aparece no aviso de contrato vencido
+// da tela Início e sai pelo Encerrar/Renovar como qualquer outra.
+window.marcarLocadaBalsa = function (balsa, finalidade) {
+  let clienteId = null
+  const hoje = new Date().toISOString().split('T')[0]
+  const modal = document.createElement('div')
+  modal.style = `
+    position:fixed; inset:0; background:rgba(0,0,0,0.5);
+    display:flex; align-items:center; justify-content:center; z-index:9999;
+  `
+  modal.innerHTML = `
+    <div style="background:white; border-radius:8px; padding:24px; width:480px; max-width:92vw;">
+      <h5 style="margin-bottom:8px;">Marcar ${esc(balsa.nome)} como locada</h5>
+      <p style="font-size:13px; color:#666;">Cria um contrato de locação simples (sem valores) com esta balsa. Valores e condições podem ser completados depois no contrato.</p>
+      <div style="position:relative; margin-bottom:12px;">
+        <label>Cliente * <small style="color:#999;">(busca por nome ou CPF/CNPJ)</small></label>
+        <input type="text" class="form-control" data-campo="busca" autocomplete="off" placeholder="Digite nome ou CPF/CNPJ...">
+        <div data-campo="sugestoes" style="position:absolute; background:white; border:1px solid #ccc; border-radius:4px; width:100%; z-index:10000; display:none; top:100%; max-height:200px; overflow-y:auto;"></div>
+      </div>
+      <div data-campo="novo" style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px;">
+        <div style="grid-column:span 2; font-size:12px; color:#999;">Não achou? Preencha para cadastrar:</div>
+        <div>
+          <label>Tipo</label>
+          <select class="form-control" data-campo="tipoPessoa">
+            <option value="juridica">Pessoa Jurídica</option>
+            <option value="fisica">Pessoa Física</option>
+          </select>
+        </div>
+        <div><label>CPF/CNPJ</label><input type="text" class="form-control" data-campo="cpfCnpj"></div>
+        <div style="grid-column:span 2;"><label>Nome / Razão Social</label><input type="text" class="form-control" data-campo="nome"></div>
+      </div>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+        <div><label>Início *</label><input type="date" class="form-control" data-campo="dataInicio" value="${hoje}"></div>
+        <div><label>Vencimento (fim) *</label><input type="date" class="form-control" data-campo="dataFim"></div>
+      </div>
+      <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:16px;">
+        <button class="btn btn-secondary" data-acao="fechar">Voltar</button>
+        <button class="btn btn-warning" data-acao="confirmar">Marcar locada</button>
+      </div>
+    </div>
+  `
+  const el = nome => modal.querySelector(`[data-campo="${nome}"]`)
+  const sugestoes = el('sugestoes')
+
+  el('busca').oninput = async (e) => {
+    clienteId = null
+    el('novo').style.display = 'grid'
+    const q = e.target.value.trim()
+    if (q.length < 2) { sugestoes.style.display = 'none'; return }
+    const resultados = await apiDados(`${API}/clientes/buscar?q=${encodeURIComponent(q)}`, { semAviso: true }).catch(() => [])
+    if (resultados.length === 0) { sugestoes.style.display = 'none'; return }
+    sugestoes.innerHTML = resultados.map((c, i) => `
+      <div data-i="${i}" style="padding:8px 12px; cursor:pointer; border-bottom:1px solid #eee;">
+        <strong>${esc(c.nome)}</strong> <span style="color:#999; font-size:12px;">${esc(c.cpfCnpj)}</span>
+      </div>
+    `).join('')
+    sugestoes.querySelectorAll('[data-i]').forEach(div => {
+      div.onclick = () => {
+        const c = resultados[Number(div.dataset.i)]
+        clienteId = c.id
+        el('busca').value = c.nome
+        el('novo').style.display = 'none'
+        sugestoes.style.display = 'none'
+      }
+    })
+    sugestoes.style.display = 'block'
+  }
+
+  modal.querySelector('[data-acao="fechar"]').onclick = () => modal.remove()
+  modal.querySelector('[data-acao="confirmar"]').onclick = async (e) => {
+    const dataInicio = el('dataInicio').value
+    const dataFim = el('dataFim').value
+    if (!dataInicio || !dataFim) { alert('Informe o início e o vencimento da locação!'); return }
+    if (dataFim < dataInicio) { alert('O vencimento não pode ser anterior ao início!'); return }
+
+    if (!clienteId) {
+      const cpfCnpj = el('cpfCnpj').value.trim()
+      const nome = el('nome').value.trim()
+      if (!cpfCnpj || !nome) { alert('Selecione um cliente existente ou preencha CPF/CNPJ e nome para cadastrar.'); return }
+      const res = await apiJson(`${API}/clientes`, {
+        method: 'POST',
+        body: JSON.stringify({ tipoPessoa: el('tipoPessoa').value, cpfCnpj, nome })
+      })
+      const novo = await res.json().catch(() => ({}))
+      if (!res.ok) { alert('Erro ao cadastrar cliente: ' + (novo.erro || '')); return }
+      clienteId = novo.id
+    }
+
+    e.target.disabled = true
+    const res = await apiJson(`${API}/contratos`, {
+      method: 'POST',
+      body: JSON.stringify({
+        clienteId,
+        balsas: [{ balsaId: balsa.id }],
+        dataInicio,
+        dataFim,
+        observacoes: 'Criado pelo "Marcar locado" do estoque — completar valores e condições.'
+      })
+    })
+    e.target.disabled = false
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}))
+      alert('Erro ao marcar como locada: ' + (err.erro || ''))
+      return
+    }
+    const contrato = await res.json()
+    modal.remove()
+    alert(`Balsa locada — contrato ${contrato.numero}.${contrato.ano} criado.`)
+    if (document.getElementById(`tabela-balsas-${finalidade}`)) carregarBalsas(finalidade)
+    else inicializarEstoqueWrapper(finalidade)
+  }
+  document.body.appendChild(modal)
+}
+
+// ===== MARCA STATUS (vendido / disponível novamente) ==========================
+// "locado" não passa por aqui — ver marcarLocadaBalsa
 window.marcarStatusBalsa = async function (id, status, finalidade) {
   const confirmacoes = {
-    locado: 'Marcar esta balsa como locada? Ela sairá da lista de disponíveis.',
     vendido: 'Marcar esta balsa como vendida? Ela sairá da lista de disponíveis.',
     disponivel: 'Marcar esta balsa como disponível novamente?',
   }
@@ -824,10 +941,12 @@ function secaoHistoricoLocacoesHtml(locacoes) {
                 <td>${esc(l.contrato.cliente?.nome)}</td>
                 <td>${dataPura(l.aditivo ? l.criadoEm : l.contrato.dataInicio)}</td>
                 <td>${l.devolvidaEm ? dataPura(l.devolvidaEm) : '<span style="color:#0d6efd;">Com o cliente</span>'}</td>
-                <td>${l.devolvidaEm
-      ? (l.estadoDevolucao ? (ESTADO_DEVOLUCAO_LABEL[l.estadoDevolucao] || esc(l.estadoDevolucao)) : 'Contrato cancelado')
-      + (l.observacoesDevolucao ? ' — ' + esc(l.observacoesDevolucao) : '')
-      : '-'}</td>
+                <td>${!l.devolvidaEm ? '-'
+      // Sem estado = não houve vistoria: contrato cancelado, ou renovado (a observação diz em qual contrato a balsa seguiu)
+      : l.estadoDevolucao || l.contrato.status === 'cancelado'
+        ? (l.estadoDevolucao ? (ESTADO_DEVOLUCAO_LABEL[l.estadoDevolucao] || esc(l.estadoDevolucao)) : 'Contrato cancelado')
+          + (l.observacoesDevolucao ? ' — ' + esc(l.observacoesDevolucao) : '')
+        : esc(l.observacoesDevolucao || 'Sem vistoria')}</td>
               </tr>
             `).join('')}
           </tbody>
@@ -946,7 +1065,7 @@ window.editarBalsa = async function (id, finalidade) {
       <div style="display:flex; flex-wrap:wrap; gap:8px; margin-top:20px;">
         <button type="button" class="btn btn-success" onclick="atualizarBalsa(${b.id}, '${finalidade}', ${esc(JSON.stringify(b.patrimonio || ''))})">Salvar Alterações</button>
         ${b.status === 'disponivel' && finalidade === 'locacao'
-      ? `<button type="button" class="btn btn-warning" onclick="marcarStatusBalsa(${b.id}, 'locado', '${finalidade}')">Marcar locado</button>`
+      ? `<button type="button" class="btn btn-warning" onclick="marcarLocadaBalsa(${esc(JSON.stringify({ id: b.id, nome: b.patrimonio || b.numeroSerie }))}, '${finalidade}')">Marcar locado</button>`
       : ''}
         ${b.status === 'disponivel'
       ? `<button type="button" class="btn btn-secondary" onclick="marcarStatusBalsa(${b.id}, 'vendido', '${finalidade}')">Marcar vendido</button>`
